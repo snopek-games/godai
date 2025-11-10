@@ -429,7 +429,8 @@ func __user_code() -> Error:
 	func _init() -> void:
 		name = "execute_editor_script"
 		description = "Executes the given GDScript code in the editor, in the context of a Node that is a child of the scene currently being edited.\n\n" +\
-			"If you modify the current scene, you MUST use `EditorUndoRedoManager` from `EditorInterface.get_editor_undo_redo()`, and the action name MUST end with \"(AI)\"." +\
+			"For modifying the current scene, use the other tools when possible.\n" +\
+			"However, if you do use a script to modify the current scene, you MUST use `EditorUndoRedoManager` from `EditorInterface.get_editor_undo_redo()`, and the action name MUST end with \"(AI)\"." +\
 			"You can find nodes relative to the scene root using `EditorInterface.get_edited_scene_root().get_node_or_null(node_path)`." +\
 			"Two helper methods have been provided:\n"+\
 			" - `func editor_undo_redo_live_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`" +\
