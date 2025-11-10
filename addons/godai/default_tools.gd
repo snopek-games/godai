@@ -2,6 +2,7 @@ extends RefCounted
 
 const ToolManager = preload("res://addons/godai/tool_manager.gd")
 const ToolResult = ToolManager.ToolResult
+const Utils = preload("res://addons/godai/utils.gd")
 
 static func register(p_tools: ToolManager) -> void:
 	p_tools.register_tool(SceneGetCurrent.new())
@@ -275,9 +276,12 @@ class NodeCreate extends ToolManager.Tool:
 		undo_redo.add_do_method(node, "set_owner", edited_scene_root)
 		undo_redo.add_do_method(EditorInterface.get_selection(), "add_node", node)
 		undo_redo.add_do_reference(node)
+		undo_redo.add_undo_method(parent, "remove_child", node)
+
+		Utils.editor_undo_redo_live_create_node(undo_redo, parent, node)
+
 		for prop_name in props:
 			undo_redo.add_do_property(node, prop_name, str_to_var(props[prop_name]))
-		undo_redo.add_undo_method(parent, "remove_child", node)
 		undo_redo.commit_action()
 
 		return ToolResult.resolved_json({
@@ -325,6 +329,9 @@ class NodeRemove extends ToolManager.Tool:
 		undo_redo.add_undo_method(parent, "move_child", node, node.get_index(false))
 		undo_redo.add_undo_method(node, "set_owner", edited_scene_root)
 		undo_redo.add_undo_reference(node)
+
+		Utils.editor_undo_redo_live_remove_node(undo_redo, parent, node)
+
 		undo_redo.commit_action()
 
 		return ToolResult.resolved_json({
@@ -388,6 +395,8 @@ class EditorScriptExecute extends ToolManager.Tool:
 	const SCRIPT_TEMPLATE = """@tool
 extends Node
 
+const __Utils = preload("res://addons/godai/utils.gd")
+
 var __output := PackedStringArray()
 
 signal __run_completed(success: bool, output: PackedStringArray)
@@ -404,6 +413,12 @@ func __run():
 	var err = await __user_code()
 	__run_completed.emit(err == OK, __output)
 
+func editor_undo_redo_live_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
+	__Utils.editor_undo_redo_live_create_node(p_undo_redo, p_parent, p_child)
+
+func editor_undo_redo_live_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
+	__Utils.editor_undo_redo_live_remove_node(p_undo_redo, p_parent, p_child)
+
 func __user_code() -> Error:
 	# USER CODE START
 {user_code}
@@ -416,6 +431,10 @@ func __user_code() -> Error:
 		description = "Executes the given GDScript code in the editor, in the context of a Node that is a child of the scene currently being edited.\n\n" +\
 			"If you modify the current scene, you MUST use `EditorUndoRedoManager` from `EditorInterface.get_editor_undo_redo()`, and the action name MUST end with \"(AI)\"." +\
 			"You can find nodes relative to the scene root using `EditorInterface.get_edited_scene_root().get_node_or_null(node_path)`." +\
+			"Two helper methods have been provided:\n"+\
+			" - `func editor_undo_redo_live_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`" +\
+			" - `func editor_undo_redo_live_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`" +\
+			"If you are using `EditorUndoRedoManager` to add or remove a node, you MUST call one of those helper methods before calling `commit_action()`. This will add some `add_do_method()` and `add_undo_method()` calls to ensure the changes are synchronized to the live game if the game is running." +\
 			"If the script successfully runs, the output from `print()` will be returned."
 
 		input_schema = {
