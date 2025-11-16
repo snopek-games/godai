@@ -383,8 +383,3 @@ func __user_code() -> Error:
 			p_result.resolve_json({error = "Failed to execute script"})
 
 		p_script_node.queue_free()
-
-
-# @todo List class properties (from ClassDB)
-# @todo List node properties (from a specific node)
-# @todo Get class documentation

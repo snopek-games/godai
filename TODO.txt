@@ -1,0 +1,39 @@
+TODO
+====
+
+- Addon: "Rich" chat display
+  - Clearer indication of user prompts (wrap in panel?)
+  - Show tool execution with a way to inspect exactly what was run (need "title" for tools)
+  - Add thinking animation
+  - Convert markdown to bbcode?
+    - See https://github.com/daenvil/MarkdownLabel
+- Addon (bug): Prevent pressing enter to submit request when already "thinking"
+- Addon: Add a way to cancel a request
+- Addon: Indicate when running in MCP mode
+  - Only allow one MCP client to be connected at a time
+  - Show info about the connected MCP client
+  - Show info about each of the tools as they run
+- MCP: Add local commands for launching Godot and listing projects
+  - Allow to connect to multiple editors at once and switch between them
+  - Install the addon for projects that don't already have it
+- MCP: Add functional tests to verify WebSocket behavior in several edge cases (disconnect, etc)
+- MCP: Make the default_tools.json more closely follow the schema of "tools/list" return value?
+- MCP: Add `outputSchema` to all tools in default_tools.json
+- MCP: Clean-up gracefully when app is terminated via signal
+  - Cancel the `bufio.Scanner` loop somehow
+- Addon: Make MCP transport configurable (editor settings first, but eventually the panel too?)
+- Addon: Add system prompt
+- Addon: Chat history
+  - Save and restore current chat when restarting the editor
+  - Save a chat history of up to X conversations
+- Addon: Set `Logger` so AI can see recent output and error messages
+- Tool: Get Godot version and executeable path
+- Tool: Set/get project settings
+- Tool: Create resource file
+- Tool: Enable richer format for settings properties (affects a number of tools)
+- Tool: List class properties in (from ClassDB)
+- Tool: List node properties (from a specific Node in the scene)
+- Tool: Get class documentation
+  - Depends on https://github.com/godotengine/godot/pull/112628
+- Addon: Allow editor plugins to register custom tools for a particular project
+  - Will need to allow MCP to update it's tools list

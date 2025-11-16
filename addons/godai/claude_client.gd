@@ -246,7 +246,5 @@ func _on_request_completed(p_result: int, p_code: int, p_headers: PackedStringAr
 			# Submit the chat again.
 			_submit_request(req)
 
-		# @todo Look for tool usage or anything else we need to handle
-
 	if complete:
 		req.resolve(resp)
