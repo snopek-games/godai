@@ -5,30 +5,46 @@ const ToolResult = ToolManager.ToolResult
 const Utils = preload("res://addons/godai/utils.gd")
 
 static func register(p_tools: ToolManager) -> void:
-	p_tools.register_tool(SceneGetCurrent.new())
-	p_tools.register_tool(SceneGetTree.new())
-	p_tools.register_tool(NodeGetProperties.new())
-	p_tools.register_tool(NodeSetProperties.new())
-	p_tools.register_tool(NodeCreate.new())
-	p_tools.register_tool(NodeRemove.new())
-	p_tools.register_tool(ClassDBGetClasses.new())
-	p_tools.register_tool(EditorScriptExecute.new())
+	var data := _load_json_data()
+
+	p_tools.register_tool(SceneGetCurrent.new(data["get_current_scene"]))
+	p_tools.register_tool(SceneGetTree.new(data["get_current_scene_tree"]))
+	p_tools.register_tool(NodeGetProperties.new(data["get_node_properties"]))
+	p_tools.register_tool(NodeSetProperties.new(data["set_node_properties"]))
+	p_tools.register_tool(NodeCreate.new(data["node_create"]))
+	p_tools.register_tool(NodeRemove.new(data["node_remove"]))
+	p_tools.register_tool(ClassDBGetClasses.new(data["classdb_get_classes"]))
+	p_tools.register_tool(EditorScriptExecute.new(data["execute_editor_script"]))
 
 
-class SceneGetCurrent extends ToolManager.Tool:
-	func _init() -> void:
-		name = "get_current_scene"
+static func _load_json_data() -> Dictionary:
+	var fa := FileAccess.open("res://addons/godai/default_tools.json", FileAccess.READ)
+	if fa:
+		var data: Dictionary = JSON.parse_string(fa.get_as_text())
+		var tools: Dictionary = data["tools"]
+		# Store the name in the value so we don't have to repeat it.
+		for name in tools.keys():
+			tools[name]["name"] = name
+		return tools
 
-		description = "Gets information about the scene that is currently opened in the Godot editor.\n\n" +\
-			"Returns:\n" +\
-			" - scene_path: The path to the scene file\n" +\
-			" - root_node_type: The class of the root Node of the scene\n" +\
-			" - root_node_name: The name of the root Node of the scene\n" +\
-			"If no scene is currently open, it'll return an empty string for all of the above.\n"
+	return Dictionary()
 
-		input_schema = ToolManager.INPUT_SCHEMA_EMPTY
-		# @todo Define the output_schema
 
+@abstract
+class DefaultTool extends ToolManager.Tool:
+	func _init(p_data: Dictionary) -> void:
+		name = p_data['name']
+
+		var raw_desc = p_data['description']
+		if raw_desc is Array:
+			description = "\n".join(raw_desc)
+		else:
+			description = raw_desc
+
+		input_schema = p_data.get("input_schema", ToolManager.INPUT_SCHEMA_EMPTY)
+
+
+class SceneGetCurrent extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
@@ -50,22 +66,7 @@ class SceneGetCurrent extends ToolManager.Tool:
 		})
 
 
-class SceneGetTree extends ToolManager.Tool:
-	func _init() -> void:
-		name = "get_current_scene_tree"
-
-		description = "Gets the tree for the scene that is currently opened in the Godot editor.\n\n" + \
-			"Returns a tree of objects representing the nodes in the scene with the following keys:\n" +\
-			" - name: The Node name\n" +\
-			" - type: The class of the Node\n" +\
-			" - path: The path of the node within the scene, relative to the scene root\n" +\
-			" - script: The path to the script file, if this node has a script attached; otherwise, it'll be omitted\n" +\
-			" - children: An array of objects with the same structure, representing the child nodes; will be omitted if node has no children\n" +\
-			"If no scene is currently open, it'll return an empty object.\n"
-
-		input_schema = ToolManager.INPUT_SCHEMA_EMPTY
-		# @todo Define the output_schema
-
+class SceneGetTree extends DefaultTool:
 	func _get_node_structure(p_node: Node, p_root: Node) -> Dictionary:
 		var data := {
 			name = p_node.name,
@@ -97,27 +98,7 @@ class SceneGetTree extends ToolManager.Tool:
 		return ToolResult.resolved_json(_get_node_structure(edited_scene_root, edited_scene_root))
 
 
-class NodeGetProperties extends ToolManager.Tool:
-	func _init() -> void:
-		name = "get_node_properties"
-		description = "Gets the values of properties on specific nodes in the current scene\n\n" +\
-			"Returns an object with properties for each node specified by node path, containing another object with the property values of that object.\n" +\
-			"The property values are converted to a JSON string using Godot's `var_to_str()` function.\n"
-
-		input_schema = {
-			type = "object",
-			properties = {
-				node_paths = {
-					type = "array",
-					items = {
-						type = "string",
-						description = "The path to the node within the scene, relative to the scene root"
-					}
-				}
-			}
-		}
-		# @todo Define the output_schema
-
+class NodeGetProperties extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
@@ -149,47 +130,7 @@ class NodeGetProperties extends ToolManager.Tool:
 		return ToolResult.resolved_json(results)
 
 
-class NodeSetProperties extends ToolManager.Tool:
-	func _init() -> void:
-		name = "set_node_properties"
-		description = "Sets the values of properties on specific nodes in the current scene\n\n" +\
-			"Only pass in the properties you actually wish to change.\n" +\
-			"EXAMPLE: {\"action\": , \"Update property on node\": [{\"node_path\": \"path/to/node\": \"properties\": {\"property\": \"value\"}}]}\n" +\
-			"This uses the Godot editor's undo/redo system to set the properties, so as many set operations as possible should be done in a single call, so they can all be undone at once.\n" +\
-			"Returns an object with properties for each node path, containing true if we were able to find the node; otherwise, false or missing.\n" +\
-			"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards.\n"
-
-		input_schema = {
-			type = "object",
-			properties = {
-				action = {
-					type = "string",
-					description = "Human-readable description of the action that will be shown in Godot's undo/redo history",
-				},
-				nodes = {
-					type = "array",
-					items = {
-						type = "object",
-						properties = {
-							node_path = {
-								type = "string",
-								description = "The path to the node within the scene, relative to the scene root"
-							},
-							properties = {
-								type = "object",
-								description = "Keys are the Godot property names to set",
-								additionalProperties = {
-									type = "string",
-									description = "The property value as a string - it will be converted back to the Godot type using Godot's `str_to_var()`. This will only work for simple types and not resources."
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-		# @todo Define the output_schema
-
+class NodeSetProperties extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
@@ -222,37 +163,7 @@ class NodeSetProperties extends ToolManager.Tool:
 		return ToolResult.resolved_json(results)
 
 
-class NodeCreate extends ToolManager.Tool:
-	func _init() -> void:
-		name = "create_node"
-		description = "Creates a new node in the current scene, with the given properties set.\n\n" +\
-			#"Only pass in properties to set that differ from their default values"
-			"Returns true if successful; otherwise false\n" +\
-			"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards.\n"
-
-		input_schema = {
-			type = "object",
-			properties = {
-				parent_path = {
-					type = "string",
-					description = "Path to the parent node, relative the scene root",
-				},
-				node_type = {
-					type = "string",
-					description = "The name of the node class to create",
-				},
-				properties = {
-					type = "object",
-					description = "Keys are the Godot property names to set",
-					additionalProperties = {
-						type = "string",
-						description = "The property value as a string - it will be converted back to the Godot type using Godot's `str_to_var()`. This will only work for simple types and not resources."
-					},
-				},
-			}
-		}
-		# @todo Define the output_schema
-
+class NodeCreate extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
@@ -290,22 +201,7 @@ class NodeCreate extends ToolManager.Tool:
 		})
 
 
-class NodeRemove extends ToolManager.Tool:
-	func _init() -> void:
-		name = "remove_node"
-		description = "Removes the given node (and all its children) from the current scene"
-
-		input_schema = {
-			type = "object",
-			properties = {
-				node_path = {
-					type = "string",
-					description = "Path to the node, relative to the scene root",
-				}
-			}
-		}
-		# @todo Define the output_schema
-
+class NodeRemove extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
@@ -339,14 +235,7 @@ class NodeRemove extends ToolManager.Tool:
 		})
 
 
-class ClassDBGetClasses extends ToolManager.Tool:
-	func _init() -> void:
-		name = "classdb_get_classes"
-		description = "Gets all the classes registered in ClassDB with a little bit of information about them, including: parent class, API type, and whether they are enabled or can be instantiated."
-
-		input_schema = ToolManager.INPUT_SCHEMA_EMPTY
-		# @todo Define the output_schema
-
+class ClassDBGetClasses extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var class_list := ClassDB.get_class_list()
 
@@ -378,20 +267,7 @@ class ClassDBGetClasses extends ToolManager.Tool:
 		return ToolResult.resolved_json(result)
 
 
-#class ClassDBGetPropertyList extends ToolManager.Tool:
-#	func _init() -> void:
-#		name = "classdb_get_property_list"
-#		description = "Gets the list of properties for the given class, along with information about each property's type, hint, usage and default value"
-#
-#		input_schema = {
-#		}
-#		# @todo Define the output_schema
-#
-#	func execute(p_input) -> ToolResult:
-#		pass
-
-
-class EditorScriptExecute extends ToolManager.Tool:
+class EditorScriptExecute extends DefaultTool:
 	const SCRIPT_TEMPLATE = """@tool
 extends Node
 
@@ -425,30 +301,6 @@ func __user_code() -> Error:
 	# USER CODE END
 	return OK
 """
-
-	func _init() -> void:
-		name = "execute_editor_script"
-		description = "Executes the given GDScript code in the editor, in the context of a Node that is a child of the scene currently being edited.\n\n" +\
-			"For modifying the current scene, use the other tools when possible.\n" +\
-			"However, if you do use a script to modify the current scene, you MUST use `EditorUndoRedoManager` from `EditorInterface.get_editor_undo_redo()`, and the action name MUST end with \"(AI)\"." +\
-			"You can find nodes relative to the scene root using `EditorInterface.get_edited_scene_root().get_node_or_null(node_path)`." +\
-			"Two helper methods have been provided:\n"+\
-			" - `func editor_undo_redo_live_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`" +\
-			" - `func editor_undo_redo_live_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`" +\
-			"If you are using `EditorUndoRedoManager` to add or remove a node, you MUST call one of those helper methods before calling `commit_action()`. This will add some `add_do_method()` and `add_undo_method()` calls to ensure the changes are synchronized to the live game if the game is running." +\
-			"If the script successfully runs, the output from `print()` will be returned."
-
-		input_schema = {
-			type = "object",
-			properties = {
-				code = {
-					type = "string",
-					description = "A snippet of GDScript code"
-				},
-			},
-		}
-		# @todo Define the output_schema
-
 
 	func execute(p_input) -> ToolResult:
 		var code = p_input['code']

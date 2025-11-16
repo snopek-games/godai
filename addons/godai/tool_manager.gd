@@ -72,7 +72,21 @@ class ToolCallback extends Tool:
 		return callback.call(p_input)
 
 
+class QueueItem extends RefCounted:
+	var tool_obj: Tool
+	var input
+	var result_proxy: ToolResult
+
+	func _init(p_tool: Tool, p_input, p_result_proxy: ToolResult) -> void:
+		tool_obj = p_tool
+		input = p_input
+		result_proxy = p_result_proxy
+
+
 var tools: Dictionary[String, Tool]
+
+var _current: ToolResult
+var _queue: Array[QueueItem]
 
 
 func register_tool(p_tool: Tool) -> void:
@@ -90,3 +104,61 @@ func register_tool(p_tool: Tool) -> void:
 
 	tools[p_tool.name] = p_tool
 
+
+func get_tools() -> Array[Tool]:
+	var ret: Array[Tool]
+	ret.assign(tools.values())
+	return ret
+
+
+func has_tool(p_name: String) -> bool:
+	return tools.has(p_name)
+
+
+func is_executing() -> bool:
+	return _current != null
+
+
+func execute_tool(p_name: String, p_input) -> ToolResult:
+	if not tools.has(p_name):
+		return null
+
+	var tool_obj: Tool = tools[p_name]
+
+	if not _current:
+		var result: ToolResult = tool_obj.execute(p_input)
+		if result.is_done():
+			return result
+		_current = result
+		_current.completed.connect(_handle_result.bind(null), CONNECT_ONE_SHOT)
+		return _current
+	else:
+		var proxy_result := ToolResult.new()
+		var queue_item := QueueItem.new(tool_obj, p_input, proxy_result)
+		_queue.push_back(queue_item)
+		return proxy_result
+
+
+func _handle_result(p_content, p_proxy_result: ToolResult) -> void:
+	_current = null
+	if p_proxy_result:
+		p_proxy_result.resolve(p_content)
+	_pump_queue.call_deferred()
+
+
+func _pump_queue() -> void:
+	if _queue.size() == 0:
+		return
+	if _current:
+		return
+
+	var queue_item: QueueItem = _queue.pop_front()
+
+	var result: ToolResult = queue_item.tool_obj.execute(queue_item.input)
+	if result.is_done():
+		queue_item.result_proxy.resolve(result.content)
+		_pump_queue.call_deferred()
+		return
+
+	_current = result
+	_current.completed.connect(_handle_result.bind(queue_item.result_proxy), CONNECT_ONE_SHOT)

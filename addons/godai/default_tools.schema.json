@@ -1,0 +1,32 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://snopekgames.com/godai/default_tools.schema.json",
+	"title": "Godai Default Tools",
+	"type": "object",
+	"properties": {
+		"$schema": {
+			"type": "string"
+		},
+		"tools": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "object",
+				"properties": {
+					"description": {
+						"type": ["string", "array"],
+						"items": {
+							"type": "string"
+						}
+					},
+					"input_schema": {
+						"$ref": "https://json-schema.org/draft/2020-12/schema"
+					},
+					"output_schema": {
+						"$ref": "https://json-schema.org/draft/2020-12/schema"
+					}
+				},
+				"required": ["description"]
+			}
+		}
+	}
+}

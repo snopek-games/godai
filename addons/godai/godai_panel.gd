@@ -4,8 +4,10 @@ extends Control
 const ClaudeClient = preload("res://addons/godai/claude_client.gd")
 const ToolManager = preload("res://addons/godai/tool_manager.gd")
 const DefaultTools = preload("res://addons/godai/default_tools.gd")
+const MCPServer = preload("res://addons/godai/mcp_server.gd")
 
 const ANTHROPIC_API_KEY_SETTING = "godai/anthropic_api_key"
+const MCP_SERVER_PORT = 9080
 const DEBUG := true
 
 @onready var output_label: RichTextLabel = %OutputLabel
@@ -16,6 +18,7 @@ const DEBUG := true
 var claude_client: ClaudeClient
 var current_chat: ClaudeClient.Chat
 var tools: ToolManager = ToolManager.new()
+var mcp_server: MCPServer
 
 
 func _ready() -> void:
@@ -31,6 +34,12 @@ func _ready() -> void:
 
 	DefaultTools.register(tools)
 	claude_client.tools = tools
+
+	mcp_server = MCPServer.new(tools)
+	add_child(mcp_server)
+	# @todo Make the transport configurable
+	mcp_server.start_server(MCP_SERVER_PORT, MCPServer.Transport.WEBSOCKET)
+	#mcp_server.start_server(MCP_SERVER_PORT, MCPServer.Transport.HTTP)
 
 
 func show_panel() -> void:
