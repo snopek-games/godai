@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"fmt"
 	"godai/mcp/editor"
 	"godai/mcp/jsonrpc"
 	"log"
@@ -44,13 +43,21 @@ func NewServer() *Server {
 }
 
 func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (any, *jsonrpc.Error) {
+	type appInfo struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	}
+
 	type initializeParams struct {
 		ProtocolVersion string         `json:"protocolVersion"`
 		Capabilities    map[string]any `json:"capabilities,omitempty"`
-		ClientInfo      struct {
-			Name    string `json:"name"`
-			Version string `json:"version"`
-		} `json:"clientInfo,omitempty"`
+		ClientInfo      appInfo        `json:"clientInfo"`
+	}
+
+	type initializeResult struct {
+		ProtocolVersion string         `json:"protocolVersion"`
+		Capabilities    map[string]any `json:"capabilities,omitempty"`
+		ServerInfo      appInfo        `json:"serverInfo"`
 	}
 
 	var params initializeParams
@@ -58,7 +65,17 @@ func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (
 		return nil, jsonrpc.NewError(jsonrpc.InvalidParamsErrorCode, "Invalid parameters", nil)
 	}
 
-	response := json.RawMessage(fmt.Sprintf(`{"protocolVersion":"%s","capabilities":{"tools":{}},"serverInfo":{"name":"Godai","version":"%s"}}`, ProtocolVersion, GodaiVersion))
+	response := initializeResult{
+		ProtocolVersion: ProtocolVersion,
+		Capabilities: map[string]any{
+			"tools": map[string]any{},
+		},
+		ServerInfo: appInfo{
+			Name:    "Godai",
+			Version: GodaiVersion,
+		},
+	}
+
 	return response, nil
 }
 
