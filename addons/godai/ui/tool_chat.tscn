@@ -1,0 +1,89 @@
+[gd_scene load_steps=7 format=3 uid="uid://bgwwep06apicy"]
+
+[ext_resource type="Script" uid="uid://c7gq4o80f6bp6" path="res://addons/godai/ui/tool_chat.gd" id="1_iklil"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_n67ek"]
+content_margin_left = 5.0
+content_margin_top = 0.0
+content_margin_right = 5.0
+content_margin_bottom = 0.0
+bg_color = Color(0.874848, 0.8749353, 0.9465261, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+corner_detail = 5
+
+[sub_resource type="LabelSettings" id="LabelSettings_iklil"]
+font_color = Color(0.056291588, 0.056291603, 0.056291595, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4c3ee"]
+content_margin_left = 5.0
+content_margin_top = 5.0
+content_margin_right = 5.0
+content_margin_bottom = 5.0
+bg_color = Color(0.24115604, 0.24115607, 0.24115595, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wpp3g"]
+content_margin_left = 5.0
+content_margin_top = 5.0
+content_margin_right = 5.0
+content_margin_bottom = 5.0
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_87ukp"]
+content_margin_left = 5.0
+content_margin_top = 5.0
+content_margin_right = 5.0
+content_margin_bottom = 5.0
+bg_color = Color(1, 1, 1, 0.75)
+draw_center = false
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.12156863, 0.5294118, 1, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+corner_detail = 5
+expand_margin_left = 1.0
+expand_margin_top = 1.0
+expand_margin_right = 1.0
+expand_margin_bottom = 1.0
+
+[node name="ToolChat" type="PanelContainer"]
+offset_right = 40.0
+offset_bottom = 40.0
+size_flags_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_n67ek")
+script = ExtResource("1_iklil")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Tool use"
+label_settings = SubResource("LabelSettings_iklil")
+
+[node name="InfoButton" type="Button" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 12
+theme_override_styles/normal = SubResource("StyleBoxFlat_4c3ee")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_wpp3g")
+theme_override_styles/hover = SubResource("StyleBoxFlat_wpp3g")
+theme_override_styles/focus = SubResource("StyleBoxFlat_87ukp")
+text = "Info"
+
+[connection signal="pressed" from="HBoxContainer/InfoButton" to="." method="_on_info_button_pressed"]

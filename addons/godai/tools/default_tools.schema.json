@@ -12,6 +12,9 @@
 			"additionalProperties": {
 				"type": "object",
 				"properties": {
+					"title": {
+						"type": "string"
+					},
 					"description": {
 						"type": ["string", "array"],
 						"items": {
@@ -25,7 +28,8 @@
 						"$ref": "https://json-schema.org/draft/2020-12/schema"
 					}
 				},
-				"required": ["description"]
+				"required": ["title", "description"],
+				"additionalProperties": false
 			}
 		}
 	}

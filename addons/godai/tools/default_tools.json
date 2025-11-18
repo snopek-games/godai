@@ -2,6 +2,7 @@
 	"$schema": "./default_tools.schema.json",
 	"tools": {
 		"get_current_scene": {
+			"title": "Get Current Scene",
 			"description": [
 				"Gets information about the scene that is currently opened in the Godot editor.",
 				"",
@@ -13,6 +14,7 @@
 			]
 		},
 		"get_current_scene_tree": {
+			"title": "Get Scene Tree (Current Scene)",
 			"description": [
 				"Gets the tree for the scene that is currently opened in the Godot editor.",
 				"",
@@ -26,6 +28,7 @@
 			]
 		},
 		"get_node_properties": {
+			"title": "Get Node Properties",
 			"description": [
 				"Gets the values of properties on specific nodes in the current scene.",
 				"",
@@ -46,6 +49,7 @@
 			}
 		},
 		"set_node_properties": {
+			"title": "Set Node Properties",
 			"description": [
 				"Sets the values of properties on specific nodes in the current scene.",
 				"",
@@ -86,6 +90,7 @@
 			}
 		},
 		"node_create": {
+			"title": "Create Node",
 			"description": [
 				"Creates a new node in the current scene, with the given properties set.",
 				"",
@@ -115,6 +120,7 @@
 			}
 		},
 		"node_remove": {
+			"title": "Remove Node",
 			"description": "Removes the given node (and all its children) from the current scene",
 			"input_schema": {
 				"type": "object",
@@ -127,9 +133,11 @@
 			}
 		},
 		"classdb_get_classes": {
+			"title": "Get All Classes",
 			"description": "Gets all the classes registered in ClassDB with a little bit of information about them, including: parent class, API type, and whether they are enabled or can be instantiated."
 		},
 		"execute_editor_script": {
+			"title": "Execute Editor Script",
 			"description": [
 				"Executes the given GDScript code in the editor, in the context of a Node that is a child of the scene currently being edited.",
 				"",

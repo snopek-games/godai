@@ -1,7 +1,7 @@
 extends Node
 
-const ToolManager = preload("res://addons/godai/tool_manager.gd")
-const JSONRPCDispatcher = preload("res://addons/godai/jsonrpc_dispatcher.gd")
+const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
+const JSONRPCDispatcher = preload("res://addons/godai/mcp/jsonrpc_dispatcher.gd")
 
 const PROTOCOL_VERSION = "2025-06-18"
 const GODAI_VERSION = "0.1.0"
@@ -119,8 +119,7 @@ func _rpc_list_tools(p_params: Dictionary):
 	for tool_obj in tools.get_tools():
 		var d := {
 			name = tool_obj.name,
-			# @todo Add a title to ToolManager.Tool!
-			title = tool_obj.name,
+			title = tool_obj.title,
 			description = tool_obj.description,
 			inputSchema = tool_obj.input_schema,
 		}

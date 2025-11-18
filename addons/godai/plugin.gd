@@ -1,9 +1,8 @@
 @tool
 extends EditorPlugin
 
-const GodaiPanelScene = preload("res://addons/godai/godai_panel.tscn")
-const GodaiPanel = preload("res://addons/godai/godai_panel.gd")
-const MCPServer = preload("res://addons/godai/mcp_server.gd")
+const GodaiPanelScene = preload("res://addons/godai/ui/godai_panel.tscn")
+const GodaiPanel = preload("res://addons/godai/ui/godai_panel.gd")
 
 var panel: GodaiPanel
 var panel_button: Button

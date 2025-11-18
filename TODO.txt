@@ -1,14 +1,6 @@
 TODO
 ====
 
-- Addon: "Rich" chat display
-  - Clearer indication of user prompts (wrap in panel?)
-  - Show tool execution with a way to inspect exactly what was run (need "title" for tools)
-  - Add thinking animation
-  - Convert markdown to bbcode?
-    - See https://github.com/daenvil/MarkdownLabel
-- Addon (bug): Prevent pressing enter to submit request when already "thinking"
-- Addon: Add a way to cancel a request
 - Addon: Indicate when running in MCP mode
   - Only allow one MCP client to be connected at a time
   - Show info about the connected MCP client
@@ -23,9 +15,12 @@ TODO
   - Cancel the `bufio.Scanner` loop somehow
 - Addon: Make MCP transport configurable (editor settings first, but eventually the panel too?)
 - Addon: Add system prompt
+- Addon: Add a way to cancel a request
 - Addon: Chat history
   - Save and restore current chat when restarting the editor
   - Save a chat history of up to X conversations
+- Addon: Convert markdown to bbcode?
+  - See https://github.com/daenvil/MarkdownLabel
 - Addon: Set `Logger` so AI can see recent output and error messages
 - Tool: Get Godot version and executeable path
 - Tool: Set/get project settings

@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3 uid="uid://dqpb2cxw458dk"]
+
+[ext_resource type="Script" uid="uid://ddmv2quairrq2" path="res://addons/godai/ui/loading_label.gd" id="1_q10gx"]
+
+[node name="LoadingLabel" type="Label"]
+modulate = Color(1, 1, 1, 0.5019608)
+text = "Thinking..."
+script = ExtResource("1_q10gx")
+
+[node name="Timer" type="Timer" parent="."]
+wait_time = 0.4
+autostart = true
+
+[connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]

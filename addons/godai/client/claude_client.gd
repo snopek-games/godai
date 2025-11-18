@@ -1,6 +1,6 @@
 extends Node
 
-const ToolManager = preload("res://addons/godai/tool_manager.gd")
+const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 
 const ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1/"
 const ANTHROPIC_VERSION = "2023-06-01"
@@ -181,8 +181,6 @@ func _on_request_completed(p_result: int, p_code: int, p_headers: PackedStringAr
 	remove_child(p_http_request)
 
 	var data = JSON.parse_string(p_body.get_string_from_utf8())
-
-	print("DEBUG: ", data)
 
 	var msg: Message
 	var complete := true

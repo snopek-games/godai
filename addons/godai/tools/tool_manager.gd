@@ -41,6 +41,7 @@ class ToolResult extends RefCounted:
 @abstract
 class Tool extends RefCounted:
 	var name: String
+	var title: String
 	var description: String
 	var input_schema: Dictionary
 	var output_schema: Dictionary
@@ -62,8 +63,9 @@ class Tool extends RefCounted:
 class ToolCallback extends Tool:
 	var callback: Callable
 
-	func _init(p_name: String, p_description: String, p_callback: Callable, p_input_schema: Dictionary = INPUT_SCHEMA_EMPTY, p_output_schema: Dictionary = OUTPUT_SCHEMA_STRING) -> void:
+	func _init(p_name: String, p_title: String, p_description: String, p_callback: Callable, p_input_schema: Dictionary = INPUT_SCHEMA_EMPTY, p_output_schema: Dictionary = OUTPUT_SCHEMA_STRING) -> void:
 		name = p_name
+		title = p_title
 		description = p_description
 		input_schema = p_input_schema
 		callback = p_callback
@@ -103,6 +105,10 @@ func register_tool(p_tool: Tool) -> void:
 		return
 
 	tools[p_tool.name] = p_tool
+
+
+func get_tool(p_name: String) -> Tool:
+	return tools.get(p_name)
 
 
 func get_tools() -> Array[Tool]:

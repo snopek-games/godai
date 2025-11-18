@@ -96,7 +96,7 @@ func (s *Server) rpcListTools(ctx context.Context, rawParams json.RawMessage) (a
 	for name, tool := range editor.GetDefaultTools() {
 		out := toolOut{
 			Name:         name,
-			Title:        name,
+			Title:        tool.Title,
 			Description:  tool.GetDescription(),
 			InputSchema:  tool.GetInputSchema(),
 			OutputSchema: tool.GetOutputSchema(),

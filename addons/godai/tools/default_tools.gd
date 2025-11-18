@@ -1,8 +1,10 @@
 extends RefCounted
 
-const ToolManager = preload("res://addons/godai/tool_manager.gd")
+const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolResult = ToolManager.ToolResult
 const Utils = preload("res://addons/godai/utils.gd")
+
+const DEFAULT_TOOLS_JSON = "res://addons/godai/tools/default_tools.json"
 
 static func register(p_tools: ToolManager) -> void:
 	var data := _load_json_data()
@@ -18,7 +20,7 @@ static func register(p_tools: ToolManager) -> void:
 
 
 static func _load_json_data() -> Dictionary:
-	var fa := FileAccess.open("res://addons/godai/default_tools.json", FileAccess.READ)
+	var fa := FileAccess.open(DEFAULT_TOOLS_JSON, FileAccess.READ)
 	if fa:
 		var data: Dictionary = JSON.parse_string(fa.get_as_text())
 		var tools: Dictionary = data["tools"]
@@ -34,6 +36,7 @@ static func _load_json_data() -> Dictionary:
 class DefaultTool extends ToolManager.Tool:
 	func _init(p_data: Dictionary) -> void:
 		name = p_data['name']
+		title = p_data.get('title', name)
 
 		var raw_desc = p_data['description']
 		if raw_desc is Array:
@@ -122,7 +125,6 @@ class NodeGetProperties extends DefaultTool:
 					if prop_usage & PROPERTY_USAGE_GROUP or prop_usage & PROPERTY_USAGE_CATEGORY or prop_usage & PROPERTY_USAGE_SUBGROUP:
 						continue
 
-					print("PROP: ", prop)
 					props[prop_name] = var_to_str(node.get(prop_name))
 
 			results[node_path] = props

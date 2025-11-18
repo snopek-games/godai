@@ -13,6 +13,7 @@ var inputSchemaEmpty json.RawMessage = json.RawMessage(`{"type":"object","proper
 type ToolDescription []string
 
 type ToolDefinition struct {
+	Title        string          `json:"title"`
 	Description  ToolDescription `json:"description"`
 	InputSchema  json.RawMessage `json:"input_schema,omitempty"`
 	OutputSchema json.RawMessage `json:"output_schema,omitempty"`
@@ -58,7 +59,7 @@ var GetDefaultTools = sync.OnceValue(func() map[string]ToolDefinition {
 })
 
 func loadDefaultTools() (map[string]ToolDefinition, error) {
-	b, err := godai.AddonFS.ReadFile("addons/godai/default_tools.json")
+	b, err := godai.AddonFS.ReadFile("addons/godai/tools/default_tools.json")
 	if err != nil {
 		return nil, fmt.Errorf("unable to read default_tools.json: %w", err)
 	}

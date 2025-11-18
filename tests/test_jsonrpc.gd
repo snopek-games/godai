@@ -1,6 +1,6 @@
 extends Node2D
 
-const JSONRPCDispatcher = preload("res://addons/godai/jsonrpc_dispatcher.gd")
+const JSONRPCDispatcher = preload("res://addons/godai/mcp/jsonrpc_dispatcher.gd")
 
 const TESTS = [
 	# These first tests are taken from the JSONRPC 2.0 spec.
