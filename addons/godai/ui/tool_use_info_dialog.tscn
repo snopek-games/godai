@@ -49,6 +49,9 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 size_flags_vertical = 3
+focus_mode = 2
+context_menu_enabled = true
+selection_enabled = true
 
 [node name="OutputLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
@@ -59,3 +62,6 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 size_flags_vertical = 3
+focus_mode = 2
+context_menu_enabled = true
+selection_enabled = true
