@@ -14,10 +14,15 @@ const ErrorChatScene = preload("res://addons/godai/ui/error_chat.tscn")
 const ANTHROPIC_API_KEY_SETTING = "godai/anthropic_api_key"
 const MCP_SERVER_PORT = 9080
 
+@onready var mcp_status_label: Label = %MCPStatusLabel
+@onready var start_mcp_button: Button = %StartMCPButton
+@onready var stop_mcp_button: Button = %StopMCPButton
+@onready var mcp_stopping_timer: Timer = %MCPStoppingTimer
 @onready var chat_panel: PanelContainer = %ChatPanel
 @onready var chat_scroll: ScrollContainer = %ChatScroll
 @onready var chat_container: VBoxContainer = %ChatContainer
 @onready var loading_label: Label = %LoadingLabel
+@onready var prompt_bar: Control = %PromptBar
 @onready var prompt: TextEdit = %Prompt
 @onready var submit_button: Button = %SubmitButton
 @onready var clear_button: Button = %ClearButton
@@ -49,9 +54,12 @@ func _ready() -> void:
 
 	mcp_server = MCPServer.new(tools)
 	add_child(mcp_server)
-	# @todo Make the transport configurable
-	mcp_server.start_server(MCP_SERVER_PORT, MCPServer.Transport.WEBSOCKET)
-	#mcp_server.start_server(MCP_SERVER_PORT, MCPServer.Transport.HTTP)
+	mcp_server.server_state_changed.connect(_on_mcp_server_state_changed)
+	mcp_server.client_state_changed.connect(_on_mcp_client_state_changed)
+	mcp_server.tool_use_requested.connect(_add_tool_use_to_chat)
+	mcp_server.tool_use_completed.connect(_add_tool_result_to_chat)
+	_update_mcp_status_bar()
+	_start_mcp()
 
 
 func show_panel() -> void:
@@ -75,6 +83,77 @@ func _notification(p_what: int) -> void:
 			_update_panel_theme()
 
 
+func _on_mcp_server_state_changed(p_server_state: MCPServer.ServerState) -> void:
+	_update_mcp_status_bar()
+
+	if p_server_state == MCPServer.ServerState.STOPPED:
+		mcp_stopping_timer.stop()
+
+
+func _on_mcp_client_state_changed(p_client_state: MCPServer.ClientState) -> void:
+	_update_mcp_status_bar()
+
+	_stop_current_chat()
+	if p_client_state == MCPServer.ClientState.CONNECTED:
+		prompt_bar.visible = false
+	else:
+		prompt_bar.visible = true
+
+
+func _update_mcp_status_bar() -> void:
+	var server_state: MCPServer.ServerState = mcp_server.get_server_state()
+	var client_state: MCPServer.ClientState = mcp_server.get_client_state()
+
+	if server_state in [MCPServer.ServerState.STOPPED, MCPServer.ServerState.ERROR]:
+		start_mcp_button.visible = true
+		stop_mcp_button.visible = false
+	else:
+		start_mcp_button.visible = false
+		stop_mcp_button.visible = true
+
+	if server_state == MCPServer.ServerState.STOPPED:
+		mcp_status_label.text = "MCP server stopped."
+	elif server_state == MCPServer.ServerState.STOPPING:
+		mcp_status_label.text = "MCP server stopping..."
+	elif server_state == MCPServer.ServerState.ERROR:
+		mcp_status_label.text = "MCP server was unable to start."
+	else:
+		var transport: String = "WebSocket" if mcp_server.get_transport() == MCPServer.Transport.WEBSOCKET else "HTTP"
+		var status: String = "MCP server listening on port %d (%s transport)." % [mcp_server.get_port(), transport]
+
+		if client_state == MCPServer.ClientState.NOT_CONNECTED:
+			status += " Not connected."
+		else:
+			var client_info := mcp_server.get_client_info()
+			if client_info.size() > 0:
+				status += " Connected to %s version %s." % [client_info['name'], client_info['version']]
+			else:
+				status += " Connected."
+
+		mcp_status_label.text = status
+
+
+func _start_mcp() -> void:
+	# @todo Make the transport configurable
+	mcp_server.start_server(MCP_SERVER_PORT, MCPServer.Transport.WEBSOCKET)
+	#mcp_server.start_server(MCP_SERVER_PORT, MCPServer.Transport.HTTP)
+
+
+func _on_start_mcp_button_pressed() -> void:
+	_start_mcp()
+
+
+func _on_stop_mcp_button_pressed() -> void:
+	mcp_server.stop_server()
+	if mcp_server.get_server_state() == MCPServer.ServerState.STOPPING:
+		mcp_stopping_timer.start()
+
+
+func _on_mcp_stopping_timer_timeout() -> void:
+	if mcp_server.get_server_state() == MCPServer.ServerState.STOPPING:
+		mcp_server.stop_server(true)
+
+
 func _on_current_chat_message_added(p_msg: ClaudeClient.Message) -> void:
 	var updated := false
 
@@ -92,33 +171,40 @@ func _on_current_chat_message_added(p_msg: ClaudeClient.Message) -> void:
 						var chat = AssistantChatScene.instantiate()
 						chat_container.add_child(chat)
 						chat.setup_assistant_chat(text)
-				updated = true
+
+				_scroll_chat_to_bottom()
 
 			"tool_use":
-				var chat = ToolChatScene.instantiate()
-				chat_container.add_child(chat)
-				var tool_obj = tools.get_tool(data['name'])
-				chat.setup_tool_chat(data['id'], data['name'], tool_obj.title if tool_obj else data['name'], data['input'])
-				chat.info_requested.connect(_show_tool_info)
-				_pending_tool_chats[data['id']] = chat
-				updated = true
+				_add_tool_use_to_chat(data['id'], data['name'], data['input'])
 
 			"tool_result":
-				var tool_use_id: String = data['tool_use_id']
+				_add_tool_result_to_chat(data['tool_use_id'], data['content'])
 
-				var chat = _pending_tool_chats.get(tool_use_id)
-				if chat:
-					chat.set_tool_output(data['content'])
-					_pending_tool_chats.erase(tool_use_id)
 
-				if tool_use_info_dialog.visible and tool_use_info_dialog.tool_use_id == tool_use_id:
-					tool_use_info_dialog.update_output(data['content'])
+func _scroll_chat_to_bottom() -> void:
+	await get_tree().process_frame
+	var scrollbar: VScrollBar = chat_scroll.get_v_scroll_bar()
+	chat_scroll.scroll_vertical = scrollbar.max_value
 
-	if updated:
-		# Scroll to the bottom
-		await get_tree().process_frame
-		var scrollbar: VScrollBar = chat_scroll.get_v_scroll_bar()
-		chat_scroll.scroll_vertical = scrollbar.max_value
+
+func _add_tool_use_to_chat(p_id: String, p_name: String, p_input: Dictionary) -> void:
+	var chat = ToolChatScene.instantiate()
+	chat_container.add_child(chat)
+	var tool_obj = tools.get_tool(p_name)
+	chat.setup_tool_chat(p_id, p_name, tool_obj.title if tool_obj else p_name, p_input)
+	chat.info_requested.connect(_show_tool_info)
+	_pending_tool_chats[p_id] = chat
+	_scroll_chat_to_bottom()
+
+
+func _add_tool_result_to_chat(p_id: String, p_content) -> void:
+	var chat = _pending_tool_chats.get(p_id)
+	if chat:
+		chat.set_tool_output(p_content)
+		_pending_tool_chats.erase(p_id)
+
+	if tool_use_info_dialog.visible and tool_use_info_dialog.tool_use_id == p_id:
+		tool_use_info_dialog.update_output(p_content)
 
 
 func _show_tool_info(p_id: String, p_name: String, p_input, p_output) -> void:
@@ -141,6 +227,12 @@ func _stop_current_chat() -> void:
 		current_chat.message_added.disconnect(_on_current_chat_message_added)
 	current_chat = null
 
+	_pending_tool_chats.clear()
+
+	for chat in chat_container.get_children():
+		chat.queue_free()
+
+	prompt.clear()
 	clear_button.disabled = true
 	loading_label.visible = false
 
@@ -185,7 +277,3 @@ func _on_submit_button_pressed() -> void:
 
 func _on_clear_button_pressed() -> void:
 	_stop_current_chat()
-	_pending_tool_chats.clear()
-	for chat in chat_container.get_children():
-		chat.queue_free()
-	prompt.clear()

@@ -4,7 +4,11 @@
 [ext_resource type="PackedScene" uid="uid://dqpb2cxw458dk" path="res://addons/godai/ui/loading_label.tscn" id="2_g1jqj"]
 [ext_resource type="PackedScene" uid="uid://bfvgd1nbdtmqr" path="res://addons/godai/ui/tool_use_info_dialog.tscn" id="3_3f5xt"]
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_musqh"]
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_3f5xt"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
 
 [node name="GodaiPanel" type="VBoxContainer"]
 custom_minimum_size = Vector2(0, 200)
@@ -15,12 +19,32 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_lwv6s")
 
+[node name="StatusBar" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="MCPStatusLabel" type="Label" parent="StatusBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "MCP server was unable to start."
+
+[node name="StartMCPButton" type="Button" parent="StatusBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Start MCP"
+
+[node name="StopMCPButton" type="Button" parent="StatusBar"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+text = "Stop MCP"
+
 [node name="ChatPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_styles/panel = SubResource("StyleBoxEmpty_musqh")
+theme_override_styles/panel = SubResource("StyleBoxEmpty_3f5xt")
 
 [node name="ChatScroll" type="ScrollContainer" parent="ChatPanel"]
 unique_name_in_owner = true
@@ -43,31 +67,43 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="."]
+[node name="PromptBar" type="HBoxContainer" parent="."]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="Prompt" type="TextEdit" parent="HBoxContainer"]
+[node name="Prompt" type="TextEdit" parent="PromptBar"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 wrap_mode = 1
 scroll_fit_content_height = true
+caret_blink = true
+caret_multiple = false
 
-[node name="SubmitButton" type="Button" parent="HBoxContainer"]
+[node name="SubmitButton" type="Button" parent="PromptBar"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Submit"
 
-[node name="ClearButton" type="Button" parent="HBoxContainer"]
+[node name="ClearButton" type="Button" parent="PromptBar"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "Clear"
 
+[node name="MCPStoppingTimer" type="Timer" parent="."]
+unique_name_in_owner = true
+wait_time = 5.0
+one_shot = true
+ignore_time_scale = true
+
 [node name="ToolUseInfoDialog" parent="." instance=ExtResource("3_3f5xt")]
 unique_name_in_owner = true
 visible = false
 
-[connection signal="gui_input" from="HBoxContainer/Prompt" to="." method="_on_prompt_gui_input"]
-[connection signal="pressed" from="HBoxContainer/SubmitButton" to="." method="_on_submit_button_pressed"]
-[connection signal="pressed" from="HBoxContainer/ClearButton" to="." method="_on_clear_button_pressed"]
+[connection signal="pressed" from="StatusBar/StartMCPButton" to="." method="_on_start_mcp_button_pressed"]
+[connection signal="pressed" from="StatusBar/StopMCPButton" to="." method="_on_stop_mcp_button_pressed"]
+[connection signal="gui_input" from="PromptBar/Prompt" to="." method="_on_prompt_gui_input"]
+[connection signal="pressed" from="PromptBar/SubmitButton" to="." method="_on_submit_button_pressed"]
+[connection signal="pressed" from="PromptBar/ClearButton" to="." method="_on_clear_button_pressed"]
+[connection signal="timeout" from="MCPStoppingTimer" to="." method="_on_mcp_stopping_timer_timeout"]

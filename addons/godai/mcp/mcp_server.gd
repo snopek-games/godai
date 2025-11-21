@@ -1,3 +1,4 @@
+@tool
 extends Node
 
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
@@ -15,12 +16,22 @@ enum ServerState {
 	STARTED,
 	STOPPING,
 	STOPPED,
+	ERROR,
 }
+
+enum ClientState {
+	NOT_CONNECTED,
+	CONNECTED,
+}
+
 class Peer extends RefCounted:
+	var peer_id: int
 	var tcp_peer: StreamPeerTCP
 	var websocket_peer: WebSocketPeer
 	var buffer: String
-	var buffer_bytes: int
+
+	func _init(p_peer_id: int) -> void:
+		peer_id = p_peer_id
 
 	func consume_buffer(p_amount: int) -> void:
 		buffer = buffer.substr(p_amount)
@@ -28,13 +39,23 @@ class Peer extends RefCounted:
 
 var _tcp_server: TCPServer
 var _peers: Dictionary[int, Peer]
+var _port: int
 var _server_state: ServerState = ServerState.STOPPED
 var _transport: Transport = Transport.WEBSOCKET
+var _client_state: ClientState = ClientState.NOT_CONNECTED
+var _client_info: Dictionary
 var _last_peer_id := 1
+var _last_tool_id := 0
 
 var _jsonrpc := JSONRPCDispatcher.new()
 
 var tools: ToolManager
+
+signal server_state_changed(state: ServerState)
+signal client_state_changed(state: ClientState)
+signal tool_use_requested(p_id: String, p_name: String, p_input: Dictionary)
+signal tool_use_completed(p_id: String, p_content)
+
 
 func _init(p_tools: ToolManager) -> void:
 	tools = p_tools
@@ -51,28 +72,39 @@ func get_server_state() -> ServerState:
 	return _server_state
 
 
+func get_port() -> int:
+	return _port
+
+
 func get_transport() -> Transport:
 	return _transport
 
 
-func get_peer_count() -> int:
-	return _peers.size()
+func get_client_state() -> ClientState:
+	return _client_state
+
+
+func get_client_info() -> Dictionary:
+	return _client_info
 
 
 func start_server(p_port: int, p_transport: Transport) -> Error:
-	if _server_state != ServerState.STOPPED:
+	if _server_state in [ServerState.STARTED, ServerState.STOPPING]:
 		return ERR_ALREADY_IN_USE
 
+	_port = p_port
 	_transport = p_transport
 
 	_tcp_server = TCPServer.new()
-	var err = _tcp_server.listen(p_port)
+	var err = _tcp_server.listen(_port)
 	set_process(err == OK)
+	_server_state = ServerState.STARTED if err == OK else ServerState.ERROR
+	server_state_changed.emit(_server_state)
 	return err
 
 
-func stop_server() -> void:
-	if not _server_state == ServerState.STARTED:
+func stop_server(p_force: bool = false) -> void:
+	if not ((_server_state == ServerState.STARTED) or (p_force and _server_state == ServerState.STOPPING)):
 		return
 
 	_tcp_server.stop()
@@ -80,23 +112,30 @@ func stop_server() -> void:
 	for peer in _peers.values():
 		if _transport == Transport.WEBSOCKET:
 			peer.websocket_peer.close()
-		else:
+		if _transport == Transport.HTTP or p_force:
+			# This happens too for forced WebSocket closures.
 			peer.tcp_peer.disconnect_from_host()
 
-	if _transport == Transport.WEBSOCKET:
+	if _transport == Transport.WEBSOCKET and _peers.size() > 0 and not p_force:
 		_server_state = ServerState.STOPPING
+		server_state_changed.emit(_server_state)
 	else:
 		_peers.clear()
 		_stop_server_complete()
 
 
 func _stop_server_complete() -> void:
-	_server_state = ServerState.STOPPED
-	_tcp_server = null
 	set_process(false)
+	_tcp_server = null
+	_server_state = ServerState.STOPPED
+	server_state_changed.emit(_server_state)
 
 
 func _rpc_initialize(p_params: Dictionary):
+	_client_info = p_params['clientInfo']
+	_client_state = ClientState.CONNECTED
+	client_state_changed.emit(_client_state)
+
 	return {
 		protocolVersion = PROTOCOL_VERSION,
 		capabilities = {
@@ -136,19 +175,23 @@ func _rpc_call_tool(p_params: Dictionary):
 	var name: String = p_params['name']
 	var args: Dictionary = p_params['arguments']
 
+	_last_tool_id += 1
+	var id: String = "mcp:" + str(_last_tool_id)
+	tool_use_requested.emit(id, name, args)
+
 	var result: ToolManager.ToolResult = tools.execute_tool(name, args)
 	if result.is_done():
-		return _process_tool_result(result.content)
+		return _process_tool_result(id, result.content)
 
 	# Handle async results.
 	var async_result = JSONRPCDispatcher.AsyncResult.new()
 	result.completed.connect(func (content):
-		async_result.resolve(_process_tool_result(content))
+		async_result.resolve(_process_tool_result(id, content))
 	)
 	return async_result
 
 
-func _process_tool_result(p_content):
+func _process_tool_result(p_id: String, p_content):
 	var ret := {}
 
 	var s: String
@@ -165,23 +208,32 @@ func _process_tool_result(p_content):
 		}
 	]
 
+	var emit_signal = func():
+		tool_use_completed.emit(p_id, p_content)
+	emit_signal.call_deferred()
+
 	return ret
 
 
 # @todo Should this use its own thread, so it's not affected by "low processor mode"?
 func _process(_delta) -> void:
 	while _tcp_server.is_connection_available():
-		_last_peer_id += 1
-		#print("+ Peer %d connected." % _last_peer_id)
+		# With WebSockets, we only allow one connection at a time, so force disconnect.
+		if _transport == Transport.WEBSOCKET and _peers.size() > 0:
+			var tcp := _tcp_server.take_connection()
+			tcp.disconnect_from_host()
+			continue
 
-		var peer := Peer.new()
+		_last_peer_id += 1
+
+		var peer := Peer.new(_last_peer_id)
+		peer.tcp_peer = _tcp_server.take_connection()
+
 		if _transport == Transport.WEBSOCKET:
 			peer.websocket_peer = WebSocketPeer.new()
-			peer.websocket_peer.accept_stream(_tcp_server.take_connection())
-		else:
-			peer.tcp_peer = _tcp_server.take_connection()
+			peer.websocket_peer.accept_stream(peer.tcp_peer)
 
-		_peers[_last_peer_id] = peer
+		_add_peer(peer)
 
 	if _transport == Transport.WEBSOCKET:
 		_process_websocket_peers()
@@ -202,20 +254,44 @@ func _process_websocket_peers() -> void:
 				var packet := ws.get_packet()
 				if ws.was_string_packet():
 					var packet_text = packet.get_string_from_utf8()
-					print("RECEIVED: ", packet_text)
 					var response = await _jsonrpc.process_string(packet_text)
 					if response != "":
 						ws.send_text(response)
 		elif peer_state == WebSocketPeer.STATE_CLOSED:
-			_peers.erase(peer_id)
-			var code = ws.get_close_code()
-			var reason = ws.get_close_reason()
-			#print("- Peer %d closed with code %d, reason %s. Clean: %s" % [peer_id, code, reason, code != -1])
+			_remove_peer(peer)
 
 			# If we are stopping and the last peer closed the last peer closed, then we can consider the whole
 			# server closed.
 			if _server_state == ServerState.STOPPING and _peers.size() == 0:
 				_stop_server_complete()
+
+
+func _add_peer(p_peer: Peer) -> void:
+	#print("Add peer: ", p_peer.peer_id)
+	_peers[p_peer.peer_id] = p_peer
+
+	# With WebSockets, we only allow one connection, so stop listening.
+	if _transport == Transport.WEBSOCKET:
+		_tcp_server.stop()
+
+
+func _remove_peer(p_peer: Peer) -> void:
+	#print("Remove peer: ", p_peer.peer_id)
+	_peers.erase(p_peer.peer_id)
+
+	# @todo How to detect "disconnect" with the HTTP transport? Timeout?
+
+	if _transport == Transport.WEBSOCKET:
+		_client_info = {}
+		_client_state = ClientState.NOT_CONNECTED
+		client_state_changed.emit(_client_state)
+
+		# With WebSockets, we stop listening once we have once connection,
+		# so we need to start listening again once they disconnect.
+		if _server_state == ServerState.STARTED:
+			var err = _tcp_server.listen(_port)
+			if err != OK:
+				stop_server()
 
 
 func _process_http_peers() -> void:
@@ -226,8 +302,7 @@ func _process_http_peers() -> void:
 		tcp.poll()
 
 		if tcp.get_status() != StreamPeerTCP.STATUS_CONNECTED:
-			_peers.erase(peer_id)
-			#print("- Peer %d disconnected" % peer_id)
+			_remove_peer(peer)
 			continue
 
 		var available_bytes := tcp.get_available_bytes()
@@ -317,6 +392,7 @@ func _send_http_response(p_peer: Peer, p_status: String, p_headers: Dictionary =
 	tcp.put_data(headers.to_ascii_buffer())
 	tcp.put_data(body_utf8)
 	tcp.disconnect_from_host()
+
 
 
 func _send_http_error_response(p_peer: Peer, p_status_code: int, p_status_text: String) -> void:

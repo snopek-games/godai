@@ -16,22 +16,40 @@ const ProtocolVersion string = "2025-06-18"
 // @todo Should we read this from the plugin.cfg?
 const GodaiVersion string = "0.1.0"
 
+type appInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+type initializeParams struct {
+	ProtocolVersion string         `json:"protocolVersion"`
+	Capabilities    map[string]any `json:"capabilities,omitempty"`
+	ClientInfo      appInfo        `json:"clientInfo"`
+}
+
+type initializeResult struct {
+	ProtocolVersion string         `json:"protocolVersion"`
+	Capabilities    map[string]any `json:"capabilities,omitempty"`
+	ServerInfo      appInfo        `json:"serverInfo"`
+}
+
 type Server struct {
 	jsonrpcDispatcher *jsonrpc.Dispatcher
 	editor            *editor.Connection
 	scanner           *bufio.Scanner
+	clientInfo        appInfo
 }
 
 func NewServer() *Server {
 	d := jsonrpc.NewDispatcher()
-	editor := editor.NewConnection("ws://localhost:9080", 1*time.Second)
 	scanner := bufio.NewScanner(os.Stdin)
 
 	s := &Server{
 		jsonrpcDispatcher: d,
-		editor:            editor,
 		scanner:           scanner,
 	}
+
+	s.editor = editor.NewConnection("ws://localhost:9080", 1*time.Second, s.onEditorConnect)
 
 	d.Register("initialize", s.rpcInitialize)
 	d.Register("notifications/initialized", s.rpcClientInitialized)
@@ -42,28 +60,29 @@ func NewServer() *Server {
 
 }
 
+func (s *Server) onEditorConnect(conn *editor.Connection) {
+	params := initializeParams{
+		ProtocolVersion: ProtocolVersion,
+		ClientInfo:      s.clientInfo,
+	}
+
+	// @todo This should probably inherit from a parent context! Or, at least set a timeout?
+	ctx := context.Background()
+
+	s.editor.CallMethod(ctx, "initialize", params)
+	//s.editor.SendNotification(ctx, "notification/initialized", map[string]any{})
+}
+
 func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (any, *jsonrpc.Error) {
-	type appInfo struct {
-		Name    string `json:"name"`
-		Version string `json:"version"`
-	}
-
-	type initializeParams struct {
-		ProtocolVersion string         `json:"protocolVersion"`
-		Capabilities    map[string]any `json:"capabilities,omitempty"`
-		ClientInfo      appInfo        `json:"clientInfo"`
-	}
-
-	type initializeResult struct {
-		ProtocolVersion string         `json:"protocolVersion"`
-		Capabilities    map[string]any `json:"capabilities,omitempty"`
-		ServerInfo      appInfo        `json:"serverInfo"`
-	}
-
 	var params initializeParams
 	if err := json.Unmarshal(rawParams, &params); err != nil {
 		return nil, jsonrpc.NewError(jsonrpc.InvalidParamsErrorCode, "Invalid parameters", nil)
 	}
+
+	s.clientInfo = params.ClientInfo
+
+	// @todo This context should probably not come from here?
+	s.editor.Start(ctx)
 
 	response := initializeResult{
 		ProtocolVersion: ProtocolVersion,
@@ -137,8 +156,6 @@ func (s *Server) rpcCallTool(ctx context.Context, rawParams json.RawMessage) (an
 }
 
 func (s *Server) Run(ctx context.Context) {
-	s.editor.Start(ctx)
-
 	// @todo How to break this loop if ctx is canceled?
 
 	for s.scanner.Scan() {

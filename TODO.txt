@@ -2,9 +2,11 @@ TODO
 ====
 
 - Addon: Indicate when running in MCP mode
-  - Only allow one MCP client to be connected at a time
-  - Show info about the connected MCP client
   - Show info about each of the tools as they run
+- MCP: Refactor editor connection
+  - We should have a "connector" class who is only responsible for establishing the connections
+  - Then the "connection" class shouldn't have any of the connecting or re-connecting stuff
+  - This should allow eliminating one of the mutexes and allow us to just assume the connection is there
 - MCP: Add local commands for launching Godot and listing projects
   - Allow to connect to multiple editors at once and switch between them
   - Install the addon for projects that don't already have it

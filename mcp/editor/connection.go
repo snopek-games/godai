@@ -3,6 +3,7 @@ package editor
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"godai/mcp/jsonrpc"
 	"log"
 	"strconv"
@@ -12,22 +13,29 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	pongWait   = 10 * time.Second
+	pingPeriod = (pongWait * 9) / 10
+)
+
 type Connection struct {
 	url string
 
 	connMutex  sync.RWMutex
 	conn       *websocket.Conn
 	retryDelay time.Duration
+	onConnect  func(c *Connection)
 
 	requestMutex     sync.Mutex
 	lastRequestID    int
 	pendingResponses map[int]chan *jsonrpc.Response
 }
 
-func NewConnection(url string, retryDelay time.Duration) *Connection {
+func NewConnection(url string, retryDelay time.Duration, onConnect func(c *Connection)) *Connection {
 	return &Connection{
 		url:              url,
 		retryDelay:       retryDelay,
+		onConnect:        onConnect,
 		pendingResponses: map[int]chan *jsonrpc.Response{},
 	}
 }
@@ -59,12 +67,25 @@ func (c *Connection) Start(ctx context.Context) {
 			c.setConn(conn)
 
 			go c.readLoop(conn)
+			go c.pingLoop(conn)
+
+			if c.onConnect != nil {
+				c.onConnect(c)
+			}
 		}
 	}()
 }
 
 func (c *Connection) CallMethod(ctx context.Context, name string, rawParams any) (*jsonrpc.Response, error) {
 	respCh := make(chan *jsonrpc.Response, 1)
+
+	c.connMutex.RLock()
+	conn := c.conn
+	c.connMutex.RUnlock()
+
+	if conn == nil {
+		return nil, fmt.Errorf("not connected: %s", c.url)
+	}
 
 	c.requestMutex.Lock()
 	c.lastRequestID++
@@ -79,7 +100,7 @@ func (c *Connection) CallMethod(ctx context.Context, name string, rawParams any)
 
 	req := jsonrpc.NewRequest(strconv.Itoa(id), name, params)
 
-	if err := c.conn.WriteJSON(req); err != nil {
+	if err := conn.WriteJSON(req); err != nil {
 		c.requestMutex.Lock()
 		delete(c.pendingResponses, id)
 		c.requestMutex.Unlock()
@@ -98,8 +119,23 @@ func (c *Connection) CallMethod(ctx context.Context, name string, rawParams any)
 	}
 }
 
-func (c *Connection) SendNotification(name string, params json.RawMessage) error {
-	return nil
+func (c *Connection) SendNotification(ctx context.Context, name string, rawParams any) error {
+	params, err := json.Marshal(rawParams)
+	if err != nil {
+		return err
+	}
+
+	c.connMutex.RLock()
+	conn := c.conn
+	c.connMutex.RUnlock()
+
+	if conn == nil {
+		return fmt.Errorf("not connected: %s", c.url)
+	}
+
+	req := jsonrpc.NewRequest("", name, params)
+
+	return conn.WriteJSON(req)
 }
 
 func (c *Connection) readLoop(conn *websocket.Conn) {
@@ -137,6 +173,25 @@ func (c *Connection) readLoop(conn *websocket.Conn) {
 	}
 }
 
+func (c *Connection) pingLoop(conn *websocket.Conn) {
+	ticker := time.NewTicker(pingPeriod)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+
+		c.connMutex.RLock()
+		conn := c.conn
+		c.connMutex.RUnlock()
+
+		err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(time.Second))
+		if err != nil {
+			log.Printf("%s: Ping failed, stopping ping loop\n", c.url)
+			return
+		}
+	}
+}
+
 func (c *Connection) isConnected() bool {
 	c.connMutex.RLock()
 	defer c.connMutex.RUnlock()
@@ -144,6 +199,12 @@ func (c *Connection) isConnected() bool {
 }
 
 func (c *Connection) setConn(conn *websocket.Conn) {
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
 	c.connMutex.Lock()
 	defer c.connMutex.Unlock()
 	c.conn = conn
