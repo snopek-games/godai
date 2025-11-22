@@ -35,7 +35,7 @@ type initializeResult struct {
 
 type Server struct {
 	jsonrpcDispatcher *jsonrpc.Dispatcher
-	editor            *editor.Connection
+	editorManager     *editor.Manager
 	scanner           *bufio.Scanner
 	clientInfo        appInfo
 }
@@ -49,7 +49,7 @@ func NewServer() *Server {
 		scanner:           scanner,
 	}
 
-	s.editor = editor.NewConnection("ws://localhost:9080", 1*time.Second, s.onEditorConnect)
+	s.editorManager = editor.NewManager(9080, 1, 1*time.Second, s.onEditorConnect, s.onEditorDisconnect)
 
 	d.Register("initialize", s.rpcInitialize)
 	d.Register("notifications/initialized", s.rpcClientInitialized)
@@ -60,17 +60,30 @@ func NewServer() *Server {
 
 }
 
-func (s *Server) onEditorConnect(conn *editor.Connection) {
+func (s *Server) onEditorConnect(conn *editor.Connection) error {
 	params := initializeParams{
 		ProtocolVersion: ProtocolVersion,
 		ClientInfo:      s.clientInfo,
 	}
 
-	// @todo This should probably inherit from a parent context! Or, at least set a timeout?
-	ctx := context.Background()
+	// @todo Make the timeout configurable?
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	s.editor.CallMethod(ctx, "initialize", params)
-	//s.editor.SendNotification(ctx, "notification/initialized", map[string]any{})
+	if _, err := conn.CallMethod(ctx, "initialize", params); err != nil {
+		return err
+	}
+	if err := conn.SendNotification(ctx, "notification/initialized", map[string]any{}); err != nil {
+		return err
+	}
+
+	// @todo Get info about the current project and add it to a map
+
+	return nil
+}
+
+func (s *Server) onEditorDisconnect(conn *editor.Connection) {
+	// @todo Remove editor from project map
 }
 
 func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (any, *jsonrpc.Error) {
@@ -81,8 +94,7 @@ func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (
 
 	s.clientInfo = params.ClientInfo
 
-	// @todo This context should probably not come from here?
-	s.editor.Start(ctx)
+	s.editorManager.Start()
 
 	response := initializeResult{
 		ProtocolVersion: ProtocolVersion,
@@ -144,7 +156,12 @@ func (s *Server) rpcCallTool(ctx context.Context, rawParams json.RawMessage) (an
 
 	// @todo Check if this is a local tool
 
-	resp, err := s.editor.CallMethod(ctx, "tools/call", params)
+	conn := s.editorManager.GetFirstConn()
+	if conn == nil {
+		return nil, jsonrpc.NewError(jsonrpc.InternalErrorCode, "No connection to the Godot editor", nil)
+	}
+
+	resp, err := conn.CallMethod(ctx, "tools/call", params)
 	if err != nil {
 		return nil, jsonrpc.NewError(jsonrpc.InternalErrorCode, "Unable to call method on Godot editor", nil)
 	}

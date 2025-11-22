@@ -3,9 +3,8 @@ package editor
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"godai/mcp/jsonrpc"
-	"log"
+	"log/slog"
 	"strconv"
 	"sync"
 	"time"
@@ -19,143 +18,49 @@ const (
 )
 
 type Connection struct {
-	url string
-
-	connMutex  sync.RWMutex
-	conn       *websocket.Conn
-	retryDelay time.Duration
-	onConnect  func(c *Connection)
-
+	ws               *websocket.Conn
+	port             int
 	requestMutex     sync.Mutex
 	lastRequestID    int
 	pendingResponses map[int]chan *jsonrpc.Response
+	done             bool
+	doneCh           chan struct{}
 }
 
-func NewConnection(url string, retryDelay time.Duration, onConnect func(c *Connection)) *Connection {
+func NewConnection(ws *websocket.Conn, port int) *Connection {
 	return &Connection{
-		url:              url,
-		retryDelay:       retryDelay,
-		onConnect:        onConnect,
+		ws:               ws,
+		port:             port,
 		pendingResponses: map[int]chan *jsonrpc.Response{},
+		doneCh:           make(chan struct{}),
 	}
 }
 
-func (c *Connection) Start(ctx context.Context) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				log.Printf("%s: stopping connect loop\n", c.url)
-				return
-			default:
-			}
+func (c *Connection) Run() error {
+	c.ws.SetReadDeadline(time.Now().Add(pongWait))
+	c.ws.SetPongHandler(func(string) error {
+		c.ws.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+	go c.pingLoop()
 
-			if c.isConnected() {
-				time.Sleep(c.retryDelay)
-				continue
-			}
-
-			log.Printf("%s: attempting to connect\n", c.url)
-			conn, _, err := websocket.DefaultDialer.Dial(c.url, nil)
-			if err != nil {
-				log.Printf("%s: connect failed: %v (retrying in %s)\n", c.url, err, c.retryDelay)
-				time.Sleep(c.retryDelay)
-				continue
-			}
-
-			log.Printf("%s: connected!", c.url)
-			c.setConn(conn)
-
-			go c.readLoop(conn)
-			go c.pingLoop(conn)
-
-			if c.onConnect != nil {
-				c.onConnect(c)
-			}
-		}
-	}()
-}
-
-func (c *Connection) CallMethod(ctx context.Context, name string, rawParams any) (*jsonrpc.Response, error) {
-	respCh := make(chan *jsonrpc.Response, 1)
-
-	c.connMutex.RLock()
-	conn := c.conn
-	c.connMutex.RUnlock()
-
-	if conn == nil {
-		return nil, fmt.Errorf("not connected: %s", c.url)
-	}
-
-	c.requestMutex.Lock()
-	c.lastRequestID++
-	id := c.lastRequestID
-	c.pendingResponses[c.lastRequestID] = respCh
-	c.requestMutex.Unlock()
-
-	params, err := json.Marshal(rawParams)
-	if err != nil {
-		return nil, err
-	}
-
-	req := jsonrpc.NewRequest(strconv.Itoa(id), name, params)
-
-	if err := conn.WriteJSON(req); err != nil {
-		c.requestMutex.Lock()
-		delete(c.pendingResponses, id)
-		c.requestMutex.Unlock()
-		return nil, err
-	}
-
-	select {
-	case resp := <-respCh:
-
-		return resp, nil
-	case <-ctx.Done():
-		c.requestMutex.Lock()
-		delete(c.pendingResponses, id)
-		c.requestMutex.Unlock()
-		return nil, ctx.Err()
-	}
-}
-
-func (c *Connection) SendNotification(ctx context.Context, name string, rawParams any) error {
-	params, err := json.Marshal(rawParams)
-	if err != nil {
-		return err
-	}
-
-	c.connMutex.RLock()
-	conn := c.conn
-	c.connMutex.RUnlock()
-
-	if conn == nil {
-		return fmt.Errorf("not connected: %s", c.url)
-	}
-
-	req := jsonrpc.NewRequest("", name, params)
-
-	return conn.WriteJSON(req)
-}
-
-func (c *Connection) readLoop(conn *websocket.Conn) {
 	for {
 		var resp jsonrpc.Response
-		if err := c.conn.ReadJSON(&resp); err != nil {
-			log.Printf("%s: read error: %v\n", c.url, err)
-			c.clearConn(conn)
-			return
+		if err := c.ws.ReadJSON(&resp); err != nil {
+			slog.Error("read error", "port", c.port, "error", err)
+			c.cleanUp()
+			return err
 		}
 
 		var idStr string
 		if err := json.Unmarshal(resp.ID, &idStr); err != nil {
-			log.Printf("%s: unable to parse response ID: %v\n", c.url, err)
+			slog.Error("unable to parse response ID", "port", c.port, "error", err)
 			continue
 		}
 
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			log.Printf("%s: unable to parse response ID: %v\n", c.url, err)
+			slog.Error("unable to parse response ID", "port", c.port, "error", err)
 			continue
 		}
 
@@ -173,57 +78,92 @@ func (c *Connection) readLoop(conn *websocket.Conn) {
 	}
 }
 
-func (c *Connection) pingLoop(conn *websocket.Conn) {
+func (c *Connection) Close() error {
+	err := c.ws.Close()
+	c.cleanUp()
+	return err
+}
+
+func (c *Connection) CallMethod(ctx context.Context, name string, rawParams any) (*jsonrpc.Response, error) {
+	respCh := make(chan *jsonrpc.Response, 1)
+
+	c.requestMutex.Lock()
+	c.lastRequestID++
+	id := c.lastRequestID
+	c.pendingResponses[c.lastRequestID] = respCh
+	c.requestMutex.Unlock()
+
+	params, err := json.Marshal(rawParams)
+	if err != nil {
+		return nil, err
+	}
+
+	req := jsonrpc.NewRequest(strconv.Itoa(id), name, params)
+
+	if err := c.ws.WriteJSON(req); err != nil {
+		c.requestMutex.Lock()
+		delete(c.pendingResponses, id)
+		c.requestMutex.Unlock()
+		return nil, err
+	}
+
+	select {
+	case resp := <-respCh:
+		return resp, nil
+
+	case <-ctx.Done():
+		c.requestMutex.Lock()
+		delete(c.pendingResponses, id)
+		c.requestMutex.Unlock()
+		return nil, ctx.Err()
+	}
+}
+
+func (c *Connection) SendNotification(ctx context.Context, name string, rawParams any) error {
+	params, err := json.Marshal(rawParams)
+	if err != nil {
+		return err
+	}
+
+	req := jsonrpc.NewRequest("", name, params)
+
+	return c.ws.WriteJSON(req)
+}
+
+func (c *Connection) pingLoop() {
 	ticker := time.NewTicker(pingPeriod)
 	defer ticker.Stop()
 
 	for {
-		<-ticker.C
+		select {
+		case <-c.doneCh:
+			slog.Debug("stopping ping loop normally", "port", c.port)
+			return
+		case <-ticker.C:
+		}
 
-		c.connMutex.RLock()
-		conn := c.conn
-		c.connMutex.RUnlock()
-
-		err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(time.Second))
+		err := c.ws.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(time.Second))
 		if err != nil {
-			log.Printf("%s: Ping failed, stopping ping loop\n", c.url)
+			slog.Error("ping failed, stopping ping loop", "port", c.port, "error", err)
 			return
 		}
 	}
 }
 
-func (c *Connection) isConnected() bool {
-	c.connMutex.RLock()
-	defer c.connMutex.RUnlock()
-	return c.conn != nil
-}
+func (c *Connection) cleanUp() {
+	c.requestMutex.Lock()
+	defer c.requestMutex.Unlock()
 
-func (c *Connection) setConn(conn *websocket.Conn) {
-	conn.SetReadDeadline(time.Now().Add(pongWait))
-	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(pongWait))
-		return nil
-	})
-
-	c.connMutex.Lock()
-	defer c.connMutex.Unlock()
-	c.conn = conn
-}
-
-func (c *Connection) clearConn(conn *websocket.Conn) {
-	c.connMutex.Lock()
-	defer c.connMutex.Unlock()
-
-	if c.conn == conn {
-		_ = c.conn.Close()
-		c.conn = nil
-
-		c.requestMutex.Lock()
-		defer c.requestMutex.Unlock()
-
-		for id, ch := range c.pendingResponses {
-			close(ch)
-			delete(c.pendingResponses, id)
-		}
+	if c.done {
+		// Prevent double clean-up.
+		return
 	}
+
+	for id, ch := range c.pendingResponses {
+		close(ch)
+		delete(c.pendingResponses, id)
+	}
+
+	c.done = true
+	close(c.doneCh)
 }
