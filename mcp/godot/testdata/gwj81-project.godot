@@ -1,0 +1,67 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Expedition To Blobotopia"
+run/main_scene="uid://disn5pmwtkkfq"
+config/features=PackedStringArray("4.5", "GL Compatibility")
+boot_splash/image="uid://cg2ltyagnn40u"
+config/icon="uid://d23swtvt04jcv"
+run/main_scene.mobile="uid://bybe0w18s2bxl"
+
+[autoload]
+
+XRToolsUserSettings="*res://addons/godot-xr-tools/user_settings/user_settings.gd"
+XRToolsRumbleManager="*res://addons/godot-xr-tools/rumble/rumble_manager.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godai/plugin.cfg", "res://addons/godot-xr-tools/plugin.cfg")
+
+[filesystem]
+
+import/blender/enabled=false
+
+[global_group]
+
+shader_warmup=""
+
+[gui]
+
+theme/custom="uid://nrfc52g03xsp"
+theme/custom_font="uid://cmlpljlva8b5k"
+
+[layer_names]
+
+3d_physics/layer_1="Environment"
+3d_physics/layer_2="Blobos"
+3d_physics/layer_3="Pickable"
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+jolt_physics_3d/simulation/penetration_slop=0.002
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_s3tc_bptc=true
+textures/vram_compression/import_etc2_astc=true
+anti_aliasing/quality/msaa_3d=1
+
+[xr]
+
+openxr/enabled=true
+openxr/reference_space=2
+openxr/foveation_level=3
+shaders/enabled=true
+openxr/extensions/meta/composition_layer_settings=false

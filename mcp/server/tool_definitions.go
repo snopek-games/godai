@@ -1,12 +1,16 @@
-package editor
+package server
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"godai"
 	"strings"
 	"sync"
 )
+
+//go:embed local_tools.json
+var toolsFS embed.FS
 
 var inputSchemaEmpty json.RawMessage = json.RawMessage(`{"type":"object","properties":{}}`)
 
@@ -15,8 +19,8 @@ type ToolDescription []string
 type ToolDefinition struct {
 	Title        string          `json:"title"`
 	Description  ToolDescription `json:"description"`
-	InputSchema  json.RawMessage `json:"input_schema,omitempty"`
-	OutputSchema json.RawMessage `json:"output_schema,omitempty"`
+	InputSchema  json.RawMessage `json:"inputSchema,omitempty"`
+	OutputSchema json.RawMessage `json:"outputSchema,omitempty"`
 }
 
 func (d *ToolDescription) UnmarshalJSON(data []byte) error {
@@ -50,27 +54,46 @@ func (d *ToolDefinition) GetOutputSchema() json.RawMessage {
 	return d.OutputSchema
 }
 
-var GetDefaultTools = sync.OnceValue(func() map[string]ToolDefinition {
-	tools, err := loadDefaultTools()
+var GetDefaultRemoteToolDefinitions = sync.OnceValue(func() map[string]*ToolDefinition {
+	tools, err := loadDefaultRemoteTools()
 	if err != nil {
 		panic(err)
 	}
 	return tools
 })
 
-func loadDefaultTools() (map[string]ToolDefinition, error) {
-	b, err := godai.AddonFS.ReadFile("addons/godai/tools/default_tools.json")
+var GetLocalToolDefinitions = sync.OnceValue(func() map[string]*ToolDefinition {
+	tools, err := loadLocalTools()
 	if err != nil {
-		return nil, fmt.Errorf("unable to read default_tools.json: %w", err)
+		panic(err)
 	}
+	return tools
+})
 
+func loadToolsJSON(b []byte) (map[string]*ToolDefinition, error) {
 	var data struct {
-		Schema string                    `json:"$schema"`
-		Tools  map[string]ToolDefinition `json:"tools"`
+		Schema string                     `json:"$schema"`
+		Tools  map[string]*ToolDefinition `json:"tools"`
 	}
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, fmt.Errorf("unable to parse default_tools.json: %w", err)
 	}
 
 	return data.Tools, nil
+}
+
+func loadDefaultRemoteTools() (map[string]*ToolDefinition, error) {
+	b, err := godai.AddonFS.ReadFile("addons/godai/tools/default_tools.json")
+	if err != nil {
+		return nil, fmt.Errorf("unable to read default_tools.json from Godot addon: %w", err)
+	}
+	return loadToolsJSON(b)
+}
+
+func loadLocalTools() (map[string]*ToolDefinition, error) {
+	b, err := toolsFS.ReadFile("local_tools.json")
+	if err != nil {
+		return nil, fmt.Errorf("unable to read local_tools.json: %w", err)
+	}
+	return loadToolsJSON(b)
 }

@@ -235,7 +235,7 @@ func _on_request_completed(p_result: int, p_code: int, p_headers: PackedStringAr
 					tool_results.push_back(MessageContent.from_dict({
 						type = "tool_result",
 						tool_use_id = tool_id,
-						content = tool_result.content,
+						content = tool_result.get_content_as_string(),
 					}))
 
 			if tool_results.size() > 0:

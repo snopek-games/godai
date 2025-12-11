@@ -15,14 +15,20 @@ func setup_tool_info(p_id: String, p_name: String, p_input, p_output = null) -> 
 	tool_name_field.text = p_name
 	tool_input_field.text = _to_json(p_input)
 
-	if p_output != null and p_output != "":
+	if p_output != null:
 		update_output(p_output)
 	else:
 		tool_output_field.text = ""
 
 
 func update_output(p_output) -> void:
-	var data = JSON.parse_string(p_output) if p_output is String else p_output
+	var data
+	if p_output is String:
+		if p_output != "":
+			data = JSON.parse_string(p_output)
+	else:
+		data = p_output
+
 	tool_output_field.text = _to_json(data)
 
 

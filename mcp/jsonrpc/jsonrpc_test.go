@@ -201,7 +201,7 @@ func TestSpec(t *testing.T) {
 
 			is := is.New(t)
 
-			ctx := context.TODO()
+			ctx := context.Background()
 
 			resp, err := d.Handle(ctx, []byte(tc.input))
 			is.NoErr(err)

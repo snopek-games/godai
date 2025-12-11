@@ -89,6 +89,6 @@ func (d *Dispatcher) handleOne(ctx context.Context, req Request) *Response {
 		return resp
 	}
 
-	resp.Result = result
+	resp.SetResult(result)
 	return resp
 }

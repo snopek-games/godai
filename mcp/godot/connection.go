@@ -1,4 +1,4 @@
-package editor
+package godot
 
 import (
 	"context"
@@ -34,6 +34,10 @@ func NewConnection(ws *websocket.Conn, port int) *Connection {
 		pendingResponses: map[int]chan *jsonrpc.Response{},
 		doneCh:           make(chan struct{}),
 	}
+}
+
+func (c *Connection) GetPort() int {
+	return c.port
 }
 
 func (c *Connection) Run() error {
@@ -120,9 +124,15 @@ func (c *Connection) CallMethod(ctx context.Context, name string, rawParams any)
 }
 
 func (c *Connection) SendNotification(ctx context.Context, name string, rawParams any) error {
-	params, err := json.Marshal(rawParams)
-	if err != nil {
-		return err
+	var params []byte
+	if rawParams == nil {
+		params = []byte("{}")
+	} else {
+		var err error
+		params, err = json.Marshal(rawParams)
+		if err != nil {
+			return err
+		}
 	}
 
 	req := jsonrpc.NewRequest("", name, params)

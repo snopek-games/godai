@@ -21,10 +21,10 @@
 							"type": "string"
 						}
 					},
-					"input_schema": {
+					"inputSchema": {
 						"$ref": "https://json-schema.org/draft/2020-12/schema"
 					},
-					"output_schema": {
+					"outputSchema": {
 						"$ref": "https://json-schema.org/draft/2020-12/schema"
 					}
 				},

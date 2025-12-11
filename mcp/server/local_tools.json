@@ -1,0 +1,47 @@
+{
+	"$schema": "../../addons/godai/tools/default_tools.schema.json",
+	"tools": {
+		"list_projects": {
+			"title": "List Godot projects",
+			"description": "Lists Godot projects in the default project base path and those registered with the project manager"
+		},
+		"open_godot_project": {
+			"title": "Open Godot project",
+			"description": [
+				"Opens a Godot project in a new Godot editor instance",
+				"",
+				"After calling this tool, all subsequent tools will run in the context of this Godot editor instance. There's no need to use `switch_to_project` afterward.",
+				"If the project is already open in a Godot editor, it will switch to it, as if using `switch_to_project`."
+			],
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"project_path": {
+						"type": "string"
+					}
+				}
+			}
+		},
+		"list_open_projects": {
+			"title": "List open Godot projects",
+			"description": "Lists the projects currently open in each Godot editor instance"
+		},
+		"switch_to_project": {
+			"title": "Switch to Godot project",
+			"description": [
+				"Switches to using the Godot editor instance which has the given project open.",
+				"",
+				"After calling this tool, all subsequent tools will run in the context of this Godot editor instance.",
+				"Can only switch to projects that are currently open: use `list_open_projects` to see which are open, or `open_godot_project` to open a new one."
+			],
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"project_path": {
+						"type": "string"
+					}
+				}
+			}
+		}
+	}
+}

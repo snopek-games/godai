@@ -12,7 +12,8 @@ const ToolChatScene = preload("res://addons/godai/ui/tool_chat.tscn")
 const ErrorChatScene = preload("res://addons/godai/ui/error_chat.tscn")
 
 const ANTHROPIC_API_KEY_SETTING = "godai/anthropic_api_key"
-const MCP_SERVER_PORT = 9080
+const MCP_SERVER_BASE_PORT = 12120
+const MCP_SERVER_PORT_COUNT = 10
 
 @onready var mcp_status_label: Label = %MCPStatusLabel
 @onready var start_mcp_button: Button = %StartMCPButton
@@ -135,8 +136,8 @@ func _update_mcp_status_bar() -> void:
 
 func _start_mcp() -> void:
 	# @todo Make the transport configurable
-	mcp_server.start_server(MCP_SERVER_PORT, MCPServer.Transport.WEBSOCKET)
-	#mcp_server.start_server(MCP_SERVER_PORT, MCPServer.Transport.HTTP)
+	mcp_server.start_server(MCP_SERVER_BASE_PORT, MCP_SERVER_PORT_COUNT, MCPServer.Transport.WEBSOCKET)
+	#mcp_server.start_server(MCP_SERVER_BASE_PORT, MCP_SERVER_PORT_COUNT, MCPServer.Transport.HTTP)
 
 
 func _on_start_mcp_button_pressed() -> void:

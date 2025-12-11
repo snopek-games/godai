@@ -1,6 +1,15 @@
 {
 	"$schema": "./default_tools.schema.json",
 	"tools": {
+		"get_current_project": {
+			"title": "Get Current Project",
+			"description": [
+				"Gets information about the project that is currently opened in the Godot editor.",
+				"",
+				"Returns:",
+				" - project_path: The path to the current project"
+			]
+		},
 		"get_current_scene": {
 			"title": "Get Current Scene",
 			"description": [
@@ -35,7 +44,7 @@
 				"Returns an object with properties for each node specified by node path, containing another object with the property values of that object.",
 				"The property values are converted to a JSON string using Godot's `var_to_str()` function."
 			],
-			"input_schema": {
+			"inputSchema": {
 				"type": "object",
 				"properties": {
 					"node_paths": {
@@ -59,7 +68,7 @@
 				"Returns an object with properties for each node path, containing true if we were able to find the node; otherwise, false or missing.",
 				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
 			],
-			"input_schema": {
+			"inputSchema": {
 				"type": "object",
 				"properties": {
 					"action": {
@@ -97,7 +106,7 @@
 				"Returns true if successful; otherwise false",
 				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
 			],
-			"input_schema": {
+			"inputSchema": {
 				"type": "object",
 				"properties": {
 					"parent_path": {
@@ -122,7 +131,7 @@
 		"node_remove": {
 			"title": "Remove Node",
 			"description": "Removes the given node (and all its children) from the current scene",
-			"input_schema": {
+			"inputSchema": {
 				"type": "object",
 				"properties": {
 					"node_path": {
@@ -150,7 +159,7 @@
 				"If you are using `EditorUndoRedoManager` to add or remove a node, you MUST call one of those helper methods before calling `commit_action()`. This will add some `add_do_method()` and `add_undo_method()` calls to ensure the changes are synchronized to the live game if the game is running.",
 				"If the script successfully runs, the output from `print()` will be returned."
 			],
-			"input_schema": {
+			"inputSchema": {
 				"type": "object",
 				"properties": {
 					"code": {

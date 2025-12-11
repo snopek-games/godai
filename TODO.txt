@@ -1,14 +1,17 @@
 TODO
 ====
 
-- MCP: Add local commands for launching Godot and listing projects
-  - Allow to connect to multiple editors at once and switch between them
-  - Install the addon for projects that don't already have it
-- MCP: Add functional tests to verify WebSocket behavior in several edge cases (disconnect, etc)
-- MCP: Make the default_tools.json more closely follow the schema of "tools/list" return value?
 - MCP: Add `outputSchema` to all tools in default_tools.json
-- MCP: Clean-up gracefully when app is terminated via signal
-  - Cancel the `bufio.Scanner` loop somehow
+- MCP: Add a command for creating a new project
+- MCP: Gracefully handle unconfigured Godot path and project base path, and allow users to update them via tools
+- MCP: Add a "restart editor" command (should prompt the user to save and wait for the editor to come back)
+- MCP: Consider requiring the project path to always be specified?
+- Addon: Prevent export from including the addon (via export plugin)
+- Addon: Return actionable errors to the AI when possible
+- Addon: Improve validation on editor scripts
+  - Check for mixed tabs and spaces
+  - Check if the AI is using the UndoRedoManager
+  - Use logger to really capture the errors for the AI
 - Addon: Make MCP transport configurable (editor settings first, but eventually the panel too?)
 - Addon: Add system prompt
 - Addon: Add a way to cancel a request

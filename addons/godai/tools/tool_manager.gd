@@ -18,25 +18,18 @@ class ToolResult extends RefCounted:
 		content = p_content
 		completed.emit(content)
 
-	func resolve_json(p_content) -> void:
-		var content = p_content
-		if not content is String:
-			content = JSON.stringify(content)
-		return resolve(content)
-
 	func is_done() -> bool:
 		return _done
+
+	func get_content_as_string() -> String:
+		if content is String:
+			return content
+		return JSON.stringify(content)
 
 	static func resolved(p_content) -> ToolResult:
 		var result := ToolResult.new()
 		result.resolve(p_content)
 		return result
-
-	static func resolved_json(p_content) -> ToolResult:
-		var result := ToolResult.new()
-		result.resolve_json(p_content)
-		return result
-
 
 @abstract
 class Tool extends RefCounted:

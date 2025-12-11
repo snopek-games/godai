@@ -39,6 +39,8 @@ class Peer extends RefCounted:
 
 var _tcp_server: TCPServer
 var _peers: Dictionary[int, Peer]
+var _base_port: int
+var _port_count: int
 var _port: int
 var _server_state: ServerState = ServerState.STOPPED
 var _transport: Transport = Transport.WEBSOCKET
@@ -88,19 +90,34 @@ func get_client_info() -> Dictionary:
 	return _client_info
 
 
-func start_server(p_port: int, p_transport: Transport) -> Error:
+func start_server(p_base_port: int, p_port_count: int, p_transport: Transport) -> Error:
 	if _server_state in [ServerState.STARTED, ServerState.STOPPING]:
 		return ERR_ALREADY_IN_USE
 
-	_port = p_port
+	_base_port = p_base_port
+	_port_count = p_port_count
+	_port = 0
 	_transport = p_transport
-
 	_tcp_server = TCPServer.new()
-	var err = _tcp_server.listen(_port)
+
+	var err = _try_tcp_server_listen()
 	set_process(err == OK)
 	_server_state = ServerState.STARTED if err == OK else ServerState.ERROR
 	server_state_changed.emit(_server_state)
 	return err
+
+
+func _try_tcp_server_listen() -> Error:
+	var err: Error
+	for port in range(_base_port, _base_port + _port_count):
+		err = _tcp_server.listen(port, "127.0.0.1")
+		if err == OK:
+			_port = port
+			return OK
+		elif err != ERR_ALREADY_IN_USE:
+			return err
+
+	return ERR_ALREADY_IN_USE
 
 
 func stop_server(p_force: bool = false) -> void:
@@ -230,8 +247,12 @@ func _process(_delta) -> void:
 		peer.tcp_peer = _tcp_server.take_connection()
 
 		if _transport == Transport.WEBSOCKET:
-			peer.websocket_peer = WebSocketPeer.new()
-			peer.websocket_peer.accept_stream(peer.tcp_peer)
+			var ws := WebSocketPeer.new()
+			# @todo Should this be configurable?
+			# 2mb outbound buffer.
+			ws.outbound_buffer_size = 1024 * 1024 * 2
+			ws.accept_stream(peer.tcp_peer)
+			peer.websocket_peer = ws
 
 		_add_peer(peer)
 
@@ -270,10 +291,6 @@ func _add_peer(p_peer: Peer) -> void:
 	#print("Add peer: ", p_peer.peer_id)
 	_peers[p_peer.peer_id] = p_peer
 
-	# With WebSockets, we only allow one connection, so stop listening.
-	if _transport == Transport.WEBSOCKET:
-		_tcp_server.stop()
-
 
 func _remove_peer(p_peer: Peer) -> void:
 	#print("Remove peer: ", p_peer.peer_id)
@@ -285,13 +302,6 @@ func _remove_peer(p_peer: Peer) -> void:
 		_client_info = {}
 		_client_state = ClientState.NOT_CONNECTED
 		client_state_changed.emit(_client_state)
-
-		# With WebSockets, we stop listening once we have once connection,
-		# so we need to start listening again once they disconnect.
-		if _server_state == ServerState.STARTED:
-			var err = _tcp_server.listen(_port)
-			if err != OK:
-				stop_server()
 
 
 func _process_http_peers() -> void:

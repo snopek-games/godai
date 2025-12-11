@@ -9,6 +9,7 @@ const DEFAULT_TOOLS_JSON = "res://addons/godai/tools/default_tools.json"
 static func register(p_tools: ToolManager) -> void:
 	var data := _load_json_data()
 
+	p_tools.register_tool(ProjectGetCurrent.new(data["get_current_project"]))
 	p_tools.register_tool(SceneGetCurrent.new(data["get_current_scene"]))
 	p_tools.register_tool(SceneGetTree.new(data["get_current_scene_tree"]))
 	p_tools.register_tool(NodeGetProperties.new(data["get_node_properties"]))
@@ -44,7 +45,15 @@ class DefaultTool extends ToolManager.Tool:
 		else:
 			description = raw_desc
 
-		input_schema = p_data.get("input_schema", ToolManager.INPUT_SCHEMA_EMPTY)
+		input_schema = p_data.get("inputSchema", ToolManager.INPUT_SCHEMA_EMPTY)
+
+
+class ProjectGetCurrent extends DefaultTool:
+	func execute(p_input) -> ToolResult:
+		return ToolResult.resolved({
+			project_path = ProjectSettings.globalize_path("res://").simplify_path(),
+			project_name = ProjectSettings.get_setting("application/config/name"),
+		})
 
 
 class SceneGetCurrent extends DefaultTool:
@@ -52,7 +61,7 @@ class SceneGetCurrent extends DefaultTool:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
 		if not edited_scene_root:
-			return ToolResult.resolved_json({
+			return ToolResult.resolved({
 				scene_path = "",
 				root_node_type = "",
 				root_node_name = "",
@@ -62,7 +71,7 @@ class SceneGetCurrent extends DefaultTool:
 		if scene_path.is_empty():
 			scene_path = "[unsaved]"
 
-		return ToolResult.resolved_json({
+		return ToolResult.resolved({
 			scene_path = scene_path,
 			root_node_type = edited_scene_root.get_class(),
 			root_node_name = edited_scene_root.name,
@@ -96,9 +105,9 @@ class SceneGetTree extends DefaultTool:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
 		if not edited_scene_root:
-			return ToolResult.resolved_json({})
+			return ToolResult.resolved({})
 
-		return ToolResult.resolved_json(_get_node_structure(edited_scene_root, edited_scene_root))
+		return ToolResult.resolved(_get_node_structure(edited_scene_root, edited_scene_root))
 
 
 class NodeGetProperties extends DefaultTool:
@@ -106,7 +115,7 @@ class NodeGetProperties extends DefaultTool:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
 		if not edited_scene_root:
-			return ToolResult.resolved_json({})
+			return ToolResult.resolved({})
 
 		var node_paths: Array = p_input["node_paths"]
 		var results := {}
@@ -129,7 +138,7 @@ class NodeGetProperties extends DefaultTool:
 
 			results[node_path] = props
 
-		return ToolResult.resolved_json(results)
+		return ToolResult.resolved(results)
 
 
 class NodeSetProperties extends DefaultTool:
@@ -162,14 +171,14 @@ class NodeSetProperties extends DefaultTool:
 
 		undo_redo.commit_action()
 
-		return ToolResult.resolved_json(results)
+		return ToolResult.resolved(results)
 
 
 class NodeCreate extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.resolved_json(false)
+			return ToolResult.resolved(false)
 
 		var parent_path: String = p_input['parent_path']
 		var node_type: String = p_input['node_type']
@@ -177,11 +186,11 @@ class NodeCreate extends DefaultTool:
 
 		var parent = edited_scene_root.get_node_or_null(parent_path)
 		if not parent:
-			return ToolResult.resolved_json({ success = false })
+			return ToolResult.resolved({ success = false })
 
 		var node = ClassDB.instantiate(node_type)
 		if not node:
-			return ToolResult.resolved_json({ success = false })
+			return ToolResult.resolved({ success = false })
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
 		undo_redo.create_action("Create %s node (AI)" % node_type)
@@ -197,7 +206,7 @@ class NodeCreate extends DefaultTool:
 			undo_redo.add_do_property(node, prop_name, str_to_var(props[prop_name]))
 		undo_redo.commit_action()
 
-		return ToolResult.resolved_json({
+		return ToolResult.resolved({
 			success = true,
 			node_path = edited_scene_root.get_path_to(node),
 		})
@@ -207,16 +216,16 @@ class NodeRemove extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.resolved_json(false)
+			return ToolResult.resolved(false)
 
 		var node_path: String = p_input['node_path']
 
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:
-			return ToolResult.resolved_json({ success = false })
+			return ToolResult.resolved({ success = false })
 
 		if node == edited_scene_root:
-			return ToolResult.resolved_json({ success = false })
+			return ToolResult.resolved({ success = false })
 
 		var parent = node.get_parent()
 
@@ -232,7 +241,7 @@ class NodeRemove extends DefaultTool:
 
 		undo_redo.commit_action()
 
-		return ToolResult.resolved_json({
+		return ToolResult.resolved({
 			success = true,
 		})
 
@@ -266,7 +275,7 @@ class ClassDBGetClasses extends DefaultTool:
 
 			result.push_back(class_data)
 
-		return ToolResult.resolved_json(result)
+		return ToolResult.resolved({ classes = result })
 
 
 class EditorScriptExecute extends DefaultTool:
@@ -307,15 +316,15 @@ func __user_code() -> Error:
 	func execute(p_input) -> ToolResult:
 		var code = p_input['code']
 		if code.is_empty():
-			return ToolResult.resolved_json({error = "No code"})
+			return ToolResult.resolved({error = "No code"})
 
 		var main_loop = Engine.get_main_loop()
 		if not main_loop is SceneTree:
-			return ToolResult.resolved_json({error = "No scene tree"})
+			return ToolResult.resolved({error = "No scene tree"})
 
 		var root_node: Node = main_loop.get_root()
 		if not root_node:
-			return ToolResult.resolved_json({error = "No root node"})
+			return ToolResult.resolved({error = "No root node"})
 
 		var full_source = SCRIPT_TEMPLATE.replace('{user_code}', _process_user_code(code))
 
@@ -324,7 +333,7 @@ func __user_code() -> Error:
 
 		var script_error = script.reload()
 		if script_error != OK:
-			return ToolResult.resolved_json({error = "Script failed to parse"})
+			return ToolResult.resolved({error = "Script failed to parse"})
 
 		var script_node = Node.new()
 		script_node.name = "EditorScriptNode"
@@ -333,7 +342,7 @@ func __user_code() -> Error:
 
 		if not script_node.has_method("__run") or not script_node.has_signal("__run_completed"):
 			script_node.queue_free()
-			return ToolResult.resolved_json({error = "Script parsed but is malformed"})
+			return ToolResult.resolved({error = "Script parsed but is malformed"})
 
 		var result := ToolResult.new()
 
@@ -380,8 +389,8 @@ func __user_code() -> Error:
 
 	func _on_run_completed(p_success: bool, p_output: PackedStringArray, p_script_node: Node, p_result: ToolResult) -> void:
 		if p_success:
-			p_result.resolve_json({success = true, output = p_output})
+			p_result.resolve({success = true, output = p_output})
 		else:
-			p_result.resolve_json({error = "Failed to execute script"})
+			p_result.resolve({error = "Failed to execute script"})
 
 		p_script_node.queue_free()

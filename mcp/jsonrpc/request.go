@@ -44,16 +44,16 @@ func (r *Request) HasValidId() bool {
 }
 
 type Error struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
+	Code    int             `json:"code"`
+	Message string          `json:"message"`
+	Data    json.RawMessage `json:"data,omitempty"`
 }
 
 type ResponseResult any
 
 type Response struct {
 	JSONRPC string          `json:"jsonrpc"`
-	Result  any             `json:"result,omitempty"`
+	Result  json.RawMessage `json:"result,omitempty"`
 	Error   *Error          `json:"error,omitempty"`
 	ID      json.RawMessage `json:"id"`
 }
@@ -68,11 +68,23 @@ const (
 	ServerErrorMaxCode      = -32099
 )
 
+func jsonMarshalUnchecked(data any) []byte {
+	b, err := json.Marshal(data)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
 func NewError(code int, msg string, data any) *Error {
+	var jsonData json.RawMessage
+	if data != nil {
+		jsonData = json.RawMessage(jsonMarshalUnchecked(data))
+	}
 	return &Error{
 		Code:    code,
 		Message: msg,
-		Data:    data,
+		Data:    jsonData,
 	}
 }
 
@@ -84,6 +96,10 @@ func NewResponse(id json.RawMessage) *Response {
 		JSONRPC: "2.0",
 		ID:      id,
 	}
+}
+
+func (r *Response) SetResult(data any) {
+	r.Result = jsonMarshalUnchecked(data)
 }
 
 func NewErrorResponse(id json.RawMessage, rpcError *Error) *Response {
