@@ -350,7 +350,7 @@ func TestWriteTag(t *testing.T) {
 	cases := []struct {
 		name    string
 		tagName string
-		fields  map[string]any
+		fields  OrderedMap[string, any]
 		output  string
 	}{
 		{
@@ -362,9 +362,9 @@ func TestWriteTag(t *testing.T) {
 		{
 			"WithFields",
 			"complextag",
-			map[string]any{
-				"field1": 27,
-				"field2": "hello",
+			OrderedMap[string, any]{
+				{"field1", 27},
+				{"field2", "hello"},
 			},
 			"[complextag field1=27 field2=\"hello\"]\n",
 		},

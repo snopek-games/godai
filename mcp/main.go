@@ -29,7 +29,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:  "project-path",
-				Usage: "base path where Godot projects usually live",
+				Usage: "base path where your Godot projects usually live",
 			},
 			&cli.IntFlag{
 				Name:  "editor-base-port",
@@ -55,6 +55,7 @@ func main() {
 				Name:    "x11-display",
 				Usage:   "the x11 DISPLAY variable (may be needed on Linux to launch the editor)",
 				Sources: cli.EnvVars("DISPLAY"),
+				Value:   ":0",
 			},
 			&cli.StringFlag{
 				Name:  "log-file",

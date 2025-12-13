@@ -1,0 +1,66 @@
+{
+  "manifest_version": "0.2",
+  "name": "godai-mcp",
+  "display_name": "Godai MCP for Godot Engine integration",
+  "version": "0.1.0",
+  "description": "Integration with the Godot Engine",
+  "author": {
+    "name": "David Snopek",
+    "email": "david.snopek@snopekgames.com"
+  },
+  "homepage": "https://gitlab.com/snopek-games/godai",
+  "server": {
+    "type": "binary",
+    "entry_point": "server/godai-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/server/godai-mcp-linux-x86_64",
+      "args": [
+        "--godot-path", "${user_config.godot_path}",
+        "--project-path", "${user_config.project_path}",
+        "--x11-display", "${user_config.x11_display}"
+      ],
+      "platform_overrides": {
+        "win32": {
+          "command": "${__dirname}/server/godai-mcp-windows-x86_64.exe"
+        },
+        "darwin": {
+          "command": "${__dirname}/server/godai-mcp-macos-arm64"
+        }
+      }
+    }
+  },
+  "user_config": {
+    "godot_path": {
+      "type": "file",
+      "title": "Path to Godot executable",
+      "description": "The full path to the Godot 4 executable on your system",
+      "required": false,
+      "sensitive": false
+    },
+    "project_path": {
+      "type": "directory",
+      "title": "Project path",
+      "description": "The base path where your Godot projects usually live",
+      "required": false,
+      "sensitive": false
+    },
+    "x11_display": {
+      "type": "string",
+      "title": "X11 Display",
+      "description": "The X11 DISPLAY variable (Linux only)",
+      "required": false,
+      "default": ":0"
+    }
+  },
+  "tools_generated": true,
+  "keywords": [
+    "godot",
+    "game development",
+    "gamedev"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/snopek-games/godai"
+  }
+}

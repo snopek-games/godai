@@ -841,27 +841,30 @@ func TestParseStatementComplexTag(t *testing.T) {
 		{
 			"Simple",
 			`[tag]`,
-			Statement{StatementTypeTag, "tag", map[string]any{}},
+			Statement{StatementTypeTag, "tag", OrderedMap[string, any]{}},
 		},
 		{
 			"Periods",
 			`[tag.with.periods]`,
-			Statement{StatementTypeTag, "tag.with.periods", map[string]any{}},
+			Statement{StatementTypeTag, "tag.with.periods", OrderedMap[string, any]{}},
 		},
 		{
 			"Colons",
 			`[tag:with:colons]`,
-			Statement{StatementTypeTag, "tag:with:colons", map[string]any{}},
+			Statement{StatementTypeTag, "tag:with:colons", OrderedMap[string, any]{}},
 		},
 		{
 			"PeriodsAndColons",
 			`[tag:with.both]`,
-			Statement{StatementTypeTag, "tag:with.both", map[string]any{}},
+			Statement{StatementTypeTag, "tag:with.both", OrderedMap[string, any]{}},
 		},
 		{
 			"Fields",
 			`[tag value=true other="thing"]`,
-			Statement{StatementTypeTag, "tag", map[string]any{"value": true, "other": "thing"}},
+			Statement{StatementTypeTag, "tag", OrderedMap[string, any]{
+				{"value", true},
+				{"other", "thing"},
+			}},
 		},
 	}
 

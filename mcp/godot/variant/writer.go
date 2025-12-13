@@ -52,7 +52,7 @@ func (w *Writer) WriteComment(s string) error {
 	return nil
 }
 
-func (w *Writer) WriteTag(name string, fields map[string]any) error {
+func (w *Writer) WriteTag(name string, fields OrderedMap[string, any]) error {
 	if _, err := w.w.WriteRune('['); err != nil {
 		return err
 	}
@@ -60,17 +60,17 @@ func (w *Writer) WriteTag(name string, fields map[string]any) error {
 		return err
 	}
 	if len(fields) > 0 {
-		for k, v := range fields {
+		for _, kv := range fields {
 			if _, err := w.w.WriteRune(' '); err != nil {
 				return err
 			}
-			if _, err := w.w.WriteString(k); err != nil {
+			if _, err := w.w.WriteString(kv.Key); err != nil {
 				return err
 			}
 			if _, err := w.w.WriteRune('='); err != nil {
 				return err
 			}
-			if err := w.writeValueInternal(v); err != nil {
+			if err := w.writeValueInternal(kv.Value); err != nil {
 				return err
 			}
 		}

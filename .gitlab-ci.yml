@@ -1,0 +1,133 @@
+stages:
+  - test
+  - build
+  - package
+  - release
+
+variables:
+  MCP_MAIN_PKG: "./mcp/"
+  MCP_APP_NAME: "godai-mcp"
+  GO_VERSION: "1.25.3"
+  GOPATH: "$CI_PROJECT_DIR/.go"
+  GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
+  CGO_ENABLED: "0"
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/release-packages/${CI_COMMIT_TAG}"
+cache:
+  key: "go-${CI_COMMIT_REF_SLUG}"
+  paths:
+    - .go/pkg/mod/
+    - .cache/go-build/
+
+mcp-test:
+  stage: test
+  image: golang:${GO_VERSION}
+  script:
+    - go version
+    - go env
+    - go test ./...
+
+mcp-build:
+  stage: build
+  image: golang:${GO_VERSION}
+  parallel:
+    matrix:
+      - VARIANT: "linux-x86_64"
+        GOOS: "linux"
+        GOARCH: "amd64"
+        EXT: ""
+      - VARIANT: "windows-x86_64"
+        GOOS: "windows"
+        GOARCH: "amd64"
+        EXT: ".exe"
+      - VARIANT: "macos-arm64"
+        GOOS: "darwin"
+        GOARCH: "arm64"
+        EXT: ""
+  script:
+    - mkdir -p dist/mcp/${MCP_APP_NAME}-${GOOS}-${GOARCH}
+
+    - echo "Building for GOOS=$GOOS GOARCH=$GOARCH"
+    - GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags="-s -w" -o "dist/mcp/${MCP_APP_NAME}-${VARIANT}/${MCP_APP_NAME}-${VARIANT}${EXT}" "$MCP_MAIN_PKG"
+    # @todo Have MCP-specific README?
+    - cp README.md LICENSE.txt dist/mcp/${MCP_APP_NAME}-${GOOS}-${GOARCH}
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - dist/mcp/
+
+mcp-package-bundle:
+  stage: package
+  image: node:current
+  before_script:
+    - npm install -g @anthropic-ai/mcpb
+  script:
+    - mkdir -p bundle/server
+    - mkdir -p dist/mcpb
+
+    - cp dist/mcp/*/godai-mcp-* bundle/server/
+    - (cd bundle && mcpb pack)
+
+    - cp bundle/bundle.mcpb dist/mcpb/godai-mcp.mcpb
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - dist/mcpb/
+
+release:
+  stage: release
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+  image: registry.gitlab.com/gitlab-org/cli:latest
+  before_script:
+    - apk update
+    - apk add curl zip
+  script:
+    - mkdir -p dist/release/
+
+    # Upload the addon.
+    - |
+      PKG_FN=godai-addon-${CI_COMMIT_TAG}.zip
+      zip -r dist/release/$PKG_FN addons/godai/
+      cd dist/release
+      echo curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file $PKG_FN ${PACKAGE_REGISTRY_URL}/$PKG_FN
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file $PKG_FN ${PACKAGE_REGISTRY_URL}/$PKG_FN
+      cd ../..
+
+
+    # Upload the individual MCP builds.
+    - |
+      cd dist/mcp
+      for d in *; do
+        PKG_DIR=$d-${CI_COMMIT_TAG}
+        PKG_FN=${PKG_DIR}.zip
+
+        mv $d $PKG_DIR
+        zip -r ../release/$PKG_FN $PKG_DIR
+
+        (cd ../release && curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file $PKG_FN ${PACKAGE_REGISTRY_URL}/$PKG_FN)
+      done
+      cd ../..
+
+    # Upload the MCP bundle.
+    - |
+      PKG_FN=godai-mcp-${CI_COMMIT_TAG}.mcpb
+      cp dist/mcpb/godai-mcp.mcpb dist/release/$PKG_FN
+      (cd dist/release && curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file $PKG_FN ${PACKAGE_REGISTRY_URL}/$PKG_FN)
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: "Release $CI_COMMIT_TAG"
+    description: "Release $CI_COMMIT_TAG"
+    assets:
+      links:
+        - name: "${MCP_APP_NAME}-windows-x86_64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-windows-x86_64-${CI_COMMIT_TAG}.zip"
+        - name: "${MCP_APP_NAME}-linux-x86_64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-linux-x86_64-${CI_COMMIT_TAG}.zip"
+        - name: "${MCP_APP_NAME}-macos-arm64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-macos-arm64-${CI_COMMIT_TAG}.zip"
+        - name: "${MCP_APP_NAME}-${CI_COMMIT_TAG}.mcpb"
+          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-${CI_COMMIT_TAG}.mcpb"
+        - name: "godai-addon.zip"
+          url: "${PACKAGE_REGISTRY_URL}/godai-addon-${CI_COMMIT_TAG}.zip"

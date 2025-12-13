@@ -153,7 +153,7 @@ func (p *Parser) parseStatementInternal() (Statement, error) {
 			p.r.UnreadRune()
 
 			var s string
-			var fields map[string]any
+			var fields OrderedMap[string, any]
 			if p.simpleTag {
 				s, err = p.parseSimpleTag()
 			} else {
@@ -224,7 +224,7 @@ func (p *Parser) parseSimpleTag() (string, error) {
 	return p.popString(), nil
 }
 
-func (p *Parser) parseTag() (string, map[string]any, error) {
+func (p *Parser) parseTag() (string, OrderedMap[string, any], error) {
 	t, err := p.getToken()
 	if err != nil {
 		return "", nil, err
@@ -245,7 +245,7 @@ func (p *Parser) parseTag() (string, map[string]any, error) {
 	tmpbuf.WriteString(t.Value.(string))
 
 	parsingName := true
-	fields := make(map[string]any)
+	fields := OrderedMap[string, any]{}
 
 	for {
 		t, err = p.getToken()
@@ -296,7 +296,7 @@ func (p *Parser) parseTag() (string, map[string]any, error) {
 			return "", nil, err
 		}
 
-		fields[s] = v
+		fields.Set(s, v)
 	}
 
 	return tmpbuf.String(), fields, nil

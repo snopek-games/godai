@@ -1,17 +1,28 @@
 TODO
 ====
 
-- MCP: Add `outputSchema` to all tools in default_tools.json
-- MCP: Add a command for creating a new project
-- MCP: Gracefully handle unconfigured Godot path and project base path, and allow users to update them via tools
-- MCP: Add a "restart editor" command (should prompt the user to save and wait for the editor to come back)
-- MCP: Consider requiring the project path to always be specified?
+Version 0.1.0
+-------------
+
 - Addon: Prevent export from including the addon (via export plugin)
+- MCP: Ensure the tool descriptions are making it to Claude (it seems to ignore advice around editor scripts)
+- MCP: Gracefully handle unconfigured Godot path and project base path, and allow users to update them via tools
+- MCP: Consider requiring the project path to always be specified?
+- MCP: Add a command for creating a new project
 - Addon: Return actionable errors to the AI when possible
+  - Use `isError` when acting as MCP and custom format with tools API
 - Addon: Improve validation on editor scripts
   - Check for mixed tabs and spaces
   - Check if the AI is using the UndoRedoManager
   - Use logger to really capture the errors for the AI
+- Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
+- Initial public release
+
+Backlog
+-------
+
+- MCP: Add `outputSchema` to all tools in default_tools.json
+- MCP: Add a "restart editor" command (should prompt the user to save and wait for the editor to come back)
 - Addon: Make MCP transport configurable (editor settings first, but eventually the panel too?)
 - Addon: Add system prompt
 - Addon: Add a way to cancel a request
@@ -27,6 +38,9 @@ TODO
 - Tool: Enable richer format for settings properties (affects a number of tools)
 - Tool: List class properties in (from ClassDB)
 - Tool: List node properties (from a specific Node in the scene)
+- Add to Godot assetlib
+- Add to Claude directory
+  - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
 - Tool: Get class documentation
   - Depends on https://github.com/godotengine/godot/pull/112628
 - Addon: Allow editor plugins to register custom tools for a particular project
