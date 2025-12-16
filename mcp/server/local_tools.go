@@ -24,6 +24,8 @@ func (s *Server) setupLocalTools() {
 	s.addLocalTool("open_godot_project", s.toolOpenGodotProject)
 	s.addLocalTool("list_open_projects", s.toolListOpenProjects)
 	s.addLocalTool("switch_to_project", s.toolSwitchToProject)
+	s.addLocalTool("get_mcp_configuration", s.toolGetMcpConfiguration)
+	s.addLocalTool("set_mcp_configuration", s.toolSetMcpConfiguration)
 }
 
 func (s *Server) addLocalTool(name string, handler ToolHandler) {
@@ -54,19 +56,152 @@ func (s *Server) addLocalToolOverride(name string, handler ToolHandler) {
 	}
 }
 
+// See note on sendRequestToClient() which this function uses.
+func (s *Server) elicitClient(message string, requestedSchema map[string]any) (map[string]any, error) {
+	params := struct {
+		Mode            string         `json:"mode"`
+		Message         string         `json:"message"`
+		RequestedSchema map[string]any `json:"requestedSchema"`
+	}{
+		Mode:            "form",
+		Message:         message,
+		RequestedSchema: requestedSchema,
+	}
+
+	resp, err := s.sendRequestToClient("elicitation/create", params)
+	if err != nil {
+		return nil, err
+	}
+
+	var result struct {
+		Action  string `json:"action"`
+		Content map[string]any
+	}
+
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, err
+	}
+
+	if result.Action != "accept" {
+		return nil, fmt.Errorf("elicitation received action '%s'", result.Action)
+	}
+
+	return result.Content, nil
+}
+
+func (s *Server) getProjectBasePath() (string, error) {
+	if s.config.ProjectBasePath != "" {
+		return s.config.ProjectBasePath, nil
+	}
+
+	if s.clientInfo.capabilities.formElicitation {
+		result, err := s.elicitClient("Please provide the base path where your Godot projects usually live", map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"project_path": map[string]any{
+					"type":        "string",
+					"description": "The base path where your Godot projects usually live",
+				},
+			},
+		})
+		if err == nil {
+			path, ok := result["project_path"]
+			if ok {
+				pathStr, ok := path.(string)
+				if ok && pathStr != "" {
+					if canonicalPathStr, err := canonicalPath(pathStr); err == nil {
+						if err := ValidateDirectory(canonicalPathStr); err == nil {
+							s.config.ProjectBasePath = canonicalPathStr
+							if err := s.saveConfig(); err != nil {
+								slog.Error("error saving config", "error", err)
+							}
+
+							return canonicalPathStr, nil
+						}
+					} else {
+						slog.Error("unable to get canonical path", "path", pathStr)
+					}
+				}
+			}
+			slog.Error("invalid project_path returned from elicitation", "result", result)
+		} else {
+			slog.Error("error eliciting project_path", "error", err)
+		}
+	}
+
+	return "", newUserVisibleError("the path where your Godot projects usually live is not configured or doesn't exist", nil, []string{
+		"Update the configuration for the Godai MCP in your MCP client to include the --project-path argument",
+		"Update the configuration for the Godai MCP using the `set_mcp_configuration` tool to set the `project_path`",
+	})
+}
+
+func (s *Server) getDefaultGodotPath() (string, error) {
+	if s.config.DefaultGodotPath != "" {
+		return s.config.DefaultGodotPath, nil
+	}
+
+	if s.clientInfo.capabilities.formElicitation {
+		result, err := s.elicitClient("Please provide the full path to the Godot 4 executable on your system", map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"godot_path": map[string]any{
+					"type":        "string",
+					"description": "The full path to the Godot 4 executable on your system",
+				},
+			},
+		})
+		if err == nil {
+			path, ok := result["godot_path"]
+			if ok {
+				pathStr, ok := path.(string)
+				if ok && pathStr != "" {
+					if canonicalPathStr, err := canonicalPath(pathStr); err == nil {
+						if err := ValidateGodotExecutable(canonicalPathStr); err == nil {
+							s.config.DefaultGodotPath = canonicalPathStr
+							if err := s.saveConfig(); err != nil {
+								slog.Error("error saving config", "error", err)
+							}
+
+							return canonicalPathStr, nil
+						}
+					} else {
+						slog.Error("unable to get canonical path", "path", pathStr)
+					}
+				}
+			}
+			slog.Error("invalid godot_path returned from elicitation", "result", result)
+		} else {
+			slog.Error("error eliciting godot_path", "error", err)
+		}
+	}
+
+	return "", newUserVisibleError("the path to the Godot 4 executable on your system is not configured or invalid", nil, []string{
+		"Update the configuration for the Godai MCP in your MCP client to include the --godot-path argument",
+		"Update the configuration for the Godai MCP using the `set_mcp_configuration` tool to set the `godot_path`",
+	})
+}
+
 func (s *Server) toolListProjects(ctx context.Context, rawParams json.RawMessage) (any, error) {
 	pathSet := map[string]struct{}{}
 
+	projectBasePath, err := s.getProjectBasePath()
+	if err != nil {
+		return nil, err
+	}
+
 	// List all the projects in the project base path.
-	if s.config.ProjectBasePath != "" {
-		entries, err := os.ReadDir(s.config.ProjectBasePath)
+	if projectBasePath != "" {
+		entries, err := os.ReadDir(projectBasePath)
 		if err != nil {
-			return nil, err
+			return nil, newUserVisibleError(fmt.Sprintf("unable to read project path: %s", projectBasePath), err, []string{
+				"Check the configuration for the Godai MCP in your MCP client and ensure the --project-path argument is correct",
+				"Check the configuration for the Godot MCP using the `get_mcp_configuration` tool and ensure the `project_path` is correct",
+			})
 		}
 
 		for _, entry := range entries {
 			if entry.IsDir() {
-				projectPath := filepath.Join(s.config.ProjectBasePath, entry.Name())
+				projectPath := filepath.Join(projectBasePath, entry.Name())
 				realProjectPath, err := canonicalPath(projectPath)
 				if err == nil {
 					pathSet[realProjectPath] = struct{}{}
@@ -77,14 +212,15 @@ func (s *Server) toolListProjects(ctx context.Context, rawParams json.RawMessage
 
 	// List all the projects in the project manager.
 	pml, err := godot.GetProjectManagerEntries()
-	if err != nil {
-		return nil, err
-	}
-	for _, e := range pml {
-		realProjectPath, err := canonicalPath(e.ProjectPath)
-		if err == nil {
-			pathSet[realProjectPath] = struct{}{}
+	if err == nil {
+		for _, e := range pml {
+			realProjectPath, err := canonicalPath(e.ProjectPath)
+			if err == nil {
+				pathSet[realProjectPath] = struct{}{}
+			}
 		}
+	} else {
+		slog.Error("error getting the project manager entries", "error", err)
 	}
 
 	type outProject struct {
@@ -326,25 +462,33 @@ func (s *Server) toolOpenGodotProject(ctx context.Context, rawParams json.RawMes
 	if !s.hasEditorForProject(realProjectPath) {
 		project, err := godot.ProjectFromPath(realProjectPath)
 		if err != nil {
-			return nil, fmt.Errorf("invalid project: %w", err)
+			return nil, newUserVisibleError("invalid project", err, nil)
+		}
+
+		defaultGodotPath, err := s.getDefaultGodotPath()
+		if err != nil {
+			return nil, err
 		}
 
 		err = installAddon(project, s.config.Debug)
 		if err != nil {
-			return nil, fmt.Errorf("unable to install godai addon: %w", err)
+			return nil, newUserVisibleError("unable to install godai addon", err, nil)
 		}
 
 		err = enableAddon(project)
 		if err != nil {
-			return nil, fmt.Errorf("unable to enable godai addon in project.godot file: %w", err)
+			return nil, newUserVisibleError("unable to enable godai addon in project.godot file", err, nil)
 		}
 
-		cmd := exec.Command(s.config.DefaultGodotPath, "--editor", "--path", realProjectPath)
+		cmd := exec.Command(defaultGodotPath, "--editor", "--path", realProjectPath)
 		env := os.Environ()
 		env = append(env, "DISPLAY="+s.config.X11Display)
 		cmd.Env = env
 		if err := cmd.Start(); err != nil {
-			return nil, err
+			return nil, newUserVisibleError("unable to execute godot", err, []string{
+				"Check the configuration for the Godai MCP in your MCP client and ensure the --godot-path argument is correct",
+				"Check the configuration for the Godot MCP using the `get_mcp_configuration` tool and ensure the `godot_path` is correct",
+			})
 		}
 
 		ctx2, cancel := context.WithTimeout(ctx, time.Second*30)
@@ -439,6 +583,58 @@ func (s *Server) toolSwitchToProject(ctx context.Context, rawParams json.RawMess
 	} else {
 		output.Error = "Project isn't currently open in any Godot editor instance"
 	}
+
+	return output, nil
+}
+
+func (s *Server) toolGetMcpConfiguration(ctx context.Context, rawParams json.RawMessage) (any, error) {
+	sc := &SavedConfig{
+		DefaultGodotPath: s.config.DefaultGodotPath,
+		ProjectBasePath:  s.config.ProjectBasePath,
+	}
+	return sc, nil
+}
+
+func (s *Server) toolSetMcpConfiguration(ctx context.Context, rawParams json.RawMessage) (any, error) {
+	sc := SavedConfig{}
+	if err := json.Unmarshal(rawParams, &sc); err != nil {
+		return nil, err
+	}
+
+	if sc.DefaultGodotPath != "" {
+		canonicalPath, err := canonicalPath(sc.DefaultGodotPath)
+		if err != nil {
+			return nil, newUserVisibleError("invalid godot_path - doesn't exist or isn't executable", err, nil)
+		}
+		sc.DefaultGodotPath = canonicalPath
+		if err := ValidateGodotExecutable(sc.DefaultGodotPath); err != nil {
+			return nil, newUserVisibleError("invalid godot_path - doesn't exist or isn't executable", err, nil)
+		}
+	}
+
+	if sc.ProjectBasePath != "" {
+		canonicalPath, err := canonicalPath(sc.ProjectBasePath)
+		if err != nil {
+			return nil, newUserVisibleError("invalid project_path", err, nil)
+		}
+		sc.ProjectBasePath = canonicalPath
+		if err := ValidateDirectory(sc.ProjectBasePath); err != nil {
+			return nil, newUserVisibleError("invalid project_path", err, nil)
+		}
+	}
+
+	s.config.DefaultGodotPath = sc.DefaultGodotPath
+	s.config.ProjectBasePath = sc.ProjectBasePath
+
+	err := s.saveConfig()
+	if err != nil {
+		slog.Error("unable to save config file", "error", err)
+	}
+
+	var output struct {
+		Success bool `json:"success"`
+	}
+	output.Success = true
 
 	return output, nil
 }

@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"godai/mcp/server"
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -18,6 +20,22 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	var defaultGodotPath string
+	var projectBasePath string
+
+	if path, err := exec.LookPath("godot"); err == nil {
+		defaultGodotPath = path
+	}
+
+	// @todo Allow overriding this via an environment variable
+	configPath, err := server.GetConfigPath()
+	if err == nil {
+		if sc, err := server.LoadConfig(configPath); err == nil {
+			defaultGodotPath = sc.DefaultGodotPath
+			projectBasePath = sc.ProjectBasePath
+		}
+	}
+
 	cmd := cli.Command{
 		Name:  "godai-mcp",
 		Usage: "MCP server for Godot",
@@ -25,11 +43,13 @@ func main() {
 			&cli.StringFlag{
 				Name:    "godot-path",
 				Usage:   "default path to the Godot executable",
+				Value:   defaultGodotPath,
 				Sources: cli.EnvVars("GODOT"),
 			},
 			&cli.StringFlag{
 				Name:  "project-path",
 				Usage: "base path where your Godot projects usually live",
+				Value: projectBasePath,
 			},
 			&cli.IntFlag{
 				Name:  "editor-base-port",
@@ -67,7 +87,9 @@ func main() {
 				Sources: cli.EnvVars("DEBUG"),
 			},
 		},
-		Action: runServer,
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			return runServer(ctx, cmd, configPath)
+		},
 	}
 
 	if err := cmd.Run(ctx, os.Args); err != nil {
@@ -80,7 +102,7 @@ func main() {
 	slog.Debug("exiting normally")
 }
 
-func runServer(ctx context.Context, cmd *cli.Command) error {
+func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 	config := &server.Config{
 		EditorBasePort:   cmd.Int("editor-base-port"),
 		EditorPortCount:  cmd.Int("editor-port-count"),
@@ -90,6 +112,7 @@ func runServer(ctx context.Context, cmd *cli.Command) error {
 		ProjectBasePath:  cmd.String("project-path"),
 		X11Display:       cmd.String("x11-display"),
 		Debug:            cmd.Bool("debug"),
+		SavedConfigPath:  configPath,
 	}
 
 	var output io.Writer
@@ -113,6 +136,18 @@ func runServer(ctx context.Context, cmd *cli.Command) error {
 		Level: logLevel,
 	}))
 	slog.SetDefault(logger)
+
+	if config.DefaultGodotPath != "" {
+		if err := server.ValidateGodotExecutable(config.DefaultGodotPath); err != nil {
+			return fmt.Errorf("invalid Godot path: %w", err)
+		}
+	}
+
+	if config.ProjectBasePath != "" {
+		if err := server.ValidateDirectory(config.ProjectBasePath); err != nil {
+			return fmt.Errorf("invalid project path: %w", err)
+		}
+	}
 
 	slog.Debug("server starting", "config", config)
 	s := server.NewServer(config)

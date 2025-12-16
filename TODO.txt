@@ -4,10 +4,7 @@ TODO
 Version 0.1.0
 -------------
 
-- Addon: Prevent export from including the addon (via export plugin)
-- MCP: Ensure the tool descriptions are making it to Claude (it seems to ignore advice around editor scripts)
-- MCP: Gracefully handle unconfigured Godot path and project base path, and allow users to update them via tools
-- MCP: Consider requiring the project path to always be specified?
+- MCP: Consider making the project path an input to every tool (rather than the whole "switching" thing)
 - MCP: Add a command for creating a new project
 - Addon: Return actionable errors to the AI when possible
   - Use `isError` when acting as MCP and custom format with tools API

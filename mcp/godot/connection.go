@@ -51,20 +51,20 @@ func (c *Connection) Run() error {
 	for {
 		var resp jsonrpc.Response
 		if err := c.ws.ReadJSON(&resp); err != nil {
-			slog.Error("read error", "port", c.port, "error", err)
+			slog.Error("read error from editor", "port", c.port, "error", err)
 			c.cleanUp()
 			return err
 		}
 
-		var idStr string
-		if err := json.Unmarshal(resp.ID, &idStr); err != nil {
-			slog.Error("unable to parse response ID", "port", c.port, "error", err)
+		idStr, ok := resp.GetID()
+		if !ok {
+			slog.Error("unable to parse response ID from editor", "id", string(resp.ID), "port", c.port)
 			continue
 		}
 
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			slog.Error("unable to parse response ID", "port", c.port, "error", err)
+			slog.Error("unable to parse response ID from editor", "id", idStr, "port", c.port, "error", err)
 			continue
 		}
 
@@ -111,15 +111,17 @@ func (c *Connection) CallMethod(ctx context.Context, name string, rawParams any)
 		return nil, err
 	}
 
-	select {
-	case resp := <-respCh:
-		return resp, nil
+	for {
+		select {
+		case resp := <-respCh:
+			return resp, nil
 
-	case <-ctx.Done():
-		c.requestMutex.Lock()
-		delete(c.pendingResponses, id)
-		c.requestMutex.Unlock()
-		return nil, ctx.Err()
+		case <-ctx.Done():
+			c.requestMutex.Lock()
+			delete(c.pendingResponses, id)
+			c.requestMutex.Unlock()
+			return nil, ctx.Err()
+		}
 	}
 }
 
@@ -147,14 +149,14 @@ func (c *Connection) pingLoop() {
 	for {
 		select {
 		case <-c.doneCh:
-			slog.Debug("stopping ping loop normally", "port", c.port)
+			slog.Debug("stopping editor ping loop normally", "port", c.port)
 			return
 		case <-ticker.C:
 		}
 
 		err := c.ws.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(time.Second))
 		if err != nil {
-			slog.Error("ping failed, stopping ping loop", "port", c.port, "error", err)
+			slog.Error("editor ping failed, stopping ping loop", "port", c.port, "error", err)
 			return
 		}
 	}

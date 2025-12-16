@@ -48,11 +48,11 @@ func (d *Dispatcher) Handle(ctx context.Context, data []byte) ([]byte, error) {
 	var responses []*Response
 
 	for _, req := range requests {
-		if !req.IsValidRequest() {
+		if !req.IsValid() {
 			responses = append(responses, NewErrorResponse(NullID(), newInvalidRequestError()))
 		} else {
-			resp := d.handleOne(ctx, req)
-			if req.HasValidId() {
+			resp := d.handleRequestInternal(ctx, &req)
+			if req.HasID() {
 				responses = append(responses, resp)
 			}
 		}
@@ -69,7 +69,14 @@ func (d *Dispatcher) Handle(ctx context.Context, data []byte) ([]byte, error) {
 	return json.Marshal(responses[0])
 }
 
-func (d *Dispatcher) handleOne(ctx context.Context, req Request) *Response {
+func (d *Dispatcher) HandleRequest(ctx context.Context, req *Request) *Response {
+	if !req.IsValid() {
+		return NewErrorResponse(NullID(), newInvalidRequestError())
+	}
+	return d.handleRequestInternal(ctx, req)
+}
+
+func (d *Dispatcher) handleRequestInternal(ctx context.Context, req *Request) *Response {
 	id := req.ID
 	if len(id) == 0 {
 		id = NullID()

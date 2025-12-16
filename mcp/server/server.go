@@ -11,7 +11,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -20,6 +22,8 @@ const ProtocolVersion string = "2025-06-18"
 
 // @todo Should we read this from the plugin.cfg?
 const GodaiVersion string = "0.1.0"
+
+const TooManyToolCallsErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode
 
 type appInfo struct {
 	Name    string `json:"name"`
@@ -124,11 +128,25 @@ type editorInfo struct {
 	Connection  *godot.Connection
 }
 
+type clientInfo struct {
+	appInfo         appInfo
+	rawCapabilities map[string]any
+	// These are only the capabilities we care about.
+	capabilities struct {
+		formElicitation bool
+	}
+}
+
 type Server struct {
 	config             *Config
+	writeCh            chan []byte
 	jsonrpcDispatcher  *jsonrpc.Dispatcher
 	connectionManager  *godot.ConnectionManager
-	clientInfo         appInfo
+	clientInfo         clientInfo
+	clientRequests     map[int]chan *jsonrpc.Response
+	clientRequestID    int
+	clientRequestMutex sync.Mutex
+	toolQueueCh        chan *jsonrpc.Request
 	localTools         map[string]*Tool
 	currentProjectPath string
 	editors            []*editorInfo
@@ -140,7 +158,10 @@ func NewServer(config *Config) *Server {
 
 	s := &Server{
 		config:            config,
+		writeCh:           make(chan []byte, 16),
+		clientRequests:    make(map[int]chan *jsonrpc.Response),
 		jsonrpcDispatcher: d,
+		toolQueueCh:       make(chan *jsonrpc.Request, 4),
 		localTools:        make(map[string]*Tool),
 		editors:           make([]*editorInfo, 0, config.EditorPortCount),
 	}
@@ -164,7 +185,29 @@ func NewServer(config *Config) *Server {
 
 }
 
+func (s *Server) saveConfig() error {
+	if s.config.SavedConfigPath != "" {
+		sc := &SavedConfig{
+			DefaultGodotPath: s.config.DefaultGodotPath,
+			ProjectBasePath:  s.config.ProjectBasePath,
+		}
+		return SaveConfig(s.config.SavedConfigPath, sc)
+	}
+	return nil
+}
+
 func canonicalPath(p string) (string, error) {
+	if p == "" {
+		return "", errors.New("empty path")
+	}
+
+	if strings.HasPrefix(p, "~/") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			p = filepath.Join(home, p[2:])
+		}
+	}
+
 	abs, err := filepath.Abs(p)
 	if err != nil {
 		return "", err
@@ -178,10 +221,39 @@ func canonicalPath(p string) (string, error) {
 	return real, nil
 }
 
+func ValidateDirectory(path string) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if !fi.IsDir() {
+		return errors.New("not a directory")
+	}
+
+	return nil
+}
+
+func ValidateGodotExecutable(path string) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if fi.IsDir() || !fi.Mode().IsRegular() {
+		return errors.New("not a regular file")
+	}
+
+	cmd := exec.Command(path, "--version")
+	err = cmd.Run()
+	return err
+}
+
 func (s *Server) onEditorConnect(conn *godot.Connection) error {
 	params := initializeParams{
 		ProtocolVersion: ProtocolVersion,
-		ClientInfo:      s.clientInfo,
+		ClientInfo:      s.clientInfo.appInfo,
+		Capabilities:    s.clientInfo.rawCapabilities,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.EditorTimeout)
@@ -320,7 +392,25 @@ func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (
 		return nil, jsonrpc.NewError(jsonrpc.InvalidParamsErrorCode, "Invalid parameters", nil)
 	}
 
-	s.clientInfo = params.ClientInfo
+	s.clientInfo.appInfo = params.ClientInfo
+	s.clientInfo.rawCapabilities = params.Capabilities
+
+	slog.Info("client connected", "appInfo", s.clientInfo.appInfo, "capabilities", s.clientInfo.rawCapabilities)
+
+	// Check if the client supports form elicitation.
+	elicitation, ok := params.Capabilities["elicitation"]
+	if ok {
+		v, ok := elicitation.(map[string]any)
+		if ok {
+			isEmpty := (len(v) == 0)
+			_, hasForm := v["form"]
+
+			s.clientInfo.capabilities.formElicitation = isEmpty || hasForm
+		}
+	}
+	if s.clientInfo.capabilities.formElicitation {
+		slog.Info("client supports form elicitation")
+	}
 
 	s.connectionManager.Start()
 
@@ -467,7 +557,159 @@ func (s *Server) rpcCallTool(ctx context.Context, rawParams json.RawMessage) (an
 	return resp.Result, nil
 }
 
-func (s *Server) Run(ctx context.Context) error {
+// Not safe to call from any `rpc*()“ functions (will deadlock), except for rpcCallTool() because it has a special queue.
+func (s *Server) sendRequestToClient(method string, params any) (*jsonrpc.Response, error) {
+	ch := make(chan *jsonrpc.Response, 1)
+
+	s.clientRequestMutex.Lock()
+	s.clientRequestID++
+	id := s.clientRequestID
+	s.clientRequests[id] = ch
+	s.clientRequestMutex.Unlock()
+
+	req := jsonrpc.NewRequest(strconv.Itoa(id), method, nil)
+	if params != nil {
+		b, err := json.Marshal(&params)
+		if err != nil {
+			return nil, err
+		}
+		req.Params = json.RawMessage(b)
+	}
+
+	b, err := json.Marshal(&req)
+	if err != nil {
+		return nil, err
+	}
+
+	s.writeCh <- b
+
+	// @todo Having a timeout would be good, although, tricky because elicitation waits for user input
+	resp := <-ch
+
+	return resp, nil
+}
+
+func (s *Server) sendNotificationToClient(method string, params any) error {
+	req := jsonrpc.NewNotification(method, nil)
+	if params != nil {
+		b, err := json.Marshal(&params)
+		if err != nil {
+			return err
+		}
+		req.Params = json.RawMessage(b)
+	}
+
+	b, err := json.Marshal(&req)
+	if err != nil {
+		return err
+	}
+
+	s.writeCh <- b
+	return nil
+}
+
+func (s *Server) handleResponse(resp *jsonrpc.Response) {
+	idStr, ok := resp.GetID()
+	if !ok {
+		slog.Error("unable to parse response ID from MCP client", "id", string(resp.ID))
+		return
+	}
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		slog.Error("unable to parse response ID from MCP client", "id", idStr)
+		return
+	}
+
+	s.clientRequestMutex.Lock()
+	ch, ok := s.clientRequests[id]
+	if ok {
+		delete(s.clientRequests, id)
+	}
+	s.clientRequestMutex.Unlock()
+
+	if ok {
+		ch <- resp
+		close(ch)
+	}
+}
+
+func parseRequestOrResponse(b []byte) (any, error) {
+	// Has fields for both request and response.
+	var input struct {
+		JSONRPC string          `json:"jsonrpc"`
+		ID      json.RawMessage `json:"id"`
+		// Request:
+		Method string          `json:"method"`
+		Params json.RawMessage `json:"params"`
+		// Response:
+		Result json.RawMessage `json:"result"`
+		Error  *jsonrpc.Error  `json:"error"`
+	}
+	if err := json.Unmarshal(b, &input); err != nil {
+		return nil, err
+	}
+
+	if input.Method != "" {
+		if input.Error != nil || len(input.Result) != 0 {
+			return jsonrpc.Request{JSONRPC: "Invalid", ID: jsonrpc.NullID()}, nil
+		}
+		return jsonrpc.Request{
+			JSONRPC: input.JSONRPC,
+			ID:      input.ID,
+			Method:  input.Method,
+			Params:  input.Params,
+		}, nil
+	}
+
+	return jsonrpc.Response{
+		JSONRPC: input.JSONRPC,
+		ID:      input.ID,
+		Result:  input.Result,
+		Error:   input.Error,
+	}, nil
+}
+
+func (s *Server) writeLoop(ctx context.Context) {
+	w := bufio.NewWriter(os.Stdout)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case line := <-s.writeCh:
+			w.Write(line)
+			w.WriteRune('\n')
+			w.Flush()
+		}
+	}
+}
+
+func (s *Server) toolLoop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case req := <-s.toolQueueCh:
+			s.handleRequest(ctx, req)
+		}
+	}
+}
+
+func (s *Server) handleRequest(ctx context.Context, req *jsonrpc.Request) {
+	resp := s.jsonrpcDispatcher.HandleRequest(ctx, req)
+	if req.HasID() {
+		output, err := json.Marshal(resp)
+		if err != nil {
+			slog.Error("error marshalling response to stdout", "response", resp)
+			return
+		}
+		if len(output) > 0 {
+			s.writeCh <- output
+		}
+	}
+}
+
+func (s *Server) readLoop(ctx context.Context) error {
 	r := bufio.NewReader(os.Stdin)
 
 	lineCh := make(chan []byte)
@@ -497,15 +739,50 @@ func (s *Server) Run(ctx context.Context) error {
 			return nil
 
 		case line := <-lineCh:
-			output, err := s.jsonrpcDispatcher.Handle(ctx, line)
+			input, err := parseRequestOrResponse(line)
 			if err != nil {
-				slog.Error("error handling from stdin", "line", line, "error", err)
+				slog.Error("error parsing line from stdin", "line", line, "error", err)
 				continue
 			}
-			if len(output) > 0 {
-				os.Stdout.Write(output)
-				os.Stdout.Write([]byte("\n"))
+
+			switch v := input.(type) {
+			case jsonrpc.Request:
+				req := v
+				// Tools need to be executed one-at-a-time, so we queue it up.
+				if req.Method == "tools/call" {
+					select {
+					case s.toolQueueCh <- &req:
+						// Queue it if there's space.
+					default:
+						// @todo Should this be an MCP-level error (like with `content` and `isError`)?
+						resp := jsonrpc.NewErrorResponse(req.ID, jsonrpc.NewError(TooManyToolCallsErrorCode, "Too many simultaneous tool calls", nil))
+						b, err := json.Marshal(resp)
+						if err != nil {
+							slog.Error("error marshalling response to stdout", "response", resp)
+							continue
+						}
+						s.writeCh <- b
+					}
+				} else {
+					s.handleRequest(ctx, &req)
+				}
+			case jsonrpc.Response:
+				resp := v
+				if !resp.IsValid() {
+					slog.Error("received invalid response from stdin", "response", r)
+					continue
+				}
+				s.handleResponse(&resp)
+			default:
+				continue
 			}
 		}
 	}
+}
+
+func (s *Server) Run(ctx context.Context) error {
+	go s.writeLoop(ctx)
+	go s.toolLoop(ctx)
+
+	return s.readLoop(ctx)
 }

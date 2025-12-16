@@ -42,6 +42,37 @@
 					}
 				}
 			}
+		},
+		"get_mcp_configuration": {
+			"title": "Get the Godai MCP configuration",
+			"description": [
+				"Gets the Godai MCP configuration which can be changed at runtime.",
+				"",
+				"This doesn't include all configuration that can be set via command-line arguments, but only those values that can be updated at runtime.",
+				"Use the `set_mcp_configuration` tool to change these configuration values."
+			]
+		},
+		"set_mcp_configuration": {
+			"title": "Set the Godai MCP configuration",
+			"description": [
+				"Sets the Godai MCP configuration which can be changed at runtime.",
+				"",
+				"This doesn't include all configuration that can be set via command-line arguments, but only those values that can be updated at runtime.",
+				"Use the `get_mcp_configuration` tool to see the current configuration values."
+			],
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"godot_path": {
+						"type": "string",
+						"description": "The full path to the Godot 4 executable on your system"
+					},
+					"project_path": {
+						"type": "string",
+						"description": "The base path where your Godot projects usually live"
+					}
+				}
+			}
 		}
 	}
 }
