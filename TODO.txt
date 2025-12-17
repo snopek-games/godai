@@ -4,8 +4,6 @@ TODO
 Version 0.1.0
 -------------
 
-- MCP: Consider making the project path an input to every tool (rather than the whole "switching" thing)
-- MCP: Add a command for creating a new project
 - Addon: Return actionable errors to the AI when possible
   - Use `isError` when acting as MCP and custom format with tools API
 - Addon: Improve validation on editor scripts
@@ -42,3 +40,4 @@ Backlog
   - Depends on https://github.com/godotengine/godot/pull/112628
 - Addon: Allow editor plugins to register custom tools for a particular project
   - Will need to allow MCP to update it's tools list
+- MCP: Add a command for creating a new project
