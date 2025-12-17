@@ -148,7 +148,6 @@ type Server struct {
 	clientRequestMutex sync.Mutex
 	toolQueueCh        chan *jsonrpc.Request
 	localTools         map[string]*Tool
-	currentProjectPath string
 	editors            []*editorInfo
 	editorsMutex       sync.RWMutex
 }
@@ -350,40 +349,21 @@ func (s *Server) hasEditorForProject(projectPath string) bool {
 	return false
 }
 
-func (s *Server) getCurrentEditor() (*editorInfo, error) {
+func (s *Server) getEditorConnection(projectPath string) (*godot.Connection, error) {
 	s.editorsMutex.RLock()
 	defer s.editorsMutex.RUnlock()
 
-	if len(s.editors) == 0 {
-		return nil, newUserVisibleError("not connected to any Godot editors", nil, []string{
-			"Open a project in the editor using the `open_godot_project` tool",
-		})
-	}
-
-	if s.currentProjectPath == "" {
-		e := s.editors[0]
-		s.currentProjectPath = e.ProjectPath
-		return e, nil
-	}
-
 	for _, e := range s.editors {
-		if e.ProjectPath == s.currentProjectPath {
-			return e, nil
+		if e.ProjectPath == projectPath {
+			return e.Connection, nil
 		}
 	}
 
-	return nil, newUserVisibleError("no longer connected to the Godot editor for current project: "+s.currentProjectPath, nil, []string{
-		"List other open projects using the `list_open_projects` tool and switch to one using `switch_to_project`",
-		"Re-open the Godot editor for the previous project using the `open_godot_project` tool",
+	return nil, newUserVisibleError("not connected to the Godot editor for project: "+projectPath, nil, []string{
+		"List open projects using the `list_open_projects` tool",
+		"Open the Godot editor for this project using the `open_godot_project` tool",
 	})
-}
 
-func (s *Server) getCurrentEditorConnection() (*godot.Connection, error) {
-	e, err := s.getCurrentEditor()
-	if err != nil {
-		return nil, err
-	}
-	return e.Connection, nil
 }
 
 func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (any, *jsonrpc.Error) {
@@ -458,11 +438,35 @@ func (s *Server) rpcListTools(ctx context.Context, rawParams json.RawMessage) (a
 		list = append(list, out)
 	}
 	for name, toolDef := range GetDefaultRemoteToolDefinitions() {
+		if toolDef.DoNotForward {
+			continue
+		}
+
+		var inputSchema map[string]any
+		if err := json.Unmarshal(toolDef.GetInputSchema(), &inputSchema); err != nil {
+			slog.Error("error parsing tool's inputSchema", "toolName", name, "error", err)
+			continue
+		}
+		inputSchemaProperties, ok := inputSchema["properties"].(map[string]any)
+		if !ok {
+			slog.Error("tool's inputSchema doesn't have properties", "toolName", name)
+			continue
+		}
+		inputSchemaProperties["project_path"] = map[string]any{
+			"type":        "string",
+			"description": "The path to the Godot project. It must already be open in the Godot editor.",
+		}
+		rawInputSchema, err := json.Marshal(&inputSchema)
+		if err != nil {
+			slog.Error("error marshalling tool's inputSchema", "toolName", name, "error", err)
+			continue
+		}
+
 		out := toolOut{
 			Name:         name,
 			Title:        toolDef.Title,
 			Description:  toolDef.GetDescription(),
-			InputSchema:  toolDef.GetInputSchema(),
+			InputSchema:  rawInputSchema,
 			OutputSchema: toolDef.GetOutputSchema(),
 		}
 		list = append(list, out)
@@ -476,6 +480,69 @@ func (s *Server) rpcListTools(ctx context.Context, rawParams json.RawMessage) (a
 	return resp, nil
 }
 
+func (s *Server) callLocalTool(ctx context.Context, tool *Tool, params *callToolParams) (any, error) {
+	result, err := tool.Handler(ctx, params.Arguments)
+	if err != nil {
+		return nil, err
+	}
+
+	var structuredContent any
+
+	text, ok := result.(string)
+	if !ok {
+		structuredContent = result
+		b, err := json.Marshal(result)
+		if err != nil {
+			return nil, err
+		}
+		text = string(b)
+	}
+
+	var structedContentJSON json.RawMessage
+	if structuredContent != nil {
+		b, err := json.Marshal(structuredContent)
+		if err != nil {
+			return nil, err
+		}
+		structedContentJSON = json.RawMessage(b)
+	}
+
+	output := toolResult{
+		Content: []toolTextContent{
+			{
+				Type: "text",
+				Text: text,
+			},
+		},
+		StructuredContent: structedContentJSON,
+	}
+	return output, nil
+}
+
+func (s *Server) callRemoteTool(ctx context.Context, params *callToolParams) (*jsonrpc.Response, error) {
+	var partialToolArguments struct {
+		ProjectPath string `json:"project_path"`
+	}
+	if err := json.Unmarshal(params.Arguments, &partialToolArguments); err != nil {
+		return nil, newUserVisibleError("project_path argument is required", err, nil)
+	}
+
+	projectPath, err := canonicalPath(partialToolArguments.ProjectPath)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := s.getEditorConnection(projectPath)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, s.config.EditorTimeout)
+	defer cancel()
+
+	return conn.CallMethod(ctx, "tools/call", params)
+}
+
 func (s *Server) rpcCallTool(ctx context.Context, rawParams json.RawMessage) (any, *jsonrpc.Error) {
 	var params callToolParams
 	if err := json.Unmarshal(rawParams, &params); err != nil {
@@ -485,7 +552,7 @@ func (s *Server) rpcCallTool(ctx context.Context, rawParams json.RawMessage) (an
 	// Run locally if this is a local tool.
 	tool, ok := s.localTools[params.Name]
 	if ok {
-		result, err := tool.Handler(ctx, params.Arguments)
+		result, err := s.callLocalTool(ctx, tool, &params)
 		if err != nil {
 			slog.Error("error running local tool", "toolName", params.Name, "error", err)
 
@@ -496,44 +563,14 @@ func (s *Server) rpcCallTool(ctx context.Context, rawParams json.RawMessage) (an
 				return nil, jsonrpc.NewError(jsonrpc.InternalErrorCode, "Error running local tool", nil)
 			}
 		}
-
-		var structuredContent any
-
-		text, ok := result.(string)
-		if !ok {
-			structuredContent = result
-			b, err := json.Marshal(result)
-			if err != nil {
-				slog.Error("error marshalling local tool output to JSON", "toolName", params.Name, "error", err)
-				return nil, jsonrpc.NewError(jsonrpc.InternalErrorCode, "Error running local tool", nil)
-			}
-			text = string(b)
-		}
-
-		var structedContentJSON json.RawMessage
-		if structuredContent != nil {
-			b, err := json.Marshal(structuredContent)
-			if err != nil {
-				slog.Error("error marshalling local tool structuredContent to JSON", "toolName", params.Name, "error", err)
-				return nil, jsonrpc.NewError(jsonrpc.InternalErrorCode, "Error running local tool", nil)
-			}
-			structedContentJSON = json.RawMessage(b)
-		}
-
-		output := toolResult{
-			Content: []toolTextContent{
-				{
-					Type: "text",
-					Text: text,
-				},
-			},
-			StructuredContent: structedContentJSON,
-		}
-		return output, nil
+		return result, nil
 	}
 
-	conn, err := s.getCurrentEditorConnection()
+	// Otherwise, run remotely.
+	resp, err := s.callRemoteTool(ctx, &params)
 	if err != nil {
+		slog.Error("error running remote tool", "toolName", params.Name, "error", err)
+
 		var userError *userVisibleError
 		if errors.As(err, &userError) {
 			return userError.makeToolResult(), nil
@@ -542,18 +579,9 @@ func (s *Server) rpcCallTool(ctx context.Context, rawParams json.RawMessage) (an
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, s.config.EditorTimeout)
-	defer cancel()
-
-	resp, err := conn.CallMethod(ctx, "tools/call", params)
-	if err != nil {
-		slog.Error("error running remote tool", "toolName", params.Name, "error", err)
-		return nil, jsonrpc.NewError(jsonrpc.InternalErrorCode, "Unable to call method on Godot editor", nil)
-	}
 	if resp.Error != nil {
 		return nil, resp.Error
 	}
-
 	return resp.Result, nil
 }
 

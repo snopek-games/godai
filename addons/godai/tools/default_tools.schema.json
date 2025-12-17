@@ -26,6 +26,10 @@
 					},
 					"outputSchema": {
 						"$ref": "https://json-schema.org/draft/2020-12/schema"
+					},
+					"doNotForward": {
+						"type": "boolean",
+						"default": "false"
 					}
 				},
 				"required": ["title", "description"],

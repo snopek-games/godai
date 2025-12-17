@@ -21,6 +21,7 @@ type ToolDefinition struct {
 	Description  ToolDescription `json:"description"`
 	InputSchema  json.RawMessage `json:"inputSchema,omitempty"`
 	OutputSchema json.RawMessage `json:"outputSchema,omitempty"`
+	DoNotForward bool            `json:"doNotForward,omitempty"`
 }
 
 func (d *ToolDescription) UnmarshalJSON(data []byte) error {

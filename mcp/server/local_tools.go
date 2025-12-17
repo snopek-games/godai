@@ -23,7 +23,6 @@ func (s *Server) setupLocalTools() {
 	s.addLocalTool("list_projects", s.toolListProjects)
 	s.addLocalTool("open_godot_project", s.toolOpenGodotProject)
 	s.addLocalTool("list_open_projects", s.toolListOpenProjects)
-	s.addLocalTool("switch_to_project", s.toolSwitchToProject)
 	s.addLocalTool("get_mcp_configuration", s.toolGetMcpConfiguration)
 	s.addLocalTool("set_mcp_configuration", s.toolSetMcpConfiguration)
 }
@@ -515,8 +514,6 @@ func (s *Server) toolOpenGodotProject(ctx context.Context, rawParams json.RawMes
 		}
 	}
 
-	s.currentProjectPath = realProjectPath
-
 	var output struct {
 		Success bool `json:"success"`
 	}
@@ -554,35 +551,6 @@ func (s *Server) toolListOpenProjects(ctx context.Context, rawParams json.RawMes
 		Projects []outProject `json:"projects"`
 	}
 	output.Projects = list
-
-	return output, nil
-}
-
-func (s *Server) toolSwitchToProject(ctx context.Context, rawParams json.RawMessage) (any, error) {
-	var params struct {
-		ProjectPath string `json:"project_path"`
-	}
-
-	if err := json.Unmarshal(rawParams, &params); err != nil {
-		return nil, err
-	}
-
-	realProjectPath, err := canonicalPath(params.ProjectPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var output struct {
-		Success bool   `json:"success"`
-		Error   string `json:"error,omitempty"`
-	}
-
-	if s.hasEditorForProject(realProjectPath) {
-		s.currentProjectPath = realProjectPath
-		output.Success = true
-	} else {
-		output.Error = "Project isn't currently open in any Godot editor instance"
-	}
 
 	return output, nil
 }
