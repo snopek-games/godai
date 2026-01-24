@@ -6,10 +6,6 @@ Version 0.1.0
 
 - Addon: Return actionable errors to the AI when possible
   - Use `isError` when acting as MCP and custom format with tools API
-- Addon: Improve validation on editor scripts
-  - Check for mixed tabs and spaces
-  - Check if the AI is using the UndoRedoManager
-  - Use logger to really capture the errors for the AI
 - Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
 - Initial public release
 

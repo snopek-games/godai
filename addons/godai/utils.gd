@@ -47,29 +47,38 @@ static func set_child_node_name(p_parent: Node, p_child: Node) -> void:
 	p_child.name = name
 
 
-static func editor_undo_redo_live_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
-	var editor_debugger_node := get_editor_debugger_node()
-	if not editor_debugger_node:
-		return
-
+static func editor_undo_redo_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
 	var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 	if not edited_scene_root:
 		return
 
-	set_child_node_name(p_parent, p_child)
+	p_undo_redo.add_do_method(p_parent, "add_child", p_child, true)
+	p_undo_redo.add_do_method(p_child, "set_owner", edited_scene_root)
+	p_undo_redo.add_do_method(EditorInterface.get_selection(), "add_node", p_child)
+	p_undo_redo.add_do_reference(p_child)
+	p_undo_redo.add_undo_method(p_parent, "remove_child", p_child)
 
-	p_undo_redo.add_do_method(editor_debugger_node, "live_debug_create_node", edited_scene_root.get_path_to(p_parent), p_child.get_class(), p_child.name)
-	p_undo_redo.add_undo_method(editor_debugger_node, "live_debug_remove_node", NodePath(str(edited_scene_root.get_path_to(p_parent)) + "/" + p_child.name))
-
-
-static func editor_undo_redo_live_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
+	# If there is a debugger connection, then do this "live" as well.
 	var editor_debugger_node := get_editor_debugger_node()
-	if not editor_debugger_node:
-		return
+	if editor_debugger_node:
+		set_child_node_name(p_parent, p_child)
+		p_undo_redo.add_do_method(editor_debugger_node, "live_debug_create_node", edited_scene_root.get_path_to(p_parent), p_child.get_class(), p_child.name)
+		p_undo_redo.add_undo_method(editor_debugger_node, "live_debug_remove_node", NodePath(str(edited_scene_root.get_path_to(p_parent)) + "/" + p_child.name))
 
+
+static func editor_undo_redo_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
 	var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 	if not edited_scene_root:
 		return
 
-	p_undo_redo.add_do_method(editor_debugger_node, "live_debug_remove_and_keep_node", edited_scene_root.get_path_to(p_child), p_child.get_instance_id());
-	p_undo_redo.add_undo_method(editor_debugger_node, "live_debug_restore_node", p_child.get_instance_id(), edited_scene_root.get_path_to(p_parent), p_child.get_index(false))
+	p_undo_redo.add_do_method(p_parent, "remove_child", p_child)
+	p_undo_redo.add_undo_method(p_parent, "add_child", p_child, true)
+	p_undo_redo.add_undo_method(p_parent, "move_child", p_child, p_child.get_index(false))
+	p_undo_redo.add_undo_method(p_child, "set_owner", edited_scene_root)
+	p_undo_redo.add_undo_reference(p_child)
+
+	# If there is a debugger connection, then do this "live" as well.
+	var editor_debugger_node := get_editor_debugger_node()
+	if editor_debugger_node:
+		p_undo_redo.add_do_method(editor_debugger_node, "live_debug_remove_and_keep_node", edited_scene_root.get_path_to(p_child), p_child.get_instance_id());
+		p_undo_redo.add_undo_method(editor_debugger_node, "live_debug_restore_node", p_child.get_instance_id(), edited_scene_root.get_path_to(p_parent), p_child.get_index(false))

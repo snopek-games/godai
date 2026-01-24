@@ -155,8 +155,8 @@
 				"However, if you do use a script to modify the current scene, you MUST use `EditorUndoRedoManager` from `EditorInterface.get_editor_undo_redo()`, and the action name MUST end with \"(AI)\".",
 				"You can find nodes relative to the scene root using `EditorInterface.get_edited_scene_root().get_node_or_null(node_path)`.",
 				"Two helper methods have been provided:",
-				" - `func editor_undo_redo_live_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`",
-				" - `func editor_undo_redo_live_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`",
+				" - `func editor_undo_redo_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`",
+				" - `func editor_undo_redo_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`",
 				"If you are using `EditorUndoRedoManager` to add or remove a node, you MUST call one of those helper methods before calling `commit_action()`. This will add some `add_do_method()` and `add_undo_method()` calls to ensure the changes are synchronized to the live game if the game is running.",
 				"If the script successfully runs, the output from `print()` will be returned."
 			],
@@ -165,7 +165,7 @@
 				"properties": {
 					"code": {
 						"type": "string",
-						"description": "A snippet of GDScript code"
+						"description": "A snippet of GDScript code. It should use tabs rather than spaces for indentation. Don't wrap the code in a `_ready()` function."
 					}
 				}
 			}

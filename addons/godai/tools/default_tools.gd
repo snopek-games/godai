@@ -3,6 +3,7 @@ extends RefCounted
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolResult = ToolManager.ToolResult
 const Utils = preload("res://addons/godai/utils.gd")
+const CustomLogger = preload("res://addons/godai/custom_logger.gd")
 
 const DEFAULT_TOOLS_JSON = "res://addons/godai/tools/default_tools.json"
 
@@ -194,16 +195,19 @@ class NodeCreate extends DefaultTool:
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
 		undo_redo.create_action("Create %s node (AI)" % node_type)
-		undo_redo.add_do_method(parent, "add_child", node, true)
-		undo_redo.add_do_method(node, "set_owner", edited_scene_root)
-		undo_redo.add_do_method(EditorInterface.get_selection(), "add_node", node)
-		undo_redo.add_do_reference(node)
-		undo_redo.add_undo_method(parent, "remove_child", node)
+		Utils.editor_undo_redo_create_node(undo_redo, parent, node)
 
-		Utils.editor_undo_redo_live_create_node(undo_redo, parent, node)
+		var prop_defs := {}
+		for prop in node.get_property_list():
+			prop_defs[prop['name']] = prop
 
 		for prop_name in props:
-			undo_redo.add_do_property(node, prop_name, str_to_var(props[prop_name]))
+			var prop_value = props[prop_name]
+			var prop_type = prop_defs[prop_name]['type']
+			if prop_type != TYPE_STRING and prop_type != TYPE_STRING_NAME:
+				prop_value = str_to_var(prop_value)
+			undo_redo.add_do_property(node, prop_name, prop_value)
+
 		undo_redo.commit_action()
 
 		return ToolResult.resolved({
@@ -231,13 +235,7 @@ class NodeRemove extends DefaultTool:
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
 		undo_redo.create_action("Delete %s node (AI)" % node.name)
-		undo_redo.add_do_method(parent, "remove_child", node)
-		undo_redo.add_undo_method(parent, "add_child", node, true)
-		undo_redo.add_undo_method(parent, "move_child", node, node.get_index(false))
-		undo_redo.add_undo_method(node, "set_owner", edited_scene_root)
-		undo_redo.add_undo_reference(node)
-
-		Utils.editor_undo_redo_live_remove_node(undo_redo, parent, node)
+		Utils.editor_undo_redo_remove_node(undo_redo, parent, node)
 
 		undo_redo.commit_action()
 
@@ -284,27 +282,18 @@ extends Node
 
 const __Utils = preload("res://addons/godai/utils.gd")
 
-var __output := PackedStringArray()
-
-signal __run_completed(success: bool, output: PackedStringArray)
-
-func __custom_print(...values: Array) -> void:
-	var content := ""
-	for value in values:
-		content += str(value)
-	print(content)
-	__output.push_back(content)
+signal __run_completed(success: bool)
 
 func __run():
 	# Await just in case the user code does.
 	var err = await __user_code()
-	__run_completed.emit(err == OK, __output)
+	__run_completed.emit(err == OK)
 
-func editor_undo_redo_live_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
-	__Utils.editor_undo_redo_live_create_node(p_undo_redo, p_parent, p_child)
+func editor_undo_redo_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
+	__Utils.editor_undo_redo_create_node(p_undo_redo, p_parent, p_child)
 
-func editor_undo_redo_live_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
-	__Utils.editor_undo_redo_live_remove_node(p_undo_redo, p_parent, p_child)
+func editor_undo_redo_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
+	__Utils.editor_undo_redo_remove_node(p_undo_redo, p_parent, p_child)
 
 func __user_code() -> Error:
 	# USER CODE START
@@ -312,6 +301,18 @@ func __user_code() -> Error:
 	# USER CODE END
 	return OK
 """
+
+	var logger: CustomLogger
+
+	func _init(p_data: Dictionary) -> void:
+		super._init(p_data)
+		logger = CustomLogger.new()
+		OS.add_logger(logger)
+
+	func _notification(p_what: int) -> void:
+		match p_what:
+			NOTIFICATION_PREDELETE:
+				OS.remove_logger(logger)
 
 	func execute(p_input) -> ToolResult:
 		var code = p_input['code']
@@ -328,12 +329,14 @@ func __user_code() -> Error:
 
 		var full_source = SCRIPT_TEMPLATE.replace('{user_code}', _process_user_code(code))
 
+		logger.start()
+
 		var script = GDScript.new()
 		script.source_code = full_source
 
 		var script_error = script.reload()
 		if script_error != OK:
-			return ToolResult.resolved({error = "Script failed to parse"})
+			return ToolResult.resolved({error = "Script failed to parse", log = logger.stop()})
 
 		var script_node = Node.new()
 		script_node.name = "EditorScriptNode"
@@ -361,15 +364,13 @@ func __user_code() -> Error:
 		for line in p_code.split("\n"):
 			var processed: String = line
 
-			processed = processed.replace("print(", "__custom_print(")
-
 			# All lines need at least one tab.
 			var tabs := "\t"
 
 			# Count the leading spaces (if any).
 			var space_count := 0
-			for i in range(line.length()):
-				if line[i] != " ":
+			for i in range(processed.length()):
+				if processed[i] != " ":
 					break
 				space_count += 1
 
@@ -379,18 +380,19 @@ func __user_code() -> Error:
 
 			# Replace the spaces with tabs.
 			if space_count > 0:
+				processed = processed.substr(space_count)
 				# Assume that the first space count is the tab width.
 				for i in range(space_count / first_space_count):
 					tabs += "\t"
 
-			output.push_back("\t" + processed)
+			output.push_back(tabs + processed)
 
 		return "\n".join(output)
 
-	func _on_run_completed(p_success: bool, p_output: PackedStringArray, p_script_node: Node, p_result: ToolResult) -> void:
+	func _on_run_completed(p_success: bool, p_script_node: Node, p_result: ToolResult) -> void:
 		if p_success:
-			p_result.resolve({success = true, output = p_output})
+			p_result.resolve({success = true, output = logger.stop()})
 		else:
-			p_result.resolve({error = "Failed to execute script"})
+			p_result.resolve({error = "Failed to execute script", output = logger.stop()})
 
 		p_script_node.queue_free()

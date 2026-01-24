@@ -1,4 +1,4 @@
-extends Node2D
+extends GutTest
 
 const JSONRPCDispatcher = preload("res://addons/godai/mcp/jsonrpc_dispatcher.gd")
 
@@ -122,11 +122,10 @@ const TESTS = [
 			{"jsonrpc": "2.0", "result": "Value is 11", "id": 12}
 		]',
 	},
-
-
 ]
 
-func _ready() -> void:
+
+func test_jsonrpc_spec() -> void:
 	var d := JSONRPCDispatcher.new()
 	d.set_method("subtract", func (p_params):
 		if p_params is Array:
@@ -180,24 +179,9 @@ func _ready() -> void:
 		return result
 	)
 
-	var passes := 0
-	var fails := 0
 	for test in TESTS:
 		var response = await d.process_string(test['request'])
-
-		if _assert_equal(test['name'], _normalize_json(response), _normalize_json(test['response'])):
-			passes += 1
-		else:
-			fails += 1
-
-	print("PASSES: %d out of %d" % [passes, passes + fails])
-
-
-func _assert_equal(p_name: String, p_result: String, p_expected) -> bool:
-	if p_result != p_expected:
-		print("FAIL (%s): '%s' does not equal '%s'" % [p_name, p_result, p_expected])
-		return false
-	return true
+		assert_eq(_normalize_json(response), _normalize_json(test['response']), test['name'])
 
 
 func _normalize_json(p_input: String) -> String:
