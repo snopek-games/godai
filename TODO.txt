@@ -1,17 +1,12 @@
 TODO
 ====
 
-Version 0.1.0
--------------
+Backlog
+-------
 
 - Addon: Return actionable errors to the AI when possible
   - Use `isError` when acting as MCP and custom format with tools API
 - Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
-- Initial public release
-
-Backlog
--------
-
 - MCP: Add `outputSchema` to all tools in default_tools.json
 - MCP: Add a "restart editor" command (should prompt the user to save and wait for the editor to come back)
 - Addon: Make MCP transport configurable (editor settings first, but eventually the panel too?)

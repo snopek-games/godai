@@ -2,11 +2,7 @@ Godai - AI agent (LLM) integration with the Godot Engine
 ========================================================
 
 Godai aims to integrate an AI agent (LLM) with the Godot editor, so that you can use natural
-language to ask the AI to perform various operations on your project, for example:
-
-- "Add ..."
-
-@todo Need good examples!
+language to ask the AI to perform various operations on your project.
 
 Modes of Operation
 ------------------
