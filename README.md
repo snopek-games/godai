@@ -157,6 +157,16 @@ and provide that with the `--x11-display` option, for example:
 See the Claude documentation for more information about
 [configuring local MCP servers](https://modelcontextprotocol.io/docs/develop/connect-local-servers).
 
+### Claude Code
+
+Here's a simple command to add the Godai MCP for all projects:
+
+```
+claude mcp add -s user -t stdio godai -- /path/to/godai-mcp --godot-path /path/to/godot4 --project-path /path/to/my/godot/projects
+```
+
+See the earlier sections for information about the command-line arguments.
+
 ### Other MCP clients
 
 Most MCP clients are configured using a JSON file similar to the manual Claude Desktop configuration
