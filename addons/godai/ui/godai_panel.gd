@@ -12,6 +12,7 @@ const ToolChatScene = preload("res://addons/godai/ui/tool_chat.tscn")
 const ErrorChatScene = preload("res://addons/godai/ui/error_chat.tscn")
 
 const ANTHROPIC_API_KEY_SETTING = "godai/anthropic_api_key"
+const MCP_TRANSPORT_SETTING = "godai/mcp_transport"
 const MCP_SERVER_BASE_PORT = 12120
 const MCP_SERVER_PORT_COUNT = 10
 
@@ -35,6 +36,7 @@ var tools: ToolManager = ToolManager.new()
 var mcp_server: MCPServer
 
 var _pending_tool_chats: Dictionary
+var _mcp_transport: MCPServer.Transport
 
 
 func _ready() -> void:
@@ -70,6 +72,7 @@ func show_panel() -> void:
 
 func _update_from_editor_settings(p_settings: EditorSettings) -> void:
 	claude_client.api_key = p_settings.get_setting(ANTHROPIC_API_KEY_SETTING)
+	_mcp_transport = p_settings.get_setting(MCP_TRANSPORT_SETTING)
 
 
 func _update_panel_theme() -> void:
@@ -135,9 +138,7 @@ func _update_mcp_status_bar() -> void:
 
 
 func _start_mcp() -> void:
-	# @todo Make the transport configurable
-	mcp_server.start_server(MCP_SERVER_BASE_PORT, MCP_SERVER_PORT_COUNT, MCPServer.Transport.WEBSOCKET)
-	#mcp_server.start_server(MCP_SERVER_BASE_PORT, MCP_SERVER_PORT_COUNT, MCPServer.Transport.HTTP)
+	mcp_server.start_server(MCP_SERVER_BASE_PORT, MCP_SERVER_PORT_COUNT, _mcp_transport)
 
 
 func _on_start_mcp_button_pressed() -> void:

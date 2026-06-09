@@ -31,6 +31,7 @@ func _add_editor_setting(p_name: String, p_type: int, p_default, p_hint = null, 
 
 func add_editor_settings() -> void:
 	_add_editor_setting(GodaiPanel.ANTHROPIC_API_KEY_SETTING, TYPE_STRING, "", PROPERTY_HINT_PASSWORD)
+	_add_editor_setting(GodaiPanel.MCP_TRANSPORT_SETTING, TYPE_INT, 0, PROPERTY_HINT_ENUM, "WebSocket,HTTP")
 
 
 func _enable_plugin() -> void:
