@@ -26,6 +26,25 @@ mcp-test:
     - go env
     - go test ./...
 
+# On release tags, require the version in plugin.cfg (the single source of
+# truth) to match the tag, so a release can't be made with a stale version.
+version-check:
+  stage: test
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+  image: alpine:latest
+  cache: []
+  script:
+    - PLUGIN_VERSION="$(sed -n 's/^version="\(.*\)"$/\1/p' addons/godai/plugin.cfg)"
+    - TAG_VERSION="${CI_COMMIT_TAG#v}"
+    - echo "plugin.cfg version is '${PLUGIN_VERSION}'; release tag version is '${TAG_VERSION}'"
+    - |
+      if [ -z "$PLUGIN_VERSION" ] || [ "$PLUGIN_VERSION" != "$TAG_VERSION" ]; then
+        echo "ERROR: the version in addons/godai/plugin.cfg doesn't match the release tag ${CI_COMMIT_TAG}."
+        echo "Update plugin.cfg and re-tag."
+        exit 1
+      fi
+
 mcp-build:
   stage: build
   image: golang:${GO_VERSION}
@@ -77,6 +96,16 @@ mcp-package-bundle:
     - cp dist/mcp/${MCP_APP_NAME}-linux-x86_64/${MCP_APP_NAME}-linux-x86_64 bundle/server/
     - cp dist/mcp/${MCP_APP_NAME}-windows-x86_64/${MCP_APP_NAME}-windows-x86_64.exe bundle/server/
     - cp dist/mcp/${MCP_APP_NAME}-macos-arm64/${MCP_APP_NAME}-macos-arm64 bundle/server/
+
+    # Stamp the real version into manifest.json (committed as 0.0.0-dev).
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        BUNDLE_VERSION="${CI_COMMIT_TAG#v}"
+      else
+        BUNDLE_VERSION="0.0.0-dev.${CI_COMMIT_SHORT_SHA}"
+      fi
+      node bundle/set-bundle-version.mjs "$BUNDLE_VERSION"
+
     - (cd bundle && mcpb pack)
 
     - cp bundle/bundle.mcpb dist/mcpb/godai-mcp.mcpb

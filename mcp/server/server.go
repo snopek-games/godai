@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"godai"
 	"godai/mcp/godot"
 	"godai/mcp/jsonrpc"
 	"io"
@@ -20,8 +21,15 @@ import (
 
 const ProtocolVersion string = "2025-06-18"
 
-// @todo Should we read this from the plugin.cfg?
-const GodaiVersion string = "0.1.0"
+var GodaiVersion string = mustGetGodaiVersion()
+
+func mustGetGodaiVersion() string {
+	v, err := getPluginVersion(godai.AddonFS)
+	if err != nil {
+		panic(fmt.Errorf("unable to read Godai version from embedded plugin.cfg: %w", err))
+	}
+	return v
+}
 
 const TooManyToolCallsErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode
 

@@ -5,7 +5,16 @@ const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const JSONRPCDispatcher = preload("res://addons/godai/mcp/jsonrpc_dispatcher.gd")
 
 const PROTOCOL_VERSION = "2025-06-18"
-const GODAI_VERSION = "0.1.0"
+
+static var GODAI_VERSION: String = _load_godai_version()
+
+static func _load_godai_version() -> String:
+	var config := ConfigFile.new()
+	var err := config.load("res://addons/godai/plugin.cfg")
+	if err != OK:
+		push_error("Unable to load plugin.cfg to determine the Godai version")
+		return "unknown"
+	return config.get_value("plugin", "version", "unknown")
 
 enum Transport {
 	WEBSOCKET,

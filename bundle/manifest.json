@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "godai-mcp",
   "display_name": "Godai MCP for Godot Engine integration",
-  "version": "0.1.0",
+  "version": "0.0.0-dev",
   "description": "Integration with the Godot Engine",
   "author": {
     "name": "David Snopek",

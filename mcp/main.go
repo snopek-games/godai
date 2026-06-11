@@ -37,8 +37,9 @@ func main() {
 	}
 
 	cmd := cli.Command{
-		Name:  "godai-mcp",
-		Usage: "MCP server for Godot",
+		Name:    "godai-mcp",
+		Usage:   "MCP server for Godot",
+		Version: server.GodaiVersion,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "godot-path",
