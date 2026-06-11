@@ -35,21 +35,29 @@ mcp-build:
         GOOS: "linux"
         GOARCH: "amd64"
         EXT: ""
+      - VARIANT: "linux-arm64"
+        GOOS: "linux"
+        GOARCH: "arm64"
+        EXT: ""
       - VARIANT: "windows-x86_64"
         GOOS: "windows"
         GOARCH: "amd64"
+        EXT: ".exe"
+      - VARIANT: "windows-arm64"
+        GOOS: "windows"
+        GOARCH: "arm64"
         EXT: ".exe"
       - VARIANT: "macos-arm64"
         GOOS: "darwin"
         GOARCH: "arm64"
         EXT: ""
   script:
-    - mkdir -p dist/mcp/${MCP_APP_NAME}-${GOOS}-${GOARCH}
+    - mkdir -p dist/mcp/${MCP_APP_NAME}-${VARIANT}
 
     - echo "Building for GOOS=$GOOS GOARCH=$GOARCH"
     - GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags="-s -w" -o "dist/mcp/${MCP_APP_NAME}-${VARIANT}/${MCP_APP_NAME}-${VARIANT}${EXT}" "$MCP_MAIN_PKG"
     # @todo Have MCP-specific README?
-    - cp README.md LICENSE.txt dist/mcp/${MCP_APP_NAME}-${GOOS}-${GOARCH}
+    - cp README.md LICENSE.txt dist/mcp/${MCP_APP_NAME}-${VARIANT}
   artifacts:
     when: always
     expire_in: 1 week
@@ -65,7 +73,10 @@ mcp-package-bundle:
     - mkdir -p bundle/server
     - mkdir -p dist/mcpb
 
-    - cp dist/mcp/*/godai-mcp-* bundle/server/
+    # Only the binaries referenced by bundle/manifest.json.
+    - cp dist/mcp/${MCP_APP_NAME}-linux-x86_64/${MCP_APP_NAME}-linux-x86_64 bundle/server/
+    - cp dist/mcp/${MCP_APP_NAME}-windows-x86_64/${MCP_APP_NAME}-windows-x86_64.exe bundle/server/
+    - cp dist/mcp/${MCP_APP_NAME}-macos-arm64/${MCP_APP_NAME}-macos-arm64 bundle/server/
     - (cd bundle && mcpb pack)
 
     - cp bundle/bundle.mcpb dist/mcpb/godai-mcp.mcpb
@@ -74,6 +85,43 @@ mcp-package-bundle:
     expire_in: 1 week
     paths:
       - dist/mcpb/
+
+# Validates the npm packaging on every pipeline (without publishing), so
+# breakage is caught before release time.
+mcp-package-npm:
+  stage: package
+  image: node:current
+  script:
+    - node npm/prepare-packages.mjs "0.0.0-dev.${CI_COMMIT_SHORT_SHA}"
+    - |
+      for dir in npm/dist/platforms/*/ npm/dist/godai-mcp/; do
+        (cd "$dir" && npm pack --dry-run)
+      done
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - npm/dist/
+
+npm-publish:
+  stage: release
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+  image: node:current
+  id_tokens:
+    NPM_ID_TOKEN:
+      aud: "npm:registry.npmjs.org"
+    SIGSTORE_ID_TOKEN:
+      aud: "sigstore"
+  script:
+    - node npm/prepare-packages.mjs "${CI_COMMIT_TAG#v}"
+    # Platform packages first, so the main package's optionalDependencies
+    # always resolve.
+    - |
+      for dir in npm/dist/platforms/*/; do
+        (cd "$dir" && npm publish --access public)
+      done
+    - (cd npm/dist/godai-mcp && npm publish --access public)
 
 release:
   stage: release
@@ -123,10 +171,16 @@ release:
       links:
         - name: "${MCP_APP_NAME}-windows-x86_64-${CI_COMMIT_TAG}.zip"
           url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-windows-x86_64-${CI_COMMIT_TAG}.zip"
+        - name: "${MCP_APP_NAME}-windows-arm64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-windows-arm64-${CI_COMMIT_TAG}.zip"
         - name: "${MCP_APP_NAME}-linux-x86_64-${CI_COMMIT_TAG}.zip"
           url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-linux-x86_64-${CI_COMMIT_TAG}.zip"
+        - name: "${MCP_APP_NAME}-linux-arm64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-linux-arm64-${CI_COMMIT_TAG}.zip"
         - name: "${MCP_APP_NAME}-macos-arm64-${CI_COMMIT_TAG}.zip"
           url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-macos-arm64-${CI_COMMIT_TAG}.zip"
+        - name: "npm: @snopek-games/godai-mcp ${CI_COMMIT_TAG}"
+          url: "https://www.npmjs.com/package/@snopek-games/godai-mcp"
         - name: "${MCP_APP_NAME}-${CI_COMMIT_TAG}.mcpb"
           url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-${CI_COMMIT_TAG}.mcpb"
         - name: "godai-addon.zip"
