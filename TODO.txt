@@ -4,12 +4,10 @@ TODO
 Backlog
 -------
 
-- Addon: Return actionable errors to the AI when possible
-  - Use `isError` when acting as MCP and custom format with tools API
 - Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
-- MCP: Add `outputSchema` to all tools in default_tools.json
-- MCP: Add a "restart editor" command (should prompt the user to save and wait for the editor to come back)
-- Addon: Make MCP transport configurable (editor settings first, but eventually the panel too?)
+- Addon: Have separate tools for MCP and API mode
+  - API mode needs to have file management tools
+  - Having a way to "reload" the tools would help iteration during development
 - Addon: Add system prompt
 - Addon: Add a way to cancel a request
 - Addon: Chat history
@@ -17,18 +15,18 @@ Backlog
   - Save a chat history of up to X conversations
 - Addon: Convert markdown to bbcode?
   - See https://github.com/daenvil/MarkdownLabel
-- Addon: Set `Logger` so AI can see recent output and error messages
+- MCP: Add tool annotations for each tool
+  - See: https://modelcontextprotocol.io/specification/draft/schema#toolannotations
 - Tool: Get Godot version and executeable path
-- Tool: Set/get project settings
-- Tool: Create resource file
-- Tool: Enable richer format for settings properties (affects a number of tools)
-- Tool: List class properties in (from ClassDB)
-- Tool: List node properties (from a specific Node in the scene)
 - Add to Godot assetlib
 - Add to Claude directory
   - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
 - Tool: Get class documentation
   - Depends on https://github.com/godotengine/godot/pull/112628
+- Tool: Capture log messages from the running game
+  - get_log_messages only sees editor output; the game is a separate process
+  - Inject a logger autoload that forwards lines via EngineDebugger.send_message
+  - Receive them in the editor with an EditorDebuggerPlugin custom capture
 - Addon: Allow editor plugins to register custom tools for a particular project
   - Will need to allow MCP to update it's tools list
 - MCP: Add a command for creating a new project

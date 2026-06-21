@@ -1,6 +1,305 @@
 extends RefCounted
 
 
+## Encodes a property value as a string in Godot variant syntax.
+##
+## The inverse of decode_property_value(): any value this returns (other
+## than the `Object(ClassName)` summary) can be passed back in.
+static func encode_property_value(p_value: Variant) -> String:
+	match typeof(p_value):
+		TYPE_STRING, TYPE_STRING_NAME:
+			# String properties are passed around raw, without quotes.
+			return str(p_value)
+		TYPE_OBJECT:
+			if p_value == null or not is_instance_valid(p_value):
+				return "null"
+			var res := p_value as Resource
+			if res and not res.is_built_in():
+				return 'Resource("%s")' % res.resource_path
+			# An embedded resource (or other object): just a summary, because
+			# dumping every property would be huge. Sub-properties can be
+			# accessed with a colon path (e.g. "mesh:radius").
+			return "Object(%s)" % p_value.get_class()
+		_:
+			return var_to_str(p_value)
+
+
+## Decodes a property value received from the AI into a Variant.
+##
+## Returns a Dictionary with either a 'value' key, or an 'error' key with a
+## message that can be sent back to the AI.
+static func decode_property_value(p_raw: Variant, p_expected_type: int) -> Dictionary:
+	# Tolerate values that are already JSON-native (numbers, booleans, ...).
+	if typeof(p_raw) != TYPE_STRING:
+		return { value = p_raw }
+
+	var string_value: String = p_raw
+
+	# String properties take the raw string, so no quoting is required.
+	if p_expected_type == TYPE_STRING:
+		return { value = string_value }
+	if p_expected_type == TYPE_STRING_NAME:
+		return { value = StringName(string_value) }
+
+	var parsed: Variant = str_to_var(string_value)
+	if parsed == null and not string_value.strip_edges() in ["null", "nil"]:
+		# str_to_var() returns null on parse failure.
+		if p_expected_type == TYPE_NIL:
+			# Variant or unknown property type: fall back to the raw string.
+			return { value = string_value }
+		return { error = 'Cannot parse "%s" as a Godot variant. Examples of valid values: 5, 2.5, true, Vector2(1, 2), Color(1, 0, 0, 1), Resource("res://path/to/file.tres"), Object(SphereMesh,"radius":2.0)' % string_value }
+
+	return { value = parsed }
+
+
+## Resolves a colon-separated property path (e.g. "mesh:radius") on an object,
+## validating each segment along the way.
+##
+## Returns a Dictionary with 'value' (the current value at the path) and
+## 'expected_type' (the declared Variant.Type of the final property, or
+## TYPE_NIL if unknown) keys, or an 'error' key with a message that can be
+## sent back to the AI.
+static func resolve_property_path(p_object: Object, p_path: String) -> Dictionary:
+	var segments := p_path.split(":")
+	var walked := ""
+
+	var current: Variant = p_object
+	for i in range(segments.size()):
+		var seg: String = segments[i]
+		var is_last := (i == segments.size() - 1)
+
+		if current == null:
+			return { error = "'%s' is null, so cannot access '%s'" % [walked, seg] }
+
+		if not (current is Object):
+			# A built-in type (Vector2, Color, ...): we can't cheaply validate
+			# its member names, so defer to get_indexed() for the value.
+			return {
+				value = p_object.get_indexed(p_path),
+				expected_type = TYPE_NIL,
+			}
+
+		var expected_type := TYPE_NIL
+		var found := false
+		for prop in current.get_property_list():
+			if prop['usage'] & (PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SUBGROUP | PROPERTY_USAGE_CATEGORY):
+				continue
+			if prop['name'] == seg:
+				expected_type = prop['type']
+				found = true
+				break
+
+		# Metadata properties only appear in the property list once set, so
+		# allow setting new ones.
+		if not found and not (is_last and seg.begins_with("metadata/")):
+			return { error = "%s has no property named '%s'" % [current.get_class(), seg] }
+
+		if is_last:
+			return {
+				value = current.get(seg),
+				expected_type = expected_type,
+			}
+
+		current = current.get(seg)
+		walked = seg if walked.is_empty() else walked + ":" + seg
+
+	return { error = "Empty property path" }
+
+
+## Builds a map of property name to encoded value for the given object,
+## skipping internal properties (and optionally, properties at their default
+## value).
+static func get_property_map(p_object: Object, p_modified_only: bool) -> Dictionary:
+	var props := {}
+
+	for prop in p_object.get_property_list():
+		var prop_name: String = prop['name']
+		var prop_usage: int = prop['usage']
+
+		if prop_name.begins_with("_") or prop_usage & PROPERTY_USAGE_INTERNAL:
+			continue
+		if prop_usage & PROPERTY_USAGE_GROUP or prop_usage & PROPERTY_USAGE_CATEGORY or prop_usage & PROPERTY_USAGE_SUBGROUP:
+			continue
+
+		var value: Variant = p_object.get(prop_name)
+		if p_modified_only and value == get_default_property_value(p_object, prop_name):
+			continue
+
+		props[prop_name] = encode_property_value(value)
+
+	return props
+
+
+## Reads settings from a settings object (the ProjectSettings or EditorSettings
+## singleton) into a map of setting name to value, encoded in Godot variant
+## syntax.
+##
+## When p_names is non-empty, only those settings are returned (regardless of
+## whether they match their default), and an 'error' is returned if any don't
+## exist. Otherwise all settings are returned, skipping those at their default
+## value unless p_include_defaults is true.
+##
+## Returns a Dictionary with either a 'settings' key, or an 'error' key with a
+## message that can be sent back to the AI.
+static func get_settings_map(p_settings: Object, p_names: Array, p_include_defaults: bool) -> Dictionary:
+	var settings := {}
+
+	if not p_names.is_empty():
+		var missing := PackedStringArray()
+		for name in p_names:
+			if not p_settings.has_setting(name):
+				missing.append(str(name))
+		if not missing.is_empty():
+			return { error = "No such setting(s): %s" % ", ".join(missing) }
+		for name in p_names:
+			settings[name] = encode_property_value(p_settings.get_setting(name))
+		return { settings = settings }
+
+	for prop in p_settings.get_property_list():
+		var name: String = prop['name']
+		var usage: int = prop['usage']
+
+		if usage & (PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SUBGROUP | PROPERTY_USAGE_CATEGORY):
+			continue
+		# Filters out the settings object's own properties (e.g. 'script'),
+		# leaving only actual settings.
+		if not p_settings.has_setting(name):
+			continue
+		if not p_include_defaults and not is_setting_modified(p_settings, name):
+			continue
+
+		settings[name] = encode_property_value(p_settings.get_setting(name))
+
+	return { settings = settings }
+
+
+## Whether a setting's current value differs from its default. Settings with no
+## known default (e.g. custom ones) are always considered modified.
+static func is_setting_modified(p_settings: Object, p_name: String) -> bool:
+	if not p_settings.property_can_revert(p_name):
+		return true
+	return p_settings.get_setting(p_name) != p_settings.property_get_revert(p_name)
+
+
+## Decodes a map of setting name to string value (in Godot variant syntax) for a
+## settings object, using each existing setting's current type to guide
+## decoding. Every value is decoded up front, so a single bad value aborts the
+## whole batch.
+##
+## Returns a Dictionary with either a 'values' key (the decoded name -> Variant
+## map), or an 'error' key with a message that can be sent back to the AI.
+static func decode_settings(p_settings: Object, p_values: Dictionary) -> Dictionary:
+	var decoded := {}
+	var errors := PackedStringArray()
+
+	for name in p_values:
+		# When the setting already exists, use its current type to guide
+		# decoding; otherwise fall back to the raw string on parse failure.
+		var expected_type := TYPE_NIL
+		if p_settings.has_setting(name):
+			expected_type = typeof(p_settings.get_setting(name))
+
+		var result := decode_property_value(p_values[name], expected_type)
+		if result.has('error'):
+			errors.append("%s: %s" % [name, result['error']])
+		else:
+			decoded[name] = result['value']
+
+	if not errors.is_empty():
+		return { error = "Nothing was changed, due to the following errors:\n" + "\n".join(errors) }
+
+	return { values = decoded }
+
+
+## Gets the default value of a property, for both native and script properties.
+static func get_default_property_value(p_object: Object, p_prop_name: String) -> Variant:
+	var script: Script = p_object.get_script()
+	if script:
+		for prop in script.get_script_property_list():
+			if prop['name'] == p_prop_name:
+				return script.get_property_default_value(p_prop_name)
+	return ClassDB.class_get_property_default_value(p_object.get_class(), p_prop_name)
+
+
+## Normalizes a path into a `res://` path, adding the prefix if missing.
+static func to_res_path(p_path: String) -> String:
+	if p_path.begins_with("res://"):
+		return p_path
+	return "res://" + p_path.lstrip("/")
+
+
+## Finds the live text editor for a script that is open in the script editor,
+## or null if the script isn't currently open. The returned control is a
+## TextEdit (CodeEdit) whose `text` is the live, possibly-unsaved buffer.
+static func get_open_script_editor(p_script_path: String) -> TextEdit:
+	if not Engine.is_editor_hint():
+		return null
+
+	var script_editor := EditorInterface.get_script_editor()
+	if not script_editor:
+		return null
+
+	# get_open_scripts() and get_open_script_editors() iterate the open
+	# scripts in the same order, so the two arrays line up.
+	var scripts := script_editor.get_open_scripts()
+	var editors := script_editor.get_open_script_editors()
+
+	for i in range(min(scripts.size(), editors.size())):
+		var script: Script = scripts[i]
+		if script and script.resource_path == p_script_path:
+			var base: Control = editors[i].get_base_editor()
+			if base is TextEdit:
+				return base
+			return null
+
+	return null
+
+
+## Tracks the hash of each script's content as the AI last saw it (via
+## read_script, or after it created/wrote the script), so write_script can
+## refuse to overwrite changes the AI hasn't seen.
+static var _script_read_hashes := {}
+
+
+## Returns the current content of a script as the AI would read it: the live
+## editor buffer when it's open, otherwise the file on disk. Returns a
+## Dictionary with 'content' and 'open_in_editor' keys, or an 'error' key.
+static func read_script_content(p_path: String) -> Dictionary:
+	var editor := get_open_script_editor(p_path)
+	if editor:
+		return { content = editor.text, open_in_editor = true }
+
+	var fa := FileAccess.open(p_path, FileAccess.READ)
+	if not fa:
+		return { error = "Failed to read '%s': %s" % [p_path, error_string(FileAccess.get_open_error())] }
+	var text := fa.get_as_text()
+	fa.close()
+	return { content = text, open_in_editor = false }
+
+
+## Records the content the AI has just seen (or written) for a script, so a
+## later write can tell whether it's still up to date.
+static func record_script_read(p_path: String, p_content: String) -> void:
+	_script_read_hashes[p_path] = p_content.sha256_text()
+
+
+## Checks whether it's safe to overwrite a script: the AI must have read it,
+## and it must not have changed since. Returns an empty Dictionary when it's
+## safe, or one with an 'error' key explaining why not.
+static func check_script_writable(p_path: String, p_current_content: String) -> Dictionary:
+	if not _script_read_hashes.has(p_path):
+		return { error = "You must read '%s' with read_script before writing to it, so you don't overwrite changes you haven't seen." % p_path }
+	if _script_read_hashes[p_path] != p_current_content.sha256_text():
+		return { error = "'%s' has changed since you last read it; read it again with read_script before writing, so you don't overwrite those changes." % p_path }
+	return {}
+
+
+## Clear our tracking of script reads.
+static func clear_script_reads() -> void:
+	_script_read_hashes.clear()
+
+
+## Gets the scene tree.
 static func get_scene_tree() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -8,6 +307,7 @@ static func get_scene_tree() -> SceneTree:
 	return null
 
 
+## Gets the root of the scene tree.
 static func get_scene_root() -> Node:
 	var scene_tree: SceneTree = get_scene_tree()
 	if not scene_tree:
@@ -16,6 +316,7 @@ static func get_scene_root() -> Node:
 	return scene_tree.root
 
 
+## Gets the `EditorDebuggerNode`.
 static func get_editor_debugger_node() -> Node:
 	var root: Node = get_scene_root()
 	if not root:
@@ -28,6 +329,7 @@ static func get_editor_debugger_node() -> Node:
 	return results[0]
 
 
+## Set the name of a child node that is being added to the given parent.
 static func set_child_node_name(p_parent: Node, p_child: Node) -> void:
 	var name: String = p_child.name
 	if name == "":
@@ -47,6 +349,7 @@ static func set_child_node_name(p_parent: Node, p_child: Node) -> void:
 	p_child.name = name
 
 
+## Configures the EditorUndoRedoManager to create and add a node.
 static func editor_undo_redo_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
 	var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 	if not edited_scene_root:
@@ -66,6 +369,7 @@ static func editor_undo_redo_create_node(p_undo_redo: EditorUndoRedoManager, p_p
 		p_undo_redo.add_undo_method(editor_debugger_node, "live_debug_remove_node", NodePath(str(edited_scene_root.get_path_to(p_parent)) + "/" + p_child.name))
 
 
+## Configures the EditorUndoRedoManager to remove a node.
 static func editor_undo_redo_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void:
 	var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 	if not edited_scene_root:

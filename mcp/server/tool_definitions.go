@@ -84,7 +84,7 @@ func loadToolsJSON(b []byte) (map[string]*ToolDefinition, error) {
 }
 
 func loadDefaultRemoteTools() (map[string]*ToolDefinition, error) {
-	b, err := godai.AddonFS.ReadFile("addons/godai/tools/default_tools.json")
+	b, err := godai.AddonFS.ReadFile("addons/godai/tools/default/default_tools.json")
 	if err != nil {
 		return nil, fmt.Errorf("unable to read default_tools.json from Godot addon: %w", err)
 	}

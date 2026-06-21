@@ -1,20 +1,17 @@
 @tool
 extends Control
 
+const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
+
 const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
-const DefaultTools = preload("res://addons/godai/tools/default_tools.gd")
+const DefaultToolsLoader = preload("res://addons/godai/tools/default/loader.gd")
 const MCPServer = preload("res://addons/godai/mcp/mcp_server.gd")
 
 const UserChatScene = preload("res://addons/godai/ui/user_chat.tscn")
 const AssistantChatScene = preload("res://addons/godai/ui/assistant_chat.tscn")
 const ToolChatScene = preload("res://addons/godai/ui/tool_chat.tscn")
 const ErrorChatScene = preload("res://addons/godai/ui/error_chat.tscn")
-
-const ANTHROPIC_API_KEY_SETTING = "godai/anthropic_api_key"
-const MCP_TRANSPORT_SETTING = "godai/mcp_transport"
-const MCP_SERVER_BASE_PORT = 12120
-const MCP_SERVER_PORT_COUNT = 10
 
 @onready var mcp_status_label: Label = %MCPStatusLabel
 @onready var start_mcp_button: Button = %StartMCPButton
@@ -36,7 +33,9 @@ var tools: ToolManager = ToolManager.new()
 var mcp_server: MCPServer
 
 var _pending_tool_chats: Dictionary
-var _mcp_transport: MCPServer.Transport
+var _mcp_transport: MCPServer.Transport = GodaiEditorSettings.MCP_TRANSPORT_DEFAULT
+var _mcp_base_port: int = GodaiEditorSettings.MCP_BASE_PORT_DEFAULT
+var _mcp_port_count: int = GodaiEditorSettings.MCP_PORT_COUNT_DEFAULT
 
 
 func _ready() -> void:
@@ -52,7 +51,7 @@ func _ready() -> void:
 
 	clear_button.disabled = true
 
-	DefaultTools.register(tools)
+	DefaultToolsLoader.load_default_tools(tools)
 	claude_client.tools = tools
 
 	mcp_server = MCPServer.new(tools)
@@ -71,8 +70,10 @@ func show_panel() -> void:
 
 
 func _update_from_editor_settings(p_settings: EditorSettings) -> void:
-	claude_client.api_key = p_settings.get_setting(ANTHROPIC_API_KEY_SETTING)
-	_mcp_transport = p_settings.get_setting(MCP_TRANSPORT_SETTING)
+	claude_client.api_key = p_settings.get_setting(GodaiEditorSettings.ANTHROPIC_API_KEY_SETTING)
+	_mcp_transport = GodaiEditorSettings.get_mcp_transport() as MCPServer.Transport
+	_mcp_base_port = GodaiEditorSettings.get_mcp_base_port()
+	_mcp_port_count = GodaiEditorSettings.get_mcp_port_count()
 
 
 func _update_panel_theme() -> void:
@@ -138,7 +139,7 @@ func _update_mcp_status_bar() -> void:
 
 
 func _start_mcp() -> void:
-	mcp_server.start_server(MCP_SERVER_BASE_PORT, MCP_SERVER_PORT_COUNT, _mcp_transport)
+	mcp_server.start_server(_mcp_base_port, _mcp_port_count, _mcp_transport)
 
 
 func _on_start_mcp_button_pressed() -> void:

@@ -3,6 +3,7 @@ extends Node
 
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const JSONRPCDispatcher = preload("res://addons/godai/mcp/jsonrpc_dispatcher.gd")
+const Utils = preload("res://addons/godai/utils.gd")
 
 const PROTOCOL_VERSION = "2025-06-18"
 
@@ -201,31 +202,39 @@ func _rpc_call_tool(p_params: Dictionary):
 	var name: String = p_params['name']
 	var args: Dictionary = p_params['arguments']
 
+	if not tools.has_tool(name):
+		return JSONRPCDispatcher.ResponseError.new(
+			JSONRPCDispatcher.ErrorCode.INVALID_PARAMS_ERROR, "Unknown tool: %s" % name)
+
 	_last_tool_id += 1
 	var id: String = "mcp:" + str(_last_tool_id)
 	tool_use_requested.emit(id, name, args)
 
 	var result: ToolManager.ToolResult = tools.execute_tool(name, args)
 	if result.is_done():
-		return _process_tool_result(id, result.content)
+		return _process_tool_result(id, result)
 
 	# Handle async results.
 	var async_result = JSONRPCDispatcher.AsyncResult.new()
-	result.completed.connect(func (content):
-		async_result.resolve(_process_tool_result(id, content))
+	result.completed.connect(func (_content):
+		async_result.resolve(_process_tool_result(id, result))
 	)
 	return async_result
 
 
-func _process_tool_result(p_id: String, p_content):
+func _process_tool_result(p_id: String, p_result: ToolManager.ToolResult):
 	var ret := {}
 
+	var content = p_result.content
+	if p_result.is_error():
+		ret['isError'] = true
+
 	var s: String
-	if p_content is String:
-		s = p_content
+	if content is String:
+		s = content
 	else:
-		s = JSON.stringify(p_content)
-		ret['structuredContent'] = p_content
+		s = JSON.stringify(content)
+		ret['structuredContent'] = content
 
 	ret['content'] = [
 		{
@@ -235,7 +244,7 @@ func _process_tool_result(p_id: String, p_content):
 	]
 
 	var emit_signal = func():
-		tool_use_completed.emit(p_id, p_content)
+		tool_use_completed.emit(p_id, content)
 	emit_signal.call_deferred()
 
 	return ret
@@ -311,6 +320,11 @@ func _remove_peer(p_peer: Peer) -> void:
 		_client_info = {}
 		_client_state = ClientState.NOT_CONNECTED
 		client_state_changed.emit(_client_state)
+
+		# The next client to connect could be a different AI agent, so make it
+		# re-read scripts before it can overwrite them. We can't do this for
+		# the HTTP transport, which doesn't keep a persistent connection.
+		Utils.clear_script_reads()
 
 
 func _process_http_peers() -> void:

@@ -8,6 +8,7 @@ class ToolResult extends RefCounted:
 	var content
 
 	var _done := false
+	var _error := false
 
 	signal completed(content)
 
@@ -18,8 +19,19 @@ class ToolResult extends RefCounted:
 		content = p_content
 		completed.emit(content)
 
+	func reject(p_content) -> void:
+		if _done:
+			return
+		_done = true
+		_error = true
+		content = p_content
+		completed.emit(content)
+
 	func is_done() -> bool:
 		return _done
+
+	func is_error() -> bool:
+		return _error
 
 	func get_content_as_string() -> String:
 		if content is String:
@@ -29,6 +41,11 @@ class ToolResult extends RefCounted:
 	static func resolved(p_content) -> ToolResult:
 		var result := ToolResult.new()
 		result.resolve(p_content)
+		return result
+
+	static func rejected(p_content) -> ToolResult:
+		var result := ToolResult.new()
+		result.reject(p_content)
 		return result
 
 @abstract
@@ -53,7 +70,7 @@ class Tool extends RefCounted:
 		return data
 
 
-class ToolCallback extends Tool:
+class CallbackTool extends Tool:
 	var callback: Callable
 
 	func _init(p_name: String, p_title: String, p_description: String, p_callback: Callable, p_input_schema: Dictionary = INPUT_SCHEMA_EMPTY, p_output_schema: Dictionary = OUTPUT_SCHEMA_STRING) -> void:
@@ -66,6 +83,22 @@ class ToolCallback extends Tool:
 	func execute(p_input) -> ToolResult:
 		return callback.call(p_input)
 
+## Base class for the built-in tools: fills in the tool's name, title,
+## description and input schema from its entry in default_tools.json.
+@abstract
+class DefaultTool extends Tool:
+	func _init(p_data: Dictionary) -> void:
+		name = p_data['name']
+		title = p_data.get('title', name)
+
+		var raw_desc = p_data['description']
+		if raw_desc is Array:
+			description = "\n".join(raw_desc)
+		else:
+			description = raw_desc
+
+		input_schema = p_data.get("inputSchema", INPUT_SCHEMA_EMPTY)
+		output_schema = p_data.get("outputSchema", {})
 
 class QueueItem extends RefCounted:
 	var tool_obj: Tool
@@ -93,8 +126,8 @@ func register_tool(p_tool: Tool) -> void:
 		push_error("Cannot register tool without input_schema")
 		return
 
-	if p_tool is ToolCallback and p_tool.callback.is_null():
-		push_error("Cannot register ToolCallback without a valid callback")
+	if p_tool is CallbackTool and p_tool.callback.is_null():
+		push_error("Cannot register CallbackTool without a valid callback")
 		return
 
 	tools[p_tool.name] = p_tool

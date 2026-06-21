@@ -24,7 +24,35 @@ mcp-test:
   script:
     - go version
     - go env
-    - go test ./...
+    # -short skips the functional tests, which are run by the godot-test job.
+    - go test -short ./...
+
+# Runs the tests that need a real Godot editor: the GUT unit tests, and the
+# functional tests of the editor's MCP server.
+godot-test:
+  stage: test
+  image: golang:${GO_VERSION}
+  variables:
+    GODOT_VERSION: "4.6.3"
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends unzip libfontconfig1
+    - wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+    - unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+    - mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+    - rm "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+    - godot --version
+  script:
+    # Import the project, so its resources are available to the GUT tests.
+    - godot --headless --import
+    # The GUT unit tests. GUT exits non-zero on test failures, but exits zero
+    # when it doesn't find any tests, so we have to check for that ourselves.
+    - set -o pipefail
+    - godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/gut -gexit 2>&1 | tee gut-output.log
+    - '! grep -q "Nothing was run" gut-output.log'
+    # The functional tests of the editor's MCP server. These launch their own
+    # headless editor; GODAI_TEST_VERBOSE streams its log into the job output,
+    # since the temporary project directory can't be inspected after the job.
+    - GODAI_TEST_VERBOSE=1 go test -v -count=1 ./tests/functional/editor/
 
 # On release tags, require the version in plugin.cfg (the single source of
 # truth) to match the tag, so a release can't be made with a stale version.

@@ -1,0 +1,74 @@
+extends RefCounted
+
+const ANTHROPIC_API_KEY_SETTING = "godai/anthropic_api_key"
+const MCP_TRANSPORT_SETTING = "godai/mcp_transport"
+const MCP_BASE_PORT_SETTING = "godai/mcp_base_port"
+const MCP_PORT_COUNT_SETTING = "godai/mcp_port_count"
+
+const MCP_TRANSPORT_DEFAULT = 0
+const MCP_BASE_PORT_DEFAULT = 12120
+const MCP_PORT_COUNT_DEFAULT = 10
+
+# Environment variables that override the editor settings (used for testing).
+const MCP_TRANSPORT_ENV = "GODAI_MCP_TRANSPORT"
+const MCP_BASE_PORT_ENV = "GODAI_MCP_BASE_PORT"
+const MCP_PORT_COUNT_ENV = "GODAI_MCP_PORT_COUNT"
+
+
+static func _add_editor_setting(p_name: String, p_type: int, p_default, p_hint = null, p_hint_string = null) -> void:
+	var settings: EditorSettings = EditorInterface.get_editor_settings()
+
+	if not settings.has_setting(p_name):
+		settings.set_setting(p_name, p_default)
+
+	settings.set_initial_value(p_name, p_default, false)
+
+	var info := {
+		name = p_name,
+		type = p_type,
+	}
+	if p_hint != null:
+		info['hint'] = p_hint
+	if p_hint_string != null:
+		info['hint_string'] = p_hint_string
+
+	settings.add_property_info(info)
+
+
+static func add_editor_settings() -> void:
+	_add_editor_setting(MCP_TRANSPORT_SETTING, TYPE_INT, MCP_TRANSPORT_DEFAULT, PROPERTY_HINT_ENUM, "WebSocket,HTTP")
+	_add_editor_setting(MCP_BASE_PORT_SETTING, TYPE_INT, MCP_BASE_PORT_DEFAULT)
+	_add_editor_setting(MCP_PORT_COUNT_SETTING, TYPE_INT, MCP_PORT_COUNT_DEFAULT)
+	_add_editor_setting(ANTHROPIC_API_KEY_SETTING, TYPE_STRING, "", PROPERTY_HINT_PASSWORD)
+
+
+static func _get_int_env_or_setting(p_env: String, p_setting: String) -> int:
+	if OS.has_environment(p_env):
+		var value := OS.get_environment(p_env)
+		if value.is_valid_int():
+			return value.to_int()
+		push_warning("Ignoring environment variable %s: '%s' is not a valid integer" % [p_env, value])
+	return EditorInterface.get_editor_settings().get_setting(p_setting)
+
+
+# Accepts "websocket" or "http" (case-insensitive), or the integer enum value.
+static func get_mcp_transport() -> int:
+	if OS.has_environment(MCP_TRANSPORT_ENV):
+		var value := OS.get_environment(MCP_TRANSPORT_ENV)
+		match value.to_lower():
+			"websocket", "ws":
+				return 0
+			"http":
+				return 1
+		if value.is_valid_int():
+			return value.to_int()
+		push_warning("Ignoring environment variable %s: '%s' is not a valid transport" % [MCP_TRANSPORT_ENV, value])
+	return EditorInterface.get_editor_settings().get_setting(MCP_TRANSPORT_SETTING)
+
+
+static func get_mcp_base_port() -> int:
+	return _get_int_env_or_setting(MCP_BASE_PORT_ENV, MCP_BASE_PORT_SETTING)
+
+
+static func get_mcp_port_count() -> int:
+	return _get_int_env_or_setting(MCP_PORT_COUNT_ENV, MCP_PORT_COUNT_SETTING)

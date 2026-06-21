@@ -136,7 +136,7 @@ func _handle_one(p_request: Dictionary) -> Dictionary:
 	var result = cb.call(p_request.get('params', {}))
 	if result is ResponseError:
 		resp['error'] = result.to_dict()
-	if result is AsyncResult:
+	elif result is AsyncResult:
 		resp['result'] = await result.completed
 	else:
 		resp['result'] = result

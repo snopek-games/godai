@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const ProtocolVersion string = "2025-06-18"
@@ -372,6 +373,25 @@ func (s *Server) getEditorConnection(projectPath string) (*godot.Connection, err
 		"Open the Godot editor for this project using the `open_godot_project` tool",
 	})
 
+}
+
+// waitForEditorReconnect blocks until an editor for the given project is
+// connected on a connection other than oldConn (i.e. a fresh connection after
+// a restart), or the context is done. It returns the new connection.
+func (s *Server) waitForEditorReconnect(ctx context.Context, projectPath string, oldConn *godot.Connection) (*godot.Connection, error) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			if conn, err := s.getEditorConnection(projectPath); err == nil && conn != oldConn {
+				return conn, nil
+			}
+		}
+	}
 }
 
 func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (any, *jsonrpc.Error) {

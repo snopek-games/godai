@@ -25,6 +25,10 @@ func (s *Server) setupLocalTools() {
 	s.addLocalTool("list_open_projects", s.toolListOpenProjects)
 	s.addLocalTool("get_mcp_configuration", s.toolGetMcpConfiguration)
 	s.addLocalTool("set_mcp_configuration", s.toolSetMcpConfiguration)
+
+	// Overrides a remote tool: the editor restarts itself, and we wait here for
+	// it to disconnect and reconnect.
+	s.addLocalToolOverride("restart_editor", s.toolRestartEditor)
 }
 
 func (s *Server) addLocalTool(name string, handler ToolHandler) {
@@ -512,6 +516,71 @@ func (s *Server) toolOpenGodotProject(ctx context.Context, rawParams json.RawMes
 		if !connected {
 			return nil, fmt.Errorf("timed out waiting for connection from Godot editor for '%s'", realProjectPath)
 		}
+	}
+
+	var output struct {
+		Success bool `json:"success"`
+	}
+	output.Success = true
+
+	return output, nil
+}
+
+// restartReconnectTimeout bounds how long we wait for the editor to come back
+// after restarting (it has to relaunch and re-scan the project).
+const restartReconnectTimeout = 180 * time.Second
+
+func (s *Server) toolRestartEditor(ctx context.Context, rawParams json.RawMessage) (any, error) {
+	var params struct {
+		ProjectPath string `json:"project_path"`
+	}
+	if err := json.Unmarshal(rawParams, &params); err != nil {
+		return nil, newUserVisibleError("project_path argument is required", err, nil)
+	}
+
+	projectPath, err := canonicalPath(params.ProjectPath)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := s.getEditorConnection(projectPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ask the editor to restart. It prompts the user to save and, once they
+	// confirm, replies with success and then restarts (dropping this
+	// connection). We deliberately don't impose our own timeout on this call,
+	// since the editor may be sitting at the save prompt waiting for the user.
+	resp, callErr := conn.CallMethod(ctx, "tools/call", &callToolParams{
+		Name:      "restart_editor",
+		Arguments: rawParams,
+	})
+
+	// A nil response or transport error means the connection dropped before the
+	// editor replied (e.g. it restarted very quickly). That's fine: we just
+	// proceed to wait for it to come back. But if we got a real reply, honor it
+	// — in particular, the user may have declined the restart.
+	if callErr == nil && resp != nil {
+		if resp.Error != nil {
+			return nil, fmt.Errorf("error calling restart_editor in the editor: %v", resp.Error)
+		}
+		var editorResult toolResult
+		if err := json.Unmarshal(resp.Result, &editorResult); err == nil && editorResult.IsError {
+			message := "the editor did not restart"
+			if len(editorResult.Content) > 0 && editorResult.Content[0].Text != "" {
+				message = editorResult.Content[0].Text
+			}
+			return nil, newUserVisibleError(message, nil, nil)
+		}
+	}
+
+	// Wait for the editor to disconnect and reconnect (a fresh connection for
+	// the same project).
+	waitCtx, cancel := context.WithTimeout(ctx, restartReconnectTimeout)
+	defer cancel()
+	if _, err := s.waitForEditorReconnect(waitCtx, projectPath, conn); err != nil {
+		return nil, newUserVisibleError("the editor did not reconnect after restarting", err, nil)
 	}
 
 	var output struct {

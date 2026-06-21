@@ -1,14 +1,14 @@
 extends GutTest
 
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
-const DefaultTools = preload("res://addons/godai/tools/default_tools.gd")
+const DefaultToolsLoader = preload("res://addons/godai/tools/default/loader.gd")
 
 var tool_manager: ToolManager
 
 
 func before_all() -> void:
 	tool_manager = ToolManager.new()
-	DefaultTools.register(tool_manager)
+	DefaultToolsLoader.load_default_tools(tool_manager)
 
 
 func test_execute_editor_script_process_user_code() -> void:

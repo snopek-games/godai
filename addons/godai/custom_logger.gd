@@ -4,6 +4,15 @@ var _enabled := false
 var _messages: PackedStringArray
 var _mutex := Mutex.new()
 
+## If greater than zero, only the most recent this-many messages are kept
+## (the buffer acts as a ring). Zero means keep everything.
+var max_messages := 0
+
+# ANSI escape sequences (terminal colors, etc).
+var _ansi_regex := RegEx.create_from_string("\\x1b\\[[0-9;]*[A-Za-z]")
+# Any remaining control characters, except newline and tab.
+var _control_char_regex := RegEx.create_from_string("[\\x00-\\x08\\x0B-\\x1F\\x7F]")
+
 const ERROR_TYPES := {
 	Logger.ERROR_TYPE_ERROR: "ERROR",
 	Logger.ERROR_TYPE_WARNING: "WARNING",
@@ -41,12 +50,20 @@ func get_messages() -> PackedStringArray:
 
 
 func _add_lines(p_msg: String) -> void:
-	var lines := p_msg.split("\n")
+	# Remove special characters so we don't generate invalid JSON.
+	var msg := _ansi_regex.sub(p_msg, "", true)
+	msg = _control_char_regex.sub(msg, "", true)
+
+	var lines := msg.split("\n")
 	if len(lines) > 1 and lines[len(lines) - 1] == "":
 		lines = lines.slice(0, len(lines) - 1)
 
 	for line in lines:
 		_messages.push_back(line)
+
+	# Keep the buffer bounded when a maximum is set.
+	if max_messages > 0 and _messages.size() > max_messages:
+		_messages = _messages.slice(_messages.size() - max_messages)
 
 
 func _log_error(p_function: String, p_file: String, p_line: int, p_code: String, p_rationale: String, p_editor_notify: bool, p_error_type: int, p_script_backtraces: Array[ScriptBacktrace]) -> void:
