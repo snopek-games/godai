@@ -1,29 +1,24 @@
 TODO
 ====
 
-Improving Claude/Codex/Cursor integration
------------------------------------------
-
-- Update README with info about running via `npx` and make it less Claude Desktop centric
-
 For a 1.0
 ---------
 
-- Add an approval mechanism in the editor
+- Addon: Add an approval mechanism in the editor
   - Tools that "write" or are otherwise dangerous can be marked as requiring an approval
   - This would popup a dialog which has "Approve" / "Deny" / "Approval all during this session"
     - The "Approve all during this session" lasts for however long the MCP is connected
     - We probably shouldn't have the "Approve all" for the HTTP transport?
   - Add an editor setting and environment variable to automatically approve everything
   - When headless it should automatically reject everything (unless the editor setting or env variable are set)
-- Move the API settings under a section
+- Addon: Move the API settings under a section
   - Maybe MCP too?
-- Implement support for at least one other LLM API (maybe Gemini?)
+- Addon: Implement support for at least one other LLM API (maybe Gemini?)
 - MCP: Allow opening a Godot project in headless mode
 - Addon: Have separate tools for MCP and API mode
   - API mode needs to have file management tools
   - Having a way to "reload" the tools would help iteration during development
-- Add to Godot assetlib
+- Add to Godot asset store
 - Add to Claude directory
   - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
 - Addon: Add a way to cancel a request
