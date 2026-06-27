@@ -11,18 +11,17 @@ For a 1.0
     - We probably shouldn't have the "Approve all" for the HTTP transport?
   - Add an editor setting and environment variable to automatically approve everything
   - When headless it should automatically reject everything (unless the editor setting or env variable are set)
-- Addon: Move the API settings under a section
-  - Maybe MCP too?
-- Addon: Implement support for at least one other LLM API (maybe Gemini?)
-- MCP: Allow opening a Godot project in headless mode
 - Addon: Have separate tools for MCP and API mode
   - API mode needs to have file management tools
   - Having a way to "reload" the tools would help iteration during development
+- Addon: Move the API settings under a section
+  - Maybe MCP too?
+- Addon: Implement support for at least one other LLM API (maybe Gemini?)
+- Addon: Add a way to cancel a request
+- Addon: Add system prompt
 - Add to Godot asset store
 - Add to Claude directory
   - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
-- Addon: Add a way to cancel a request
-- Addon: Add system prompt
 
 Backlog
 -------

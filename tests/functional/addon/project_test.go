@@ -89,6 +89,7 @@ func TestListTools(t *testing.T) {
 		"get_editor_settings",
 		"set_editor_settings",
 		"restart_editor",
+		"close_editor",
 	}
 
 	var got []string

@@ -11,6 +11,7 @@ static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
 	p_tools.register_tool(EditorGetSettings.new(p_data["get_editor_settings"]))
 	p_tools.register_tool(EditorSetSettings.new(p_data["set_editor_settings"]))
 	p_tools.register_tool(EditorRestart.new(p_data["restart_editor"]))
+	p_tools.register_tool(EditorClose.new(p_data["close_editor"]))
 	p_tools.register_tool(LogGetMessages.new(p_data["get_log_messages"]))
 	p_tools.register_tool(EditorScriptExecute.new(p_data["execute_editor_script"]))
 
@@ -50,8 +51,8 @@ class EditorSetSettings extends DefaultTool:
 
 class EditorRestart extends DefaultTool:
 	# Set in the environment by the functional tests, so exercising this tool
-	# doesn't actually restart (and kill) the editor under test.
-	const DISABLE_RESTART_ENV := "GODAI_DISABLE_RESTART"
+	# doesn't actually shut down (and kill) the editor under test.
+	const DISABLE_CLOSE_ENV := "GODAI_DISABLE_CLOSE"
 
 	func execute(p_input) -> ToolResult:
 		var save := not bool(p_input.get('skip_save', false))
@@ -100,11 +101,69 @@ class EditorRestart extends DefaultTool:
 
 		# The functional tests disable the actual restart, so the editor under
 		# test survives (everything up to this point still runs).
-		if OS.get_environment(DISABLE_RESTART_ENV) != "":
+		if OS.get_environment(DISABLE_CLOSE_ENV) != "":
 			return
 
 		# We've already saved above (if requested), so don't save again here.
 		EditorInterface.restart_editor(false)
+
+
+class EditorClose extends DefaultTool:
+	# Set in the environment by the functional tests, so exercising this tool
+	# doesn't actually close (and kill) the editor under test.
+	const DISABLE_CLOSE_ENV := "GODAI_DISABLE_CLOSE"
+
+	func execute(p_input) -> ToolResult:
+		var save := not bool(p_input.get('skip_save', false))
+
+		# Headless (e.g. automated): there's no user to prompt, so go ahead.
+		if DisplayServer.get_name() == "headless":
+			var result := ToolResult.resolved({success = true})
+			_close.call_deferred(save)
+			return result
+
+		# Otherwise, prompt the user before closing, so they don't lose work.
+		var result := ToolResult.new()
+
+		var dialog := ConfirmationDialog.new()
+		dialog.title = "Close Editor"
+		if save:
+			dialog.dialog_text = "Save all changes and close the Godot editor?"
+			dialog.ok_button_text = "Save & Close"
+		else:
+			dialog.dialog_text = "Close the Godot editor, discarding any unsaved changes?"
+			dialog.ok_button_text = "Close"
+
+		dialog.confirmed.connect(func () -> void:
+			result.resolve({success = true})
+			_close.call_deferred(save)
+		)
+		# Both the cancel button and closing the dialog (Escape / window close)
+		# count as declining to close the editor.
+		var on_canceled := func () -> void:
+			result.reject({error = "The user declined to close the editor"})
+		dialog.canceled.connect(on_canceled)
+		dialog.close_requested.connect(on_canceled)
+		# Clean up the dialog once it's dismissed, however that happened.
+		dialog.visibility_changed.connect(func () -> void:
+			if not dialog.visible:
+				dialog.queue_free()
+		)
+
+		EditorInterface.popup_dialog_centered(dialog)
+
+		return result
+
+	func _close(p_save: bool) -> void:
+		if p_save:
+			EditorInterface.save_all_scenes()
+
+		# The functional tests disable the actual shutdown, so the editor under
+		# test survives (everything up to this point still runs).
+		if OS.get_environment(DISABLE_CLOSE_ENV) != "":
+			return
+
+		Engine.get_main_loop().quit()
 
 
 class LogGetMessages extends DefaultTool:

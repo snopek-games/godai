@@ -142,7 +142,7 @@ func testMain(m *testing.M) int {
 		"GODAI_MCP_TRANSPORT=websocket",
 		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", port),
 		"GODAI_MCP_PORT_COUNT=1",
-		"GODAI_DISABLE_RESTART=1",
+		"GODAI_DISABLE_CLOSE=1",
 	}, verbose)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: starting godai-mcp: %v\n", err)

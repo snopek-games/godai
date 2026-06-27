@@ -160,6 +160,7 @@ type Tool struct {
 type editorInfo struct {
 	ProjectPath string
 	ProjectName string
+	Headless    bool
 	Connection  *godot.Connection
 }
 
@@ -191,6 +192,8 @@ type Server struct {
 	editorsMutex       sync.RWMutex
 	roots              []string
 	rootsMutex         sync.RWMutex
+	headlessProjects   map[string]struct{}
+	headlessMutex      sync.Mutex
 }
 
 func NewServer(config *Config) *Server {
@@ -206,6 +209,7 @@ func NewServer(config *Config) *Server {
 		localTools:        make(map[string]*Tool),
 		editors:           make([]*editorInfo, 0),
 		roots:             config.RootPaths,
+		headlessProjects:  make(map[string]struct{}),
 	}
 
 	var scanner godot.ConnectionScanner
@@ -376,6 +380,7 @@ func (s *Server) onEditorConnect(conn *godot.Connection) error {
 	var projectInfo struct {
 		ProjectPath string `json:"project_path"`
 		ProjectName string `json:"project_name"`
+		Headless    bool   `json:"headless"`
 	}
 	if err := callEditorTool(ctx, conn, "get_current_project", json.RawMessage("{}"), &projectInfo); err != nil {
 		return err
@@ -390,6 +395,7 @@ func (s *Server) onEditorConnect(conn *godot.Connection) error {
 		Connection:  conn,
 		ProjectPath: realProjectPath,
 		ProjectName: projectInfo.ProjectName,
+		Headless:    projectInfo.Headless,
 	}
 
 	s.editorsMutex.Lock()
@@ -444,6 +450,77 @@ func (s *Server) onEditorDisconnect(conn *godot.Connection) {
 	s.editors = newEditors
 }
 
+// markHeadlessProject records that we launched a headless editor for this
+// project, so we can shut it down when the server exits.
+func (s *Server) markHeadlessProject(projectPath string) {
+	s.headlessMutex.Lock()
+	defer s.headlessMutex.Unlock()
+	s.headlessProjects[projectPath] = struct{}{}
+}
+
+// unmarkHeadlessProject forgets a headless editor we launched (e.g. because it
+// was closed explicitly), so we don't try to close it again at shutdown.
+func (s *Server) unmarkHeadlessProject(projectPath string) {
+	s.headlessMutex.Lock()
+	defer s.headlessMutex.Unlock()
+	delete(s.headlessProjects, projectPath)
+}
+
+// shutdownCloseTimeout bounds how long we wait for a headless editor to save and
+// shut down when the server exits.
+const shutdownCloseTimeout = 30 * time.Second
+
+// closeHeadlessEditors shuts down the headless editors we launched. It runs at
+// server exit, so it uses fresh contexts rather than the (now-cancelled) run
+// context. We look up the live connection by project path, so this still works
+// after an editor has restarted with a new connection.
+//
+// We only close an editor that is *currently* headless. If the user killed our
+// headless editor and launched their own (non-headless) editor for the same
+// project, that replacement is left alone.
+func (s *Server) closeHeadlessEditors() {
+	s.headlessMutex.Lock()
+	projects := make([]string, 0, len(s.headlessProjects))
+	for p := range s.headlessProjects {
+		projects = append(projects, p)
+	}
+	s.headlessProjects = make(map[string]struct{})
+	s.headlessMutex.Unlock()
+
+	var wg sync.WaitGroup
+	for _, projectPath := range projects {
+		conn, headless := s.getEditorConnectionForProject(projectPath)
+		if conn == nil || !headless {
+			// Already gone (crashed, or closed by the user), or replaced by an
+			// editor we didn't launch.
+			continue
+		}
+
+		args, err := json.Marshal(map[string]string{"project_path": projectPath})
+		if err != nil {
+			slog.Error("error marshalling close_editor arguments on shutdown", "projectPath", projectPath, "error", err)
+			continue
+		}
+
+		wg.Add(1)
+		go func(projectPath string, conn *godot.Connection, args json.RawMessage) {
+			defer wg.Done()
+
+			// A headless editor has no user to prompt, so close_editor saves and
+			// quits on its own.
+			ctx, cancel := context.WithTimeout(context.Background(), shutdownCloseTimeout)
+			defer cancel()
+			if _, err := conn.CallMethod(ctx, "tools/call", &callToolParams{
+				Name:      "close_editor",
+				Arguments: args,
+			}); err != nil {
+				slog.Error("error closing headless editor on shutdown", "projectPath", projectPath, "error", err)
+			}
+		}(projectPath, conn, args)
+	}
+	wg.Wait()
+}
+
 func (s *Server) hasEditorForProject(projectPath string) bool {
 	s.editorsMutex.RLock()
 	defer s.editorsMutex.RUnlock()
@@ -474,6 +551,22 @@ func (s *Server) getEditorConnection(projectPath string) (*godot.Connection, err
 
 }
 
+// getEditorConnectionForProject returns the live connection for a project and
+// whether that editor is running headless. The connection is nil if no editor
+// is currently connected for the project.
+func (s *Server) getEditorConnectionForProject(projectPath string) (*godot.Connection, bool) {
+	s.editorsMutex.RLock()
+	defer s.editorsMutex.RUnlock()
+
+	for _, e := range s.editors {
+		if e.ProjectPath == projectPath {
+			return e.Connection, e.Headless
+		}
+	}
+
+	return nil, false
+}
+
 // waitForEditorReconnect blocks until an editor for the given project is
 // connected on a connection other than oldConn (i.e. a fresh connection after
 // a restart), or the context is done. It returns the new connection.
@@ -488,6 +581,25 @@ func (s *Server) waitForEditorReconnect(ctx context.Context, projectPath string,
 		case <-ticker.C:
 			if conn, err := s.getEditorConnection(projectPath); err == nil && conn != oldConn {
 				return conn, nil
+			}
+		}
+	}
+}
+
+// waitForEditorDisconnect blocks until oldConn is no longer the connected
+// editor for the given project (it dropped, or was replaced), or the context is
+// done.
+func (s *Server) waitForEditorDisconnect(ctx context.Context, projectPath string, oldConn *godot.Connection) error {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if conn, err := s.getEditorConnection(projectPath); err != nil || conn != oldConn {
+				return nil
 			}
 		}
 	}
@@ -1105,5 +1217,7 @@ func (s *Server) Run(ctx context.Context) error {
 	go s.toolLoop(ctx)
 	go s.requestLoop(ctx)
 
-	return s.readLoop(ctx)
+	err := s.readLoop(ctx)
+	s.closeHeadlessEditors()
+	return err
 }

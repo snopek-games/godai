@@ -130,9 +130,9 @@ type EditorOptions struct {
 	Transport string
 	// Directory holding per-editor .xdg/<VAR> dirs. Defaults to projectDir.
 	XDGBase string
-	// Lets the restart_editor tool run end-to-end without actually restarting
-	// (which would kill the editor the harness manages).
-	DisableRestart bool
+	// Lets the restart_editor and close_editor tools run end-to-end without
+	// actually shutting down the editor the harness manages.
+	DisableShutdown bool
 	Verbose        bool
 	ExtraEnv       []string
 }
@@ -153,8 +153,8 @@ func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, s
 		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", opts.Port),
 		"GODAI_MCP_PORT_COUNT=1",
 	)
-	if opts.DisableRestart {
-		env = append(env, "GODAI_DISABLE_RESTART=1")
+	if opts.DisableShutdown {
+		env = append(env, "GODAI_DISABLE_CLOSE=1")
 	}
 
 	// Point Godot's config/data/cache at temporary XDG dirs so the tests get a

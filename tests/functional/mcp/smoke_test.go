@@ -29,9 +29,12 @@ func TestServerListTools(t *testing.T) {
 		}
 	}
 
-	// restart_editor is a local override of a remote tool, so it's still listed.
+	// restart_editor and close_editor are local overrides of remote tools, so
+	// they're still listed.
 	_, hasRestart := names["restart_editor"]
 	is.True(hasRestart)
+	_, hasClose := names["close_editor"]
+	is.True(hasClose)
 
 	scene, hasScene := names["get_current_scene"]
 	is.True(hasScene)

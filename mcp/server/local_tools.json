@@ -20,8 +20,14 @@
 				"properties": {
 					"project_path": {
 						"type": "string"
+					},
+					"headless": {
+						"type": "boolean",
+						"default": false,
+						"description": "Launch the editor without visual or audio output (default: false). This won't have an effect if the editor is already open for this project."
 					}
-				}
+				},
+				"required": ["project_path"]
 			}
 		},
 		"list_open_projects": {

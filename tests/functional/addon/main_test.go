@@ -80,8 +80,8 @@ func testMain(m *testing.M) int {
 		Port:      port,
 		Transport: "http",
 		Verbose:   os.Getenv("GODAI_TEST_VERBOSE") != "",
-		// Let restart_editor run end-to-end without killing the editor this harness manages.
-		DisableRestart: true,
+		// Let restart_editor and close_editor run end-to-end without shutting down the editor this harness manages.
+		DisableShutdown: true,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: launching editor: %v\n", err)

@@ -7,10 +7,10 @@ import (
 	"github.com/matryer/is"
 )
 
-// The harness sets GODAI_DISABLE_RESTART, so restart_editor runs end-to-end
+// The harness sets GODAI_DISABLE_CLOSE, so restart_editor runs end-to-end
 // (scenes are saved) but stops short of relaunching the editor it manages.
 func TestRestartEditor(t *testing.T) {
-	// Without GODAI_DISABLE_RESTART (GODAI_TEST_PORT mode) this would really restart the user's editor.
+	// Without GODAI_DISABLE_CLOSE (GODAI_TEST_PORT mode) this would really restart the user's editor.
 	requireManagedProject(t)
 
 	t.Run("save_and_restart", func(t *testing.T) {

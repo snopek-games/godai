@@ -29,6 +29,10 @@ func (s *Server) setupLocalTools() {
 	// Overrides a remote tool: the editor restarts itself, and we wait here for
 	// it to disconnect and reconnect.
 	s.addLocalToolOverride("restart_editor", s.toolRestartEditor)
+
+	// Overrides a remote tool: the editor shuts itself down, and we wait here
+	// for it to disconnect.
+	s.addLocalToolOverride("close_editor", s.toolCloseEditor)
 }
 
 func (s *Server) addLocalTool(name string, handler ToolHandler) {
@@ -501,6 +505,7 @@ func enableAddon(project *godot.Project) error {
 func (s *Server) toolOpenGodotProject(ctx context.Context, rawParams json.RawMessage) (any, error) {
 	var params struct {
 		ProjectPath string `json:"project_path"`
+		Headless    bool   `json:"headless"`
 	}
 
 	if err := json.Unmarshal(rawParams, &params); err != nil {
@@ -540,15 +545,33 @@ func (s *Server) toolOpenGodotProject(ctx context.Context, rawParams json.RawMes
 			return nil, newUserVisibleError("unable to enable godai addon in project.godot file", err, nil)
 		}
 
-		cmd := exec.Command(defaultGodotPath, "--editor", "--path", realProjectPath)
+		args := []string{"--editor", "--path", realProjectPath}
+		if params.Headless {
+			// Use these arguments rather than `--headless` because they'll survive an editor restart.
+			args = append(args, "--display-driver", "headless", "--audio-driver", "Dummy")
+		}
+
+		cmd := exec.Command(defaultGodotPath, args...)
 		env := os.Environ()
 		env = append(env, "DISPLAY="+s.config.X11Display)
 		cmd.Env = env
+		detachProcess(cmd)
+
 		if err := cmd.Start(); err != nil {
 			return nil, newUserVisibleError("unable to execute godot", err, []string{
 				"Check the configuration for the Godai MCP in your MCP client and ensure the --godot-path argument is correct",
 				"Check the configuration for the Godot MCP using the `get_mcp_configuration` tool and ensure the `godot_path` is correct",
 			})
+		}
+
+		// Reap the zombies!
+		go func() { _ = cmd.Wait() }()
+
+		if params.Headless {
+			// Mark before waiting to connect: a slow first import can take longer
+			// than our timeout, and an editor that connects after we've returned is
+			// still one we launched and must be shut down with the server.
+			s.markHeadlessProject(realProjectPath)
 		}
 
 		ctx2, cancel := context.WithTimeout(ctx, time.Second*30)
@@ -639,6 +662,74 @@ func (s *Server) toolRestartEditor(ctx context.Context, rawParams json.RawMessag
 	if _, err := s.waitForEditorReconnect(waitCtx, projectPath, conn); err != nil {
 		return nil, newUserVisibleError("the editor did not reconnect after restarting", err, nil)
 	}
+
+	var output struct {
+		Success bool `json:"success"`
+	}
+	output.Success = true
+
+	return output, nil
+}
+
+// closeDisconnectTimeout bounds how long we wait for the editor to drop its
+// connection after the user confirms the close (it still has to save and shut
+// down).
+const closeDisconnectTimeout = 120 * time.Second
+
+func (s *Server) toolCloseEditor(ctx context.Context, rawParams json.RawMessage) (any, error) {
+	var params struct {
+		ProjectPath string `json:"project_path"`
+	}
+	if err := json.Unmarshal(rawParams, &params); err != nil {
+		return nil, newUserVisibleError("project_path argument is required", err, nil)
+	}
+
+	projectPath, err := canonicalPath(params.ProjectPath)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := s.getEditorConnection(projectPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ask the editor to close. It prompts the user to save and, once they
+	// confirm, replies with success and then shuts down (dropping this
+	// connection). We deliberately don't impose our own timeout on this call,
+	// since the editor may be sitting at the save prompt waiting for the user.
+	resp, callErr := conn.CallMethod(ctx, "tools/call", &callToolParams{
+		Name:      "close_editor",
+		Arguments: rawParams,
+	})
+
+	// A nil response or transport error means the connection dropped before the
+	// editor replied (e.g. it closed very quickly). That's fine: we just proceed
+	// to wait for the disconnect. But if we got a real reply, honor it — in
+	// particular, the user may have declined the close.
+	if callErr == nil && resp != nil {
+		if resp.Error != nil {
+			return nil, fmt.Errorf("error calling close_editor in the editor: %v", resp.Error)
+		}
+		var editorResult toolResult
+		if err := json.Unmarshal(resp.Result, &editorResult); err == nil && editorResult.IsError {
+			message := "the editor did not close"
+			if len(editorResult.Content) > 0 && editorResult.Content[0].Text != "" {
+				message = editorResult.Content[0].Text
+			}
+			return nil, newUserVisibleError(message, nil, nil)
+		}
+	}
+
+	// Wait for the editor to disconnect, so a fast client doesn't move on
+	// assuming the editor is gone while it's still saving and shutting down.
+	waitCtx, cancel := context.WithTimeout(ctx, closeDisconnectTimeout)
+	defer cancel()
+	if err := s.waitForEditorDisconnect(waitCtx, projectPath, conn); err != nil {
+		return nil, newUserVisibleError("the editor did not disconnect after closing", err, nil)
+	}
+
+	s.unmarkHeadlessProject(projectPath)
 
 	var output struct {
 		Success bool `json:"success"`

@@ -19,6 +19,7 @@ class ProjectGetCurrent extends DefaultTool:
 		return ToolResult.resolved({
 			project_path = ProjectSettings.globalize_path("res://").simplify_path(),
 			project_name = ProjectSettings.get_setting("application/config/name"),
+			headless = (DisplayServer.get_name() == "headless"),
 		})
 
 

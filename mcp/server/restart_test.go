@@ -76,3 +76,62 @@ func TestWaitForEditorReconnect(t *testing.T) {
 		is.True(err != nil)
 	})
 }
+
+func TestWaitForEditorDisconnect(t *testing.T) {
+	const projectPath = "/some/project"
+
+	t.Run("returns_when_connection_drops", func(t *testing.T) {
+		is := is.New(t)
+
+		s := NewServer(&Config{})
+		oldConn := godot.NewConnection(nil, 1)
+		s.addEditor(projectPath, oldConn)
+
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			s.onEditorDisconnect(oldConn)
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		err := s.waitForEditorDisconnect(ctx, projectPath, oldConn)
+		is.NoErr(err)
+	})
+
+	t.Run("returns_when_replaced_by_a_new_connection", func(t *testing.T) {
+		is := is.New(t)
+
+		// A fresh connection for the same project also means the old one is gone.
+		s := NewServer(&Config{})
+		oldConn := godot.NewConnection(nil, 1)
+		newConn := godot.NewConnection(nil, 2)
+		s.addEditor(projectPath, oldConn)
+
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			s.onEditorDisconnect(oldConn)
+			s.addEditor(projectPath, newConn)
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		err := s.waitForEditorDisconnect(ctx, projectPath, oldConn)
+		is.NoErr(err)
+	})
+
+	t.Run("times_out_while_connection_lingers", func(t *testing.T) {
+		is := is.New(t)
+
+		s := NewServer(&Config{})
+		oldConn := godot.NewConnection(nil, 1)
+		s.addEditor(projectPath, oldConn)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		err := s.waitForEditorDisconnect(ctx, projectPath, oldConn)
+		is.True(err != nil) // timed out, since the connection never dropped
+	})
+}

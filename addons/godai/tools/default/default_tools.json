@@ -8,7 +8,8 @@
 				"",
 				"Returns:",
 				" - project_path: The path to the current project",
-				" - project_name: The project's configured name"
+				" - project_name: The project's configured name",
+				" - headless: Whether the editor is running with a headless display driver"
 			],
 			"outputSchema": {
 				"type": "object",
@@ -20,9 +21,13 @@
 					"project_name": {
 						"type": "string",
 						"description": "The project's configured name"
+					},
+					"headless": {
+						"type": "boolean",
+						"description": "Whether the editor is running with a headless display driver"
 					}
 				},
-				"required": ["project_path", "project_name"]
+				"required": ["project_path", "project_name", "headless"]
 			},
 			"doNotForward": true
 		},
@@ -1346,7 +1351,7 @@
 			"description": [
 				"Restarts the Godot editor for the project.",
 				"",
-				"The editor first prompts the user to save their work, and only restarts once they confirm. This tool then waits for the editor to shut down and reconnect before returning, so once it returns successfully the editor is ready to use again.",
+				"The editor first prompts the user to save their work, and only restarts once they confirm.",
 				"",
 				"By default, unsaved changes are saved before restarting; pass 'skip_save' as true to discard them instead.",
 				"If the user declines the prompt, the editor is not restarted and this returns an error."
@@ -1366,6 +1371,36 @@
 					"success": {
 						"type": "boolean",
 						"description": "True once the editor has restarted and reconnected"
+					}
+				},
+				"required": ["success"]
+			}
+		},
+		"close_editor": {
+			"title": "Close Editor",
+			"description": [
+				"Closes the Godot editor for the project.",
+				"",
+				"The editor first prompts the user to save their work, and only closes once they confirm.",
+				"",
+				"By default, unsaved changes are saved before closing; pass 'skip_save' as true to discard them instead.",
+				"If the user declines the prompt, the editor is not closed and this returns an error."
+			],
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"skip_save": {
+						"type": "boolean",
+						"description": "Discard unsaved changes instead of saving them before closing (default: false)"
+					}
+				}
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "True once the user has accepted and the editor is closing"
 					}
 				},
 				"required": ["success"]
