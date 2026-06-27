@@ -4,15 +4,18 @@ const ANTHROPIC_API_KEY_SETTING = "godai/anthropic_api_key"
 const MCP_TRANSPORT_SETTING = "godai/mcp_transport"
 const MCP_BASE_PORT_SETTING = "godai/mcp_base_port"
 const MCP_PORT_COUNT_SETTING = "godai/mcp_port_count"
+const MCP_SKIP_SECRET_CHECK = "godai/mcp_skip_secret_check"
 
 const MCP_TRANSPORT_DEFAULT = 0
 const MCP_BASE_PORT_DEFAULT = 12120
 const MCP_PORT_COUNT_DEFAULT = 10
+const MCP_SKIP_SECRET_CHECK_DEFAULT = false
 
 # Environment variables that override the editor settings (used for testing).
 const MCP_TRANSPORT_ENV = "GODAI_MCP_TRANSPORT"
 const MCP_BASE_PORT_ENV = "GODAI_MCP_BASE_PORT"
 const MCP_PORT_COUNT_ENV = "GODAI_MCP_PORT_COUNT"
+const MCP_SKIP_SECRET_CHECK_ENV = "GODAI_MCP_SKIP_SECRET_CHECK"
 
 
 static func _add_editor_setting(p_name: String, p_type: int, p_default, p_hint = null, p_hint_string = null) -> void:
@@ -39,6 +42,7 @@ static func add_editor_settings() -> void:
 	_add_editor_setting(MCP_TRANSPORT_SETTING, TYPE_INT, MCP_TRANSPORT_DEFAULT, PROPERTY_HINT_ENUM, "WebSocket,HTTP")
 	_add_editor_setting(MCP_BASE_PORT_SETTING, TYPE_INT, MCP_BASE_PORT_DEFAULT)
 	_add_editor_setting(MCP_PORT_COUNT_SETTING, TYPE_INT, MCP_PORT_COUNT_DEFAULT)
+	_add_editor_setting(MCP_SKIP_SECRET_CHECK, TYPE_BOOL, MCP_SKIP_SECRET_CHECK_DEFAULT)
 	_add_editor_setting(ANTHROPIC_API_KEY_SETTING, TYPE_STRING, "", PROPERTY_HINT_PASSWORD)
 
 
@@ -72,3 +76,11 @@ static func get_mcp_base_port() -> int:
 
 static func get_mcp_port_count() -> int:
 	return _get_int_env_or_setting(MCP_PORT_COUNT_ENV, MCP_PORT_COUNT_SETTING)
+
+
+static func get_mcp_skip_secret_check() -> bool:
+	if OS.has_environment(MCP_SKIP_SECRET_CHECK_ENV):
+		var value := OS.get_environment(MCP_SKIP_SECRET_CHECK_ENV)
+		if not value.is_empty() and value != "0":
+			return true
+	return EditorInterface.get_editor_settings().get_setting(MCP_SKIP_SECRET_CHECK)

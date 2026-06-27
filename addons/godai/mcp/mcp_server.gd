@@ -39,6 +39,7 @@ class Peer extends RefCounted:
 	var tcp_peer: StreamPeerTCP
 	var websocket_peer: WebSocketPeer
 	var buffer: String
+	var authenticated := false
 
 	func _init(p_peer_id: int) -> void:
 		peer_id = p_peer_id
@@ -52,6 +53,7 @@ var _peers: Dictionary[int, Peer]
 var _base_port: int
 var _port_count: int
 var _port: int
+var _secret: String
 var _server_state: ServerState = ServerState.STOPPED
 var _transport: Transport = Transport.WEBSOCKET
 var _client_state: ClientState = ClientState.NOT_CONNECTED
@@ -62,6 +64,7 @@ var _last_tool_id := 0
 var _jsonrpc := JSONRPCDispatcher.new()
 
 var tools: ToolManager
+var skip_secret_check: bool
 
 signal server_state_changed(state: ServerState)
 signal client_state_changed(state: ClientState)
@@ -69,8 +72,9 @@ signal tool_use_requested(p_id: String, p_name: String, p_input: Dictionary)
 signal tool_use_completed(p_id: String, p_content)
 
 
-func _init(p_tools: ToolManager) -> void:
+func _init(p_tools: ToolManager, p_secret: String) -> void:
 	tools = p_tools
+	_secret = p_secret
 
 	set_process(false)
 
@@ -138,7 +142,7 @@ func stop_server(p_force: bool = false) -> void:
 
 	for peer in _peers.values():
 		if _transport == Transport.WEBSOCKET:
-			peer.websocket_peer.close()
+			peer.websocket_peer.close(1000, "Server stopping")
 		if _transport == Transport.HTTP or p_force:
 			# This happens too for forced WebSocket closures.
 			peer.tcp_peer.disconnect_from_host()
@@ -252,6 +256,8 @@ func _process_tool_result(p_id: String, p_result: ToolManager.ToolResult):
 
 # @todo Should this use its own thread, so it's not affected by "low processor mode"?
 func _process(_delta) -> void:
+	if not _tcp_server:
+		return
 	while _tcp_server.is_connection_available():
 		# With WebSockets, we only allow one connection at a time, so force disconnect.
 		if _transport == Transport.WEBSOCKET and _peers.size() > 0:
@@ -289,6 +295,12 @@ func _process_websocket_peers() -> void:
 
 		var peer_state := ws.get_ready_state()
 		if peer_state == WebSocketPeer.STATE_OPEN:
+			if not peer.authenticated:
+				if not _authenticate_websocket(ws):
+					ws.close(1001, "Unauthorized")
+					continue
+				peer.authenticated = true
+
 			while ws.get_available_packet_count():
 				var packet := ws.get_packet()
 				if ws.was_string_packet():
@@ -303,6 +315,20 @@ func _process_websocket_peers() -> void:
 			# server closed.
 			if _server_state == ServerState.STOPPING and _peers.size() == 0:
 				_stop_server_complete()
+
+
+func _authenticate_websocket(p_ws: WebSocketPeer) -> bool:
+	if skip_secret_check:
+		return true
+
+	var url := p_ws.get_requested_url()
+	var query := url.get_slice("?", 1)
+	for pair in query.split("&"):
+		var kv := pair.split("=", true, 1)
+		if kv.size() == 2 and kv[0] == "token" and kv[1].uri_decode() == _secret:
+			return true
+
+	return false
 
 
 func _add_peer(p_peer: Peer) -> void:
@@ -395,6 +421,13 @@ func _handle_http_request(p_peer: Peer, p_method: String, p_headers: Dictionary,
 	if p_method == "OPTIONS":
 		_send_http_response(p_peer, "200 OK", headers)
 		return
+
+	if not skip_secret_check:
+		var authorization_str: String = p_headers.get('authorization', '')
+		var authorization_parts := authorization_str.strip_edges().split(" ")
+		if len(authorization_parts) != 2 or authorization_parts[0] != "Bearer" or authorization_parts[1] != _secret:
+			_send_http_error_response(p_peer, 401, "Unauthorized")
+			return
 
 	_send_http_response(p_peer, "200 OK", headers, 'application/json', await _jsonrpc.process_string(p_body))
 

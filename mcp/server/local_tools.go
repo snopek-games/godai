@@ -97,7 +97,7 @@ func (s *Server) getProjectBasePath() (string, error) {
 		return s.config.ProjectBasePath, nil
 	}
 
-	if s.clientInfo.capabilities.formElicitation {
+	if s.clientSupportsFormElicitation() {
 		result, err := s.elicitClient("Please provide the base path where your Godot projects usually live", map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -133,8 +133,8 @@ func (s *Server) getProjectBasePath() (string, error) {
 	}
 
 	return "", newUserVisibleError("the path where your Godot projects usually live is not configured or doesn't exist", nil, []string{
-		"Update the configuration for the Godai MCP in your MCP client to include the --project-path argument",
-		"Update the configuration for the Godai MCP using the `set_mcp_configuration` tool to set the `project_path`",
+		"Update the configuration for the Godai MCP in your MCP client to include the `--project-base-path <PATH>` argument",
+		"Update the configuration for the Godai MCP using the `set_mcp_configuration` tool to set the `project_base_path`",
 	})
 }
 
@@ -143,7 +143,7 @@ func (s *Server) getDefaultGodotPath() (string, error) {
 		return s.config.DefaultGodotPath, nil
 	}
 
-	if s.clientInfo.capabilities.formElicitation {
+	if s.clientSupportsFormElicitation() {
 		result, err := s.elicitClient("Please provide the full path to the Godot 4 executable on your system", map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -179,51 +179,100 @@ func (s *Server) getDefaultGodotPath() (string, error) {
 	}
 
 	return "", newUserVisibleError("the path to the Godot 4 executable on your system is not configured or invalid", nil, []string{
-		"Update the configuration for the Godai MCP in your MCP client to include the --godot-path argument",
+		"Update the configuration for the Godai MCP in your MCP client to include the `--godot-path <PATH>` argument",
 		"Update the configuration for the Godai MCP using the `set_mcp_configuration` tool to set the `godot_path`",
 	})
+}
+
+const maxProjectScanDepth = 8
+
+// Known problematic directories to skip when scanning for project directories.
+var skipProjectScanDirs = map[string]bool{
+	"node_modules": true,
+	"__pycache__":  true,
+	"vendor":       true,
 }
 
 func (s *Server) toolListProjects(ctx context.Context, rawParams json.RawMessage) (any, error) {
 	pathSet := map[string]struct{}{}
 
-	projectBasePath, err := s.getProjectBasePath()
-	if err != nil {
-		return nil, err
-	}
+	if s.config.Global {
+		// Don't send the error to the client - we'll allow not having a base project path.
+		projectBasePath, _ := s.getProjectBasePath()
 
-	// List all the projects in the project base path.
-	if projectBasePath != "" {
-		entries, err := os.ReadDir(projectBasePath)
-		if err != nil {
-			return nil, newUserVisibleError(fmt.Sprintf("unable to read project path: %s", projectBasePath), err, []string{
-				"Check the configuration for the Godai MCP in your MCP client and ensure the --project-path argument is correct",
-				"Check the configuration for the Godot MCP using the `get_mcp_configuration` tool and ensure the `project_path` is correct",
-			})
+		// List all the projects in the project base path.
+		if projectBasePath != "" {
+			entries, err := os.ReadDir(projectBasePath)
+			if err != nil {
+				return nil, newUserVisibleError(fmt.Sprintf("unable to read project path: %s", projectBasePath), err, []string{
+					"Check the configuration for the Godai MCP in your MCP client and ensure the `--project-base-path <PATH>` argument is correct",
+					"Check the configuration for the Godot MCP using the `get_mcp_configuration` tool and ensure the `project_base_path` is correct",
+				})
+			}
+
+			for _, entry := range entries {
+				if entry.IsDir() {
+					projectPath := filepath.Join(projectBasePath, entry.Name())
+					realProjectPath, err := canonicalPath(projectPath)
+					if err == nil {
+						pathSet[realProjectPath] = struct{}{}
+					}
+				}
+			}
 		}
 
-		for _, entry := range entries {
-			if entry.IsDir() {
-				projectPath := filepath.Join(projectBasePath, entry.Name())
-				realProjectPath, err := canonicalPath(projectPath)
+		// List all the projects in the project manager.
+		pml, err := godot.GetProjectManagerEntries()
+		if err == nil {
+			for _, e := range pml {
+				realProjectPath, err := canonicalPath(e.ProjectPath)
 				if err == nil {
 					pathSet[realProjectPath] = struct{}{}
 				}
 			}
-		}
-	}
-
-	// List all the projects in the project manager.
-	pml, err := godot.GetProjectManagerEntries()
-	if err == nil {
-		for _, e := range pml {
-			realProjectPath, err := canonicalPath(e.ProjectPath)
-			if err == nil {
-				pathSet[realProjectPath] = struct{}{}
-			}
+		} else {
+			slog.Error("error getting the project manager entries", "error", err)
 		}
 	} else {
-		slog.Error("error getting the project manager entries", "error", err)
+		// Walk our root paths and find Godot projects.
+		for _, rootPath := range s.getRootPaths() {
+			err := filepath.WalkDir(rootPath, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					slog.Debug("error walking for projects, skipping entry", "path", path, "error", err)
+					return nil
+				}
+
+				if d.IsDir() && path != rootPath {
+					// Skip hidden directories or known problematic ones.
+					if strings.HasPrefix(d.Name(), ".") || skipProjectScanDirs[d.Name()] {
+						return filepath.SkipDir
+					}
+
+					// Don't descend past the depth limit.
+					if rel, err := filepath.Rel(rootPath, path); err == nil &&
+						strings.Count(rel, string(filepath.Separator))+1 >= maxProjectScanDepth {
+						return filepath.SkipDir
+					}
+				}
+
+				// Consider a directory with a "project.godot" to be a Godot project.
+				if !d.IsDir() && d.Name() == "project.godot" {
+					realProjectPath, err := canonicalPath(filepath.Dir(path))
+					if err != nil {
+						// Skip this one, but keep scanning for others.
+						slog.Error("unable to canonicalize project path, skipping", "path", path, "error", err)
+						return filepath.SkipDir
+					}
+					pathSet[realProjectPath] = struct{}{}
+					return filepath.SkipDir
+				}
+
+				return nil
+			})
+			if err != nil {
+				slog.Error("error looking for projects in root", "path", rootPath, "error", err)
+			}
+		}
 	}
 
 	type outProject struct {
@@ -430,7 +479,8 @@ func enableAddon(project *godot.Project) error {
 				found = true
 			}
 		}
-		out.WriteString(line + "\n")
+		out.WriteString(line)
+		out.WriteString("\n")
 	}
 	if err := scanner.Err(); err != nil {
 		return err
@@ -460,6 +510,13 @@ func (s *Server) toolOpenGodotProject(ctx context.Context, rawParams json.RawMes
 	realProjectPath, err := canonicalPath(params.ProjectPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if !s.config.Global && !godot.IsPathUnderAnyRoot(realProjectPath, s.getRootPaths()) {
+		return nil, newUserVisibleError("project is not under one of our allowed roots", nil, []string{
+			"Add this project's path to the allowed roots in your MCP client or by running the Godai MCP with an additional `--root <PATH>`",
+			"Update the configuration for the Godai MCP in your MCP client and add the `--global` option to allow access to any project",
+		})
 	}
 
 	if !s.hasEditorForProject(realProjectPath) {
@@ -627,7 +684,9 @@ func (s *Server) toolListOpenProjects(ctx context.Context, rawParams json.RawMes
 func (s *Server) toolGetMcpConfiguration(ctx context.Context, rawParams json.RawMessage) (any, error) {
 	sc := &SavedConfig{
 		DefaultGodotPath: s.config.DefaultGodotPath,
-		ProjectBasePath:  s.config.ProjectBasePath,
+	}
+	if s.config.Global {
+		sc.ProjectBasePath = s.config.ProjectBasePath
 	}
 	return sc, nil
 }
@@ -661,7 +720,9 @@ func (s *Server) toolSetMcpConfiguration(ctx context.Context, rawParams json.Raw
 	}
 
 	s.config.DefaultGodotPath = sc.DefaultGodotPath
-	s.config.ProjectBasePath = sc.ProjectBasePath
+	if s.config.Global {
+		s.config.ProjectBasePath = sc.ProjectBasePath
+	}
 
 	err := s.saveConfig()
 	if err != nil {

@@ -23,7 +23,7 @@ func TestWaitForEditorReconnect(t *testing.T) {
 	t.Run("reconnects_with_new_connection", func(t *testing.T) {
 		is := is.New(t)
 
-		s := NewServer(&Config{EditorPortCount: 1})
+		s := NewServer(&Config{})
 		oldConn := godot.NewConnection(nil, 1)
 		newConn := godot.NewConnection(nil, 2)
 		s.addEditor(projectPath, oldConn)
@@ -50,7 +50,7 @@ func TestWaitForEditorReconnect(t *testing.T) {
 
 		// If the old connection is still present (hasn't dropped yet), we must
 		// keep waiting rather than returning it.
-		s := NewServer(&Config{EditorPortCount: 1})
+		s := NewServer(&Config{})
 		oldConn := godot.NewConnection(nil, 1)
 		s.addEditor(projectPath, oldConn)
 
@@ -64,7 +64,7 @@ func TestWaitForEditorReconnect(t *testing.T) {
 	t.Run("times_out_when_no_editor_returns", func(t *testing.T) {
 		is := is.New(t)
 
-		s := NewServer(&Config{EditorPortCount: 1})
+		s := NewServer(&Config{})
 		oldConn := godot.NewConnection(nil, 1)
 		s.addEditor(projectPath, oldConn)
 		s.onEditorDisconnect(oldConn)

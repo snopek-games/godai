@@ -11,9 +11,12 @@ import (
 	"godai/mcp/jsonrpc"
 	"io"
 	"log/slog"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,7 +35,8 @@ func mustGetGodaiVersion() string {
 	return v
 }
 
-const TooManyToolCallsErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode
+const TooManyToolCallsErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode - 0
+const RequestQueueFullErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode - 1
 
 type appInfo struct {
 	Name    string `json:"name"`
@@ -142,7 +146,9 @@ type clientInfo struct {
 	rawCapabilities map[string]any
 	// These are only the capabilities we care about.
 	capabilities struct {
-		formElicitation bool
+		formElicitation  bool
+		roots            bool
+		rootsListChanged bool
 	}
 }
 
@@ -152,13 +158,17 @@ type Server struct {
 	jsonrpcDispatcher  *jsonrpc.Dispatcher
 	connectionManager  *godot.ConnectionManager
 	clientInfo         clientInfo
+	clientInfoMutex    sync.RWMutex
 	clientRequests     map[int]chan *jsonrpc.Response
 	clientRequestID    int
 	clientRequestMutex sync.Mutex
 	toolQueueCh        chan *jsonrpc.Request
+	requestQueueCh     chan *jsonrpc.Request
 	localTools         map[string]*Tool
 	editors            []*editorInfo
 	editorsMutex       sync.RWMutex
+	roots              []string
+	rootsMutex         sync.RWMutex
 }
 
 func NewServer(config *Config) *Server {
@@ -170,13 +180,25 @@ func NewServer(config *Config) *Server {
 		clientRequests:    make(map[int]chan *jsonrpc.Response),
 		jsonrpcDispatcher: d,
 		toolQueueCh:       make(chan *jsonrpc.Request, 4),
+		requestQueueCh:    make(chan *jsonrpc.Request, 16),
 		localTools:        make(map[string]*Tool),
-		editors:           make([]*editorInfo, 0, config.EditorPortCount),
+		editors:           make([]*editorInfo, 0),
+		roots:             config.RootPaths,
+	}
+
+	var scanner godot.ConnectionScanner
+	if config.Global {
+		scanner = &godot.GlobalConnectionScanner{InstancesPath: config.EditorInstancesPath}
+	} else {
+		scanner = &godot.ProjectConnectionScanner{
+			InstancesPath: config.EditorInstancesPath,
+			GetRootPaths:  s.getRootPaths,
+		}
 	}
 
 	s.connectionManager = godot.NewConnectionManager(godot.ConnectionManagerConfig{
-		BasePort:     config.EditorBasePort,
-		PortCount:    config.EditorPortCount,
+		Scanner:      scanner,
+		ScanInterval: config.EditorScanInterval,
 		RetryDelay:   config.EditorRetryDelay,
 		OnConnect:    s.onEditorConnect,
 		OnDisconnect: s.onEditorDisconnect,
@@ -184,6 +206,7 @@ func NewServer(config *Config) *Server {
 
 	d.Register("initialize", s.rpcInitialize)
 	d.Register("notifications/initialized", s.rpcClientInitialized)
+	d.Register("notifications/roots/list_changed", s.rpcRootsListChanged)
 	d.Register("tools/list", s.rpcListTools)
 	d.Register("tools/call", s.rpcCallTool)
 
@@ -191,6 +214,59 @@ func NewServer(config *Config) *Server {
 
 	return s
 
+}
+
+// The following accessors guard all reads and writes of s.clientInfo, which is
+// written once on rpcInitialize() (the requestLoop goroutine) but read and
+// occasionally updated from background goroutines (the editor scanLoop via
+// getRootPaths(), and onEditorConnect()).
+
+func (s *Server) clientSupportsFormElicitation() bool {
+	s.clientInfoMutex.RLock()
+	defer s.clientInfoMutex.RUnlock()
+	return s.clientInfo.capabilities.formElicitation
+}
+
+func (s *Server) clientSupportsRoots() bool {
+	s.clientInfoMutex.RLock()
+	defer s.clientInfoMutex.RUnlock()
+	return s.clientInfo.capabilities.roots
+}
+
+// getClientRootsCapabilities reports whether the client supports roots and, if so,
+// whether it also emits listChanged notifications.
+func (s *Server) getClientRootsCapabilities() (roots, listChanged bool) {
+	s.clientInfoMutex.RLock()
+	defer s.clientInfoMutex.RUnlock()
+	return s.clientInfo.capabilities.roots, s.clientInfo.capabilities.rootsListChanged
+}
+
+// setClientRootsUnsupported records that the client doesn't actually support roots,
+// despite having advertised the capability.
+func (s *Server) setClientRootsUnsupported() {
+	s.clientInfoMutex.Lock()
+	defer s.clientInfoMutex.Unlock()
+	s.clientInfo.capabilities.roots = false
+}
+
+// getClientInitializeParams returns the appInfo and raw capabilities to forward to
+// an editor when initializing its connection.
+func (s *Server) getClientInitializeParams() (appInfo, map[string]any) {
+	s.clientInfoMutex.RLock()
+	defer s.clientInfoMutex.RUnlock()
+	return s.clientInfo.appInfo, s.clientInfo.rawCapabilities
+}
+
+func (s *Server) getRootPaths() []string {
+	// If the client supports "roots" but not "listChanged", then refresh our list of root paths.
+	if roots, listChanged := s.getClientRootsCapabilities(); roots && !listChanged {
+		s.listRoots()
+	}
+
+	s.rootsMutex.RLock()
+	defer s.rootsMutex.RUnlock()
+
+	return slices.Clone(s.roots)
 }
 
 func (s *Server) saveConfig() error {
@@ -258,10 +334,11 @@ func ValidateGodotExecutable(path string) error {
 }
 
 func (s *Server) onEditorConnect(conn *godot.Connection) error {
+	clientAppInfo, clientCapabilities := s.getClientInitializeParams()
 	params := initializeParams{
 		ProtocolVersion: ProtocolVersion,
-		ClientInfo:      s.clientInfo.appInfo,
-		Capabilities:    s.clientInfo.rawCapabilities,
+		ClientInfo:      clientAppInfo,
+		Capabilities:    clientCapabilities,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.EditorTimeout)
@@ -336,7 +413,7 @@ func (s *Server) onEditorDisconnect(conn *godot.Connection) {
 	defer s.editorsMutex.Unlock()
 
 	// Filter out the removed connection.
-	newEditors := make([]*editorInfo, 0, s.config.EditorPortCount)
+	newEditors := make([]*editorInfo, 0, len(s.editors))
 	for _, e := range s.editors {
 		if e.Connection != conn {
 			newEditors = append(newEditors, e)
@@ -400,6 +477,8 @@ func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (
 		return nil, jsonrpc.NewError(jsonrpc.InvalidParamsErrorCode, "Invalid parameters", nil)
 	}
 
+	s.clientInfoMutex.Lock()
+
 	s.clientInfo.appInfo = params.ClientInfo
 	s.clientInfo.rawCapabilities = params.Capabilities
 
@@ -420,6 +499,28 @@ func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (
 		slog.Info("client supports form elicitation")
 	}
 
+	// Check if the client supports roots.
+	roots, ok := params.Capabilities["roots"]
+	if ok {
+		v, ok := roots.(map[string]any)
+		if ok {
+			s.clientInfo.capabilities.roots = true
+
+			listChanged, ok := v["listChanged"]
+			if ok {
+				listChangedV, _ := listChanged.(bool)
+				s.clientInfo.capabilities.rootsListChanged = listChangedV
+			}
+		}
+	}
+	if s.clientInfo.capabilities.roots {
+		slog.Info(fmt.Sprintf("client supports roots (listChanged = %t)", s.clientInfo.capabilities.rootsListChanged))
+	}
+
+	s.clientInfoMutex.Unlock()
+
+	// Start the connection manager only after releasing the lock: it spawns the
+	// scanLoop, which reads clientInfo via getRootPaths().
 	s.connectionManager.Start()
 
 	response := initializeResult{
@@ -437,6 +538,14 @@ func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (
 }
 
 func (s *Server) rpcClientInitialized(ctx context.Context, rawParams json.RawMessage) (any, *jsonrpc.Error) {
+	if s.clientSupportsRoots() {
+		s.listRoots()
+	}
+	return nil, nil
+}
+
+func (s *Server) rpcRootsListChanged(ctx context.Context, rawParams json.RawMessage) (any, *jsonrpc.Error) {
+	s.listRoots()
 	return nil, nil
 }
 
@@ -613,8 +722,93 @@ func (s *Server) rpcCallTool(ctx context.Context, rawParams json.RawMessage) (an
 	return resp.Result, nil
 }
 
-// Not safe to call from any `rpc*()“ functions (will deadlock), except for rpcCallTool() because it has a special queue.
+const rootsListTimeout = 10 * time.Second
+
+func (s *Server) listRootsInternal() error {
+	resp, err := s.sendRequestToClientWithTimeout("roots/list", nil, rootsListTimeout)
+	if err != nil {
+		return err
+	}
+
+	if resp.Error != nil {
+		if resp.Error.Code == -32601 {
+			// Server reported capabilities to us incorrectly?
+			s.setClientRootsUnsupported()
+			return errors.New("client does not support roots")
+		}
+		return fmt.Errorf("error code %d: %s", resp.Error.Code, resp.Error.Message)
+	}
+
+	var result struct {
+		Roots []struct {
+			Uri  string `json:"uri"`
+			Name string `json:"name"`
+		} `json:"roots"`
+	}
+
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return err
+	}
+
+	var rootPaths []string
+	for _, root := range result.Roots {
+		rootPaths = append(rootPaths, fileURIToPath(root.Uri))
+	}
+
+	s.rootsMutex.Lock()
+	s.roots = rootPaths
+	s.rootsMutex.Unlock()
+
+	slog.Debug(fmt.Sprintf("updated roots: %+v", rootPaths))
+
+	return nil
+}
+
+// fileURIToPath converts a "file://" URI (as sent by MCP clients for roots)
+// into a native filesystem path. It percent-decodes the path and handles
+// Windows drive-letter URIs like "file:///C:/Users/foo" (which parse to
+// "/C:/Users/foo"). Anything that isn't a file URI is returned unchanged, so
+// plain paths still pass through.
+func fileURIToPath(uri string) string {
+	if !strings.HasPrefix(uri, "file:") {
+		return uri
+	}
+
+	u, err := url.Parse(uri)
+	if err != nil {
+		// Fall back to the naive prefix strip rather than dropping the root.
+		return strings.TrimPrefix(uri, "file://")
+	}
+
+	// u.Path is already percent-decoded by url.Parse.
+	path := u.Path
+	if path == "" {
+		return uri
+	}
+
+	// On Windows, "file:///C:/foo" yields "/C:/foo"; strip the leading slash so
+	// it's a valid drive path, and convert forward slashes to backslashes.
+	if runtime.GOOS == "windows" {
+		path = strings.TrimPrefix(path, "/")
+		path = filepath.FromSlash(path)
+	}
+
+	return path
+}
+
+func (s *Server) listRoots() {
+	err := s.listRootsInternal()
+	if err != nil {
+		slog.Error("error listing client roots", "error", err)
+	}
+}
+
 func (s *Server) sendRequestToClient(method string, params any) (*jsonrpc.Response, error) {
+	// No timeout: some requests (e.g. elicitation) legitimately wait on user input.
+	return s.sendRequestToClientWithTimeout(method, params, 0)
+}
+
+func (s *Server) sendRequestToClientWithTimeout(method string, params any, timeout time.Duration) (*jsonrpc.Response, error) {
 	ch := make(chan *jsonrpc.Response, 1)
 
 	s.clientRequestMutex.Lock()
@@ -627,6 +821,7 @@ func (s *Server) sendRequestToClient(method string, params any) (*jsonrpc.Respon
 	if params != nil {
 		b, err := json.Marshal(&params)
 		if err != nil {
+			s.discardClientRequest(id)
 			return nil, err
 		}
 		req.Params = json.RawMessage(b)
@@ -634,15 +829,35 @@ func (s *Server) sendRequestToClient(method string, params any) (*jsonrpc.Respon
 
 	b, err := json.Marshal(&req)
 	if err != nil {
+		s.discardClientRequest(id)
 		return nil, err
 	}
 
 	s.writeCh <- b
 
-	// @todo Having a timeout would be good, although, tricky because elicitation waits for user input
-	resp := <-ch
+	if timeout <= 0 {
+		return <-ch, nil
+	}
 
-	return resp, nil
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case resp := <-ch:
+		return resp, nil
+	case <-timer.C:
+		s.discardClientRequest(id)
+		return nil, fmt.Errorf("timed out after %s waiting for client response to %q", timeout, method)
+	}
+}
+
+// discardClientRequest drops a pending client request so a late or missing
+// response doesn't leak the map entry. Safe to call even if the response
+// already arrived (the response channel is buffered, so the router never
+// blocks on a discarded request).
+func (s *Server) discardClientRequest(id int) {
+	s.clientRequestMutex.Lock()
+	delete(s.clientRequests, id)
+	s.clientRequestMutex.Unlock()
 }
 
 func (s *Server) sendNotificationToClient(method string, params any) error {
@@ -751,6 +966,40 @@ func (s *Server) toolLoop(ctx context.Context) {
 	}
 }
 
+// requestLoop handles all non-tool requests on its own goroutine, off the
+// readLoop, so handlers may safely call sendRequestToClient() without
+// blocking the goroutine that reads the client's responses.
+func (s *Server) requestLoop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case req := <-s.requestQueueCh:
+			s.handleRequest(ctx, req)
+		}
+	}
+}
+
+// Enqueues a request on the channel, returning an error response if it's full.
+func (s *Server) enqueueRequest(ch chan *jsonrpc.Request, req *jsonrpc.Request, errCode jsonrpc.ErrorCode, errMsg string) {
+	select {
+	case ch <- req:
+		// Queued, there was space.
+	default:
+		if !req.HasID() {
+			slog.Warn("dropping notification, queue full", "method", req.Method)
+			return
+		}
+		resp := jsonrpc.NewErrorResponse(req.ID, jsonrpc.NewError(errCode, errMsg, nil))
+		b, err := json.Marshal(resp)
+		if err != nil {
+			slog.Error("error marshalling response to stdout", "response", resp)
+			return
+		}
+		s.writeCh <- b
+	}
+}
+
 func (s *Server) handleRequest(ctx context.Context, req *jsonrpc.Request) {
 	resp := s.jsonrpcDispatcher.HandleRequest(ctx, req)
 	if req.HasID() {
@@ -804,23 +1053,14 @@ func (s *Server) readLoop(ctx context.Context) error {
 			switch v := input.(type) {
 			case jsonrpc.Request:
 				req := v
-				// Tools need to be executed one-at-a-time, so we queue it up.
+				// Tools need to be executed one-at-a-time, so they get their
+				// own queue; all other requests share requestQueueCh. Both
+				// sends are non-blocking so readLoop stays free to process
+				// client responses.
 				if req.Method == "tools/call" {
-					select {
-					case s.toolQueueCh <- &req:
-						// Queue it if there's space.
-					default:
-						// @todo Should this be an MCP-level error (like with `content` and `isError`)?
-						resp := jsonrpc.NewErrorResponse(req.ID, jsonrpc.NewError(TooManyToolCallsErrorCode, "Too many simultaneous tool calls", nil))
-						b, err := json.Marshal(resp)
-						if err != nil {
-							slog.Error("error marshalling response to stdout", "response", resp)
-							continue
-						}
-						s.writeCh <- b
-					}
+					s.enqueueRequest(s.toolQueueCh, &req, TooManyToolCallsErrorCode, "Too many simultaneous tool calls")
 				} else {
-					s.handleRequest(ctx, &req)
+					s.enqueueRequest(s.requestQueueCh, &req, RequestQueueFullErrorCode, "Server busy: too many pending requests")
 				}
 			case jsonrpc.Response:
 				resp := v
@@ -839,6 +1079,7 @@ func (s *Server) readLoop(ctx context.Context) error {
 func (s *Server) Run(ctx context.Context) error {
 	go s.writeLoop(ctx)
 	go s.toolLoop(ctx)
+	go s.requestLoop(ctx)
 
 	return s.readLoop(ctx)
 }

@@ -33,9 +33,14 @@ var tools: ToolManager = ToolManager.new()
 var mcp_server: MCPServer
 
 var _pending_tool_chats: Dictionary
+var _mcp_instance_id: String
+var _mcp_instance_secret: String
 var _mcp_transport: MCPServer.Transport = GodaiEditorSettings.MCP_TRANSPORT_DEFAULT
 var _mcp_base_port: int = GodaiEditorSettings.MCP_BASE_PORT_DEFAULT
 var _mcp_port_count: int = GodaiEditorSettings.MCP_PORT_COUNT_DEFAULT
+
+const MCP_INSTANCE_USER_PATH := "godai-mcp/instances"
+const MCP_INSTANCE_PROJECT_FILE := ".godot/godai-mcp-instance.json"
 
 
 func _ready() -> void:
@@ -44,24 +49,42 @@ func _ready() -> void:
 	claude_client = ClaudeClient.new()
 	add_child(claude_client)
 
-	if Engine.is_editor_hint():
-		var settings: EditorSettings = EditorInterface.get_editor_settings()
-		settings.settings_changed.connect(_update_from_editor_settings.bind(settings))
-		_update_from_editor_settings(settings)
-
 	clear_button.disabled = true
 
 	DefaultToolsLoader.load_default_tools(tools)
 	claude_client.tools = tools
 
-	mcp_server = MCPServer.new(tools)
+	# Generate MCP instance ID and secret.
+	const MCP_TOKEN_LENGTH := 32
+	_mcp_instance_id = _generate_string(MCP_TOKEN_LENGTH)
+	_mcp_instance_secret = _generate_string(MCP_TOKEN_LENGTH)
+
+	mcp_server = MCPServer.new(tools, _mcp_instance_secret)
 	add_child(mcp_server)
 	mcp_server.server_state_changed.connect(_on_mcp_server_state_changed)
 	mcp_server.client_state_changed.connect(_on_mcp_client_state_changed)
 	mcp_server.tool_use_requested.connect(_add_tool_use_to_chat)
 	mcp_server.tool_use_completed.connect(_add_tool_result_to_chat)
+
+	if Engine.is_editor_hint():
+		var settings: EditorSettings = EditorInterface.get_editor_settings()
+		settings.settings_changed.connect(_update_from_editor_settings.bind(settings))
+		_update_from_editor_settings(settings)
+
 	_update_mcp_status_bar()
 	_start_mcp()
+
+
+func _generate_string(p_len: int) -> String:
+	const CHARS := "abcdefghijklmnopqrstuvwxyz0123456789"
+
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+
+	var ret: String
+	for i in range(p_len):
+		ret += CHARS[rng.randi_range(0, CHARS.length() - 1)]
+	return ret
 
 
 func show_panel() -> void:
@@ -71,6 +94,7 @@ func show_panel() -> void:
 
 func _update_from_editor_settings(p_settings: EditorSettings) -> void:
 	claude_client.api_key = p_settings.get_setting(GodaiEditorSettings.ANTHROPIC_API_KEY_SETTING)
+	mcp_server.skip_secret_check = GodaiEditorSettings.get_mcp_skip_secret_check()
 	_mcp_transport = GodaiEditorSettings.get_mcp_transport() as MCPServer.Transport
 	_mcp_base_port = GodaiEditorSettings.get_mcp_base_port()
 	_mcp_port_count = GodaiEditorSettings.get_mcp_port_count()
@@ -87,12 +111,18 @@ func _notification(p_what: int) -> void:
 		NOTIFICATION_THEME_CHANGED:
 			_update_panel_theme()
 
+		NOTIFICATION_EXIT_TREE:
+			_delete_mcp_instance_user_file()
+			_release_project_for_mcp_instance()
+
 
 func _on_mcp_server_state_changed(p_server_state: MCPServer.ServerState) -> void:
 	_update_mcp_status_bar()
 
 	if p_server_state == MCPServer.ServerState.STOPPED:
 		mcp_stopping_timer.stop()
+		_delete_mcp_instance_user_file()
+		_release_project_for_mcp_instance()
 
 
 func _on_mcp_client_state_changed(p_client_state: MCPServer.ClientState) -> void:
@@ -138,8 +168,147 @@ func _update_mcp_status_bar() -> void:
 		mcp_status_label.text = status
 
 
+static func _get_project_path() -> String:
+	return ProjectSettings.globalize_path("res://").simplify_path()
+
+func _get_mcp_instance_user_file() -> String:
+	var path := OS.get_cache_dir() + "/" + MCP_INSTANCE_USER_PATH
+	if not DirAccess.dir_exists_absolute(path):
+		DirAccess.make_dir_recursive_absolute(path)
+	return path + "/" + _mcp_instance_id + ".json"
+
+
+func _get_mcp_instance_project_file() -> String:
+	return _get_project_path() + "/" + MCP_INSTANCE_PROJECT_FILE
+
+
+static func _is_pid_running(p_pid: int) -> bool:
+	if p_pid <= 0:
+		return false
+
+	if OS.get_name() == "Windows":
+		var output := []
+		OS.execute("tasklist", ["/FI", "PID eq %d" % p_pid, "/NH", "/FO", "CSV"], output)
+		if output.is_empty():
+			return false
+		# A match is one CSV row: "image.exe","1234","Console","1","12,345 K"
+		# PID is always the 2nd column. Split on the quote-comma-quote delimiter.
+		var fields: PackedStringArray = output[0].strip_edges().trim_prefix("\"").split("\",\"")
+		return fields.size() > 1 and fields[1] == str(p_pid)
+
+	if OS.get_name() == "Linux":
+		return DirAccess.dir_exists_absolute("/proc/%d" % p_pid)
+
+	# MacOS or other UNIX-y systems.
+	var output := []
+	OS.execute("ps", ["-p", str(p_pid), "-o", "pid="], output)
+	return not output.is_empty() and output[0].strip_edges() == str(p_pid)
+
+
+func _claim_project_for_mcp_instance() -> Error:
+	var instance_file_path = _get_mcp_instance_project_file()
+
+	# If there's an existing project instance file, check if it's valid.
+	if FileAccess.file_exists(instance_file_path):
+		var content := FileAccess.get_file_as_string(instance_file_path)
+		var data = JSON.parse_string(content)
+		if data is Dictionary:
+			var old_instance_id = data.get("instance_id", "")
+			var old_pid = int(data.get("pid", 0))
+
+			# If this is our instance, then we're good!
+			if old_instance_id == _mcp_instance_id and old_pid == OS.get_process_id():
+				return OK
+
+			# Check if the other instance is still running, and if so, abort.
+			if _is_pid_running(old_pid):
+				return ERR_ALREADY_IN_USE
+
+		# If we made it this far, then the old instance is invalid, so remove it.
+		var err = DirAccess.remove_absolute(instance_file_path)
+		if err != OK:
+			return err
+
+	# Write a new project instance file.
+	var f := FileAccess.open(instance_file_path, FileAccess.WRITE)
+	if not f:
+		return FileAccess.get_open_error()
+
+	var data := {
+		instance_id = _mcp_instance_id,
+		pid = OS.get_process_id(),
+	}
+	f.store_string(JSON.stringify(data))
+	f.flush()
+
+	return OK
+
+
+func _release_project_for_mcp_instance() -> void:
+	var instance_file_path = _get_mcp_instance_project_file()
+
+	if FileAccess.file_exists(instance_file_path):
+		var content := FileAccess.get_file_as_string(instance_file_path)
+		var data = JSON.parse_string(content)
+		if data is Dictionary:
+			var old_instance_id = data.get("instance_id", "")
+			var old_pid = int(data.get("pid", 0))
+			# This is our instance file, so delete it.
+			if old_instance_id == _mcp_instance_id and old_pid == OS.get_process_id():
+				DirAccess.remove_absolute(instance_file_path)
+
+
+func _write_mcp_instance_user_file() -> Error:
+	var instance_file_path = _get_mcp_instance_user_file()
+
+	var f := FileAccess.open(instance_file_path, FileAccess.WRITE)
+	if not f:
+		return FileAccess.get_open_error()
+
+	var data := {
+		instance_id = _mcp_instance_id,
+		pid = OS.get_process_id(),
+		project_path = _get_project_path(),
+		secret = _mcp_instance_secret,
+		port = mcp_server.get_port(),
+	}
+	f.store_string(JSON.stringify(data))
+	f.flush()
+
+	return OK
+
+
+func _delete_mcp_instance_user_file() -> void:
+	var instance_file_path = _get_mcp_instance_user_file()
+	if FileAccess.file_exists(instance_file_path):
+		DirAccess.remove_absolute(instance_file_path)
+
+
 func _start_mcp() -> void:
-	mcp_server.start_server(_mcp_base_port, _mcp_port_count, _mcp_transport)
+	var err: Error
+
+	# Claim this project for this MCP instance.
+	err = _claim_project_for_mcp_instance()
+	if err != OK:
+		var msg: String = "Cannot start MCP server: "
+		if err == ERR_ALREADY_IN_USE:
+			msg += "another Godot editor is already running an MCP server for this project"
+		else:
+			msg += "error claiming project: " + error_string(err)
+		_add_error_to_chat(msg)
+		return
+
+	# Actually start the MCP server.
+	err = mcp_server.start_server(_mcp_base_port, _mcp_port_count, _mcp_transport)
+	if err != OK:
+		_add_error_to_chat("Cannot start MCP server: " + error_string(err))
+		return
+
+	# Write the instance file.
+	err = _write_mcp_instance_user_file()
+	if err != OK:
+		_add_error_to_chat("Cannot start MCP server: error writing instance file: " + error_string(err))
+		return
 
 
 func _on_start_mcp_button_pressed() -> void:
@@ -210,6 +379,12 @@ func _add_tool_result_to_chat(p_id: String, p_content) -> void:
 		tool_use_info_dialog.update_output(p_content)
 
 
+func _add_error_to_chat(p_msg: String) -> void:
+	var chat = ErrorChatScene.instantiate()
+	chat_container.add_child(chat)
+	chat.setup_error_chat(p_msg)
+
+
 func _show_tool_info(p_id: String, p_name: String, p_input, p_output) -> void:
 	tool_use_info_dialog.popup_centered_ratio(0.6)
 	tool_use_info_dialog.setup_tool_info(p_id, p_name, p_input, p_output)
@@ -259,10 +434,8 @@ func _submit_message() -> void:
 	prompt.editable = true
 
 	if resp.is_error():
-		var chat = ErrorChatScene.instantiate()
-		chat_container.add_child(chat)
 		var error := resp.get_error()
-		chat.setup_error_chat(error.type, error.message)
+		_add_error_to_chat("Error (%s): %s" % [error.type, error.message])
 		return
 
 

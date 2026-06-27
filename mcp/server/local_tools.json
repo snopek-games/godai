@@ -3,7 +3,12 @@
 	"tools": {
 		"list_projects": {
 			"title": "List Godot projects",
-			"description": "Lists Godot projects in the project base path and those registered with the project manager"
+			"description": [
+				"Lists Godot projects that are available to open",
+				"",
+				"When using --global this includes those registered in the project manager and under the project base path.",
+				"Otherwise, this recursively searches in the allowed root paths."
+			]
 		},
 		"open_godot_project": {
 			"title": "Open Godot project",

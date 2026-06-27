@@ -15,8 +15,9 @@
     "mcp_config": {
       "command": "${__dirname}/server/godai-mcp-linux-x86_64",
       "args": [
+        "--global",
         "--godot-path", "${user_config.godot_path}",
-        "--project-path", "${user_config.project_path}",
+        "--project-base-path", "${user_config.project_base_path}",
         "--x11-display", "${user_config.x11_display}"
       ],
       "platform_overrides": {
@@ -37,7 +38,7 @@
       "required": false,
       "sensitive": false
     },
-    "project_path": {
+    "project_base_path": {
       "type": "directory",
       "title": "Project path",
       "description": "The base path where your Godot projects usually live",

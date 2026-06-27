@@ -1,13 +1,13 @@
-# Functional tests: editor MCP server
+# Functional tests: addon MCP server
 
 These tests connect to a real Godot editor over the MCP HTTP transport and
-exercise the editor's MCP server end-to-end, including the tools in
+exercise the addon's MCP server end-to-end, including the tools in
 `addons/godai/tools/default/*_tools.gd`.
 
 ## Running locally
 
 ```sh
-go test ./tests/functional/editor/
+go test ./tests/functional/addon/
 ```
 
 By default, the harness:
@@ -50,7 +50,7 @@ To debug a test against the editor you already have open (with the HTTP
 transport enabled in the Godai editor settings):
 
 ```sh
-GODAI_TEST_PORT=12120 go test -v ./tests/functional/editor/
+GODAI_TEST_PORT=12120 go test -v ./tests/functional/addon/
 ```
 
 Beware: the tests create scenes and resources inside whatever project that

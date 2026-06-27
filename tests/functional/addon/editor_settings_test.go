@@ -1,4 +1,4 @@
-package editor
+package addon
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 
 // A stable, long-standing editor setting with an integer value, used as a
 // well-known target for the get/set tests.
-const editorSettingName = "interface/editor/code_font_size"
+const editorSettingName = "text_editor/behavior/indent/size"
 
 func TestEditorSettings(t *testing.T) {
 	t.Run("get_specific", func(t *testing.T) {

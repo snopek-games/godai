@@ -1,4 +1,4 @@
-package editor
+package addon
 
 import (
 	"context"
@@ -86,7 +86,7 @@ func closeAllScenes(t *testing.T) {
 	t.Helper()
 	runEditorScript(t, `EditorInterface.save_all_scenes()
 for i in range(100):
-	if EditorInterface.get_open_scenes().is_empty() and EditorInterface.get_edited_scene_root() == null:
+	if EditorInterface.get_edited_scene_root() == null:
 		return OK
 	EditorInterface.close_scene()
 	await Engine.get_main_loop().process_frame

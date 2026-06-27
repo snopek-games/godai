@@ -36,11 +36,22 @@ func main() {
 		}
 	}
 
+	// The directory where running Godot editors advertise themselves.
+	instancesPath, _ := server.GetInstancesPath()
+
 	cmd := cli.Command{
 		Name:    "godai-mcp",
 		Usage:   "MCP server for Godot",
 		Version: server.GodaiVersion,
 		Flags: []cli.Flag{
+			&cli.StringSliceFlag{
+				Name:  "root",
+				Usage: "file system path(s) with Godot project(s) the server is allowed to connect to",
+			},
+			&cli.BoolFlag{
+				Name:  "global",
+				Usage: "connect to all Godot editor instances",
+			},
 			&cli.StringFlag{
 				Name:    "godot-path",
 				Usage:   "default path to the Godot executable",
@@ -48,19 +59,19 @@ func main() {
 				Sources: cli.EnvVars("GODOT"),
 			},
 			&cli.StringFlag{
-				Name:  "project-path",
+				Name:  "project-base-path",
 				Usage: "base path where your Godot projects usually live",
 				Value: projectBasePath,
 			},
-			&cli.IntFlag{
-				Name:  "editor-base-port",
-				Usage: "base port used to connect to the Godot editor",
-				Value: 12120,
+			&cli.StringFlag{
+				Name:  "editor-instances-path",
+				Usage: "directory where running Godot editors write their instance files",
+				Value: instancesPath,
 			},
 			&cli.IntFlag{
-				Name:  "editor-port-count",
-				Usage: "number of ports to try when connecting to the Godot editor",
-				Value: 10,
+				Name:  "editor-scan-interval",
+				Usage: "how often (in seconds) to scan for running Godot editors",
+				Value: 2,
 			},
 			&cli.IntFlag{
 				Name:  "editor-retry-delay",
@@ -105,15 +116,17 @@ func main() {
 
 func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 	config := &server.Config{
-		EditorBasePort:   cmd.Int("editor-base-port"),
-		EditorPortCount:  cmd.Int("editor-port-count"),
-		EditorRetryDelay: time.Second * time.Duration(cmd.Int("editor-retry-delay")),
-		EditorTimeout:    time.Second * time.Duration(cmd.Int("editor-timeout")),
-		DefaultGodotPath: cmd.String("godot-path"),
-		ProjectBasePath:  cmd.String("project-path"),
-		X11Display:       cmd.String("x11-display"),
-		Debug:            cmd.Bool("debug"),
-		SavedConfigPath:  configPath,
+		Global:              cmd.Bool("global"),
+		RootPaths:           cmd.StringSlice("root"),
+		EditorInstancesPath: cmd.String("editor-instances-path"),
+		EditorScanInterval:  time.Second * time.Duration(cmd.Int("editor-scan-interval")),
+		EditorRetryDelay:    time.Second * time.Duration(cmd.Int("editor-retry-delay")),
+		EditorTimeout:       time.Second * time.Duration(cmd.Int("editor-timeout")),
+		DefaultGodotPath:    cmd.String("godot-path"),
+		ProjectBasePath:     cmd.String("project-base-path"),
+		X11Display:          cmd.String("x11-display"),
+		Debug:               cmd.Bool("debug"),
+		SavedConfigPath:     configPath,
 	}
 
 	var output io.Writer
@@ -138,6 +151,14 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 	}))
 	slog.SetDefault(logger)
 
+	if config.Global {
+		if len(config.RootPaths) > 0 {
+			return fmt.Errorf("--global and --root are mutually exclusive")
+		}
+	} else if len(config.RootPaths) == 0 {
+		config.RootPaths = tryDiscoverRootPaths()
+	}
+
 	if config.DefaultGodotPath != "" {
 		if err := server.ValidateGodotExecutable(config.DefaultGodotPath); err != nil {
 			return fmt.Errorf("invalid Godot path: %w", err)
@@ -146,11 +167,25 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 
 	if config.ProjectBasePath != "" {
 		if err := server.ValidateDirectory(config.ProjectBasePath); err != nil {
-			return fmt.Errorf("invalid project path: %w", err)
+			return fmt.Errorf("invalid project base path: %w", err)
 		}
 	}
 
 	slog.Debug("server starting", "config", config)
 	s := server.NewServer(config)
 	return s.Run(ctx)
+}
+
+func tryDiscoverRootPaths() []string {
+	claudeProjectDir := os.Getenv("CLAUDE_PROJECT_DIR")
+	if claudeProjectDir != "" {
+		return []string{claudeProjectDir}
+	}
+
+	cwd, err := os.Getwd()
+	if err == nil {
+		return []string{cwd}
+	}
+
+	return []string{}
 }

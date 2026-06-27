@@ -4,102 +4,114 @@ Godai - AI agent (LLM) integration with the Godot Engine
 Godai aims to integrate an AI agent (LLM) with the Godot editor, so that you can use natural
 language to ask the AI to perform various operations on your project.
 
+Works with Godot 4.6 or later.
+
+Features
+--------
+
+Through Godai, the AI can drive the Godot editor on your behalf. It can:
+
+- **Manage projects:** list available projects, open them in new editor instances, and read or change
+  project settings.
+- **Edit scenes:** create, open, and save scenes, inspect the scene tree, and instantiate saved
+  scenes as child nodes.
+- **Edit nodes:** add and remove nodes, read and set their properties, manage their groups, and
+  connect or disconnect signals.
+- **Work with scripts:** create, read, write, attach, and detach GDScript files (with safe,
+  conflict-aware writes that respect unsaved changes in the editor).
+- **Work with resources:** create `.tres`/`.res` resources, open them in the inspector, and read or
+  change their properties.
+- **Manage assets:** inspect and change import settings, and reimport assets.
+- **Run and debug:** run the project (or the current scene), stop it, and read recent log output
+  from the editor.
+- **Configure the editor:** read and change editor settings, and restart the editor when needed.
+- **Run arbitrary editor scripts:** for anything not covered by the tools above, execute GDScript
+  directly in the editor.
+
+Most changes are made through the editor's own undo/redo system, so you can undo what the AI does
+just like any other editor action.
+
+> [!CAUTION]
+> The AI can create, modify, and delete files in your project, and it occasionally does something
+> unexpected. Use version control (or keep a backup), and review its changes before relying on them.
+
 Modes of Operation
 ------------------
 
-Godai is capable of operating in two modes: API mode and MCP mode.
+Godai is capable of operating in two modes: **API mode** and **MCP mode**.
 
 ### API mode
 
 In API mode, you can type your prompts into the "AI" panel in the bottom dock of the Godot editor,
-and it will connect to a remote API (currently, the Claude/Anthropic API).
+and it will connect to a remote API (currently, the Anthropic API).
 
-In order to use this mode, you need to have setup an API key (which will likely involve entering
+In order to use this mode, you need to have an API key (which will likely involve entering
 credit card information and paying some amount of money) and configuring it in Godot's editor
 settings.
 
-#### Pro's
-
-- The chat box is right in the Godot editor
-- More control over the AI, which we can use to get somewhat better responses
-- Works anywhere Godot works, including with the Godot editor on Android and the Web
-
-#### Con's
-
-- More setup
-- Costs money (although, usually very little)
-- Only works with the APIs supported by Godai (currently, only Claude/Anthropic - I'd like to add more
-  in the future)
-- No integration with tools outside of Godot
+The main advantage of this mode is that it requires only the Godot editor, and it'll work anywhere
+that the Godot editor does, including on Android, the Web, or standalone XR devices.
 
 ### MCP mode
 
-In MCP mode, you type your prompts into an MCP client (like Claude Desktop, Cursor, etc) and it will
+In MCP mode, you type your prompts into an MCP client (like Claude Code, Cursor, etc) and it will
 send commands to the Godot editor.
 
-In order to use this mode, you'll need to download Godai's MCP server and configure your MCP client,
-which usually involves editing a JSON configuration file.
-
-#### Pro's
-
-- It can launch the Godot editor, create new projects, and interact with multiple Godot editors at once
-- Integration with other tools outside of Godot (probably via their own MCP's)
-- Works with any AI that has MCP support
-- Potentially no cost (see below)
-
-#### Con's
-
-- Requires using an external tool outside of Godot (the MCP client)
-- Less control over the AI, potentially leading to somewhat worse responses
-- Only works on desktop platforms (ie Windows, Linux and MacOS)
+This only works when running on your desktop or laptop, but it can allow you to take advantage of
+other tools or MCP servers (for example,
+[using Blender via an MCP server](https://www.blender.org/lab/mcp-server/)) from the same chat
+session.
 
 #### Free?
 
-At the moment, some MCP clients (like Claude Desktop) have a free tier, which can allow you to use Godai
-at no cost to you. That is, until the bubble bursts, the investor money dries up, and these AI companies
-can no longer operate at a loss :-)
+At the moment, some MCP clients (like Claude Code/Desktop) have a free tier, which can allow you
+to use Godai at no cost to you. That is, until the bubble bursts, the investor money dries up,
+and these AI companies can no longer operate at a loss :-)
 
-Setting up addon for API mode
------------------------------
+Quick Start: MCP mode
+---------------------
 
-1. Download the Godot addon
-2. Extract it into your project (such that `addons/godai` contains the `plugin.cfg` file)
-3. Go to **Project** -> **Project Settings...**, switch to the **Plugins** tab, enable "Godai" by
-   checking the checkbox
-5. Go to **Editor** -> **Editor Settings...**, find the **Godai** section and enter your
-   **Anthropic API Key**
+### Claude Code
 
-To get an **Anthropic API Key**, you need to create a developer account on the
-[Claude Console](https://console.anthropic.com/login?returnTo=%2F%3F), and once your logged in:
+If you have Node installed (with `npx` available), then you can run:
 
-1. Expand the left sidebar
-2. Click **Manage** -> **API keys**
-3. Click **+ Create Key**
-4. Provide a name (perhaps "godai") and then click **Add**
-5. Copy the provided API key (NOTE: this will _NOT_ be saved in the console for you, so you must copy
-   it somewhere right away)
+```bash
+claude mcp add godai -- npx @snopek-games/godai-mcp
+```
+Then restart Claude Code if it was already running. And that's it!
 
-However, Godai won't be able to actually use the API key, until you've bought some credits. To do that,
-click **Billing** and then **Buy credits**.
+<details>
+<summary><strong>Without Node and <code>npx</code></strong></summary>
 
-The pricing is "per million tokens" where each word or punctuation that the AI processes is approximately
-1-3 tokens. So, if you're only testing it out, you won't pay much at all, however, with heavy usage it can
-begin to add up. But since credits must be purchased in advance, you are in control of the maximum that
-can be spent.
+If you don't have (or don't want to use) Node/`npx`, you can download a standalone binary for your
+platform from the [latest release](https://gitlab.com/snopek-games/godai/-/releases) of Godai,
+then give the full path to that instead:
 
-Setting up the MCP
-------------------
+```bash
+claude mcp add godai -- /path/to/godai-mcp
+```
+</details>
+
+In order to specify the path to Godot:
+
+```bash
+claude mcp add godai -- npx @snopek-games/godai-mcp --godot-path /path/to/godot4
+```
+
+> [!NOTE]
+> You shouldn't have to manually install the Godai addon, it'll get automatically installed if you use
+> the MCP server to open your project in the Godot editor. Just ask your AI agent to do it!
 
 ### Claude Desktop Extension
 
-If your MCP client is Claude Desktop, you can install the MCP as an "extension" from the .MCPB file,
-which includes builds for all platforms (Windows, Linux and MacOS) and will automatically configure
-Claude Desktop, so you don't need to mess around with JSON files or anything.
+If your MCP client is Claude Desktop, you can install the MCP server as an "extension" from the
+.MCPB file, which includes builds for all platforms (Windows, Linux, and MacOS) and will automatically
+configure Claude Desktop, so you don't need to mess around with JSON files or anything.
 
 1. Download the .MCPB from the [latest release](https://gitlab.com/snopek-games/godai/-/releases)
-   of Godai
+   of Godai.
 2. Depending on your operating system, you may be able to double-click the .MCPB file, which will
-   open Claude and prompt you to install the extension
+   open Claude and prompt you to install the extension.
 
 If this doesn't work (it doesn't for me [on Linux](https://github.com/aaddrick/claude-desktop-debian)),
 then you'll need to:
@@ -122,30 +134,59 @@ If you'd prefer to configure Claude Desktop manually, you'll need to edit (or cr
 
 Edit or create that file, and add an entry for Godai, for example:
 
-```js
+```jsonc
 {
   "mcpServers": {
     "godai": {
-      "command": "/path/to/godai-mcp",
+      "command": "npx",
       "args": [
+        "@snopek-games/godai-mcp",
+        "--global",
         "--godot-path", "/path/to/godot4",
-        "--project-path", "/path/to/my/godot/projects"
+        "--project-base-path", "/path/to/my/godot/projects"
       ]
     }
   }
 }
 ```
 
-If you're on Linux, and the MCP is having trouble launching Godot, you may need to get the value of
-the `$DISPLAY` environment variable on your system (by typing `echo $DISPLAY` in a terminal window)
-and provide that with the `--x11-display` option, for example:
+<details>
+<summary><strong>Without Node and <code>npx</code></strong></summary>
 
-```js
+If you don't have (or don't want to use) Node/`npx`, you can download a standalone binary for your
+platform from the [latest release](https://gitlab.com/snopek-games/godai/-/releases) of Godai,
+then give the full path to that instead as the `"command"`, and drop the `"@snopek-games/godai-mcp"`
+argument.
+
+So, for example:
+
+```jsonc
 {
   "mcpServers": {
     "godai": {
       "command": "/path/to/godai-mcp",
       "args": [
+        "--global",
+        "--godot-path", "/path/to/godot4",
+        "--project-base-path", "/path/to/my/godot/projects"
+      ]
+    }
+  }
+}
+```
+</details>
+
+If you're on Linux, and the MCP server is having trouble launching Godot, you may need to get the value
+of the `$DISPLAY` environment variable on your system (by typing `echo $DISPLAY` in a terminal window)
+and provide that with the `--x11-display` option, for example:
+
+```jsonc
+{
+  "mcpServers": {
+    "godai": {
+      "command": "npx",
+      "args": [
+        "@snopek-games/godai-mcp",
         // ... other arguments
         "--x11-display", ":1"
       ]
@@ -157,16 +198,6 @@ and provide that with the `--x11-display` option, for example:
 See the Claude documentation for more information about
 [configuring local MCP servers](https://modelcontextprotocol.io/docs/develop/connect-local-servers).
 
-### Claude Code
-
-Here's a simple command to add the Godai MCP for all projects:
-
-```
-claude mcp add -s user -t stdio godai -- /path/to/godai-mcp --godot-path /path/to/godot4 --project-path /path/to/my/godot/projects
-```
-
-See the earlier sections for information about the command-line arguments.
-
 ### Other MCP clients
 
 Most MCP clients are configured using a JSON file similar to the manual Claude Desktop configuration
@@ -174,6 +205,68 @@ shown in the previous section.
 
 So, while you'll need to consult the documentation for your chat client, you'll probably be able to
 copy and modify the JSON shown above.
+
+Two important notes:
+
+- If your MCP client will run **one instance for your whole computer** (like Claude Desktop does),
+  then you'll want to use the `--global` argument.
+- Otherwise (like Claude Code, which runs a separate instance per project directory), it will only
+  access Godot projects that are in one of its allowed "roots". This will
+  use the [MCP Roots feature](https://modelcontextprotocol.io/specification/2025-11-25/client/roots)
+  if your client supports it. If not, it'll use the current directory it was spawned from as its
+  root. If you want to manually specify the allowed roots, add one or more `--root PATH` arguments.
+
+Quick Start: API mode
+---------------------
+
+1. Download the Godai addon from the [latest release](https://gitlab.com/snopek-games/godai/-/releases)
+2. Extract it into your project (such that `addons/godai` contains the `plugin.cfg` file)
+3. Go to **Project** -> **Project Settings...**, switch to the **Plugins** tab, enable "Godai" by
+   checking the checkbox
+4. Go to **Editor** -> **Editor Settings...**, find the **Godai** section and enter your
+   **Anthropic API Key**
+
+To get an **Anthropic API Key**, you need to create a developer account on the
+[Claude Console](https://console.anthropic.com/), and once you're logged in:
+
+1. Expand the left sidebar
+2. Click **Manage** -> **API keys**
+3. Click **+ Create Key**
+4. Provide a name (perhaps "godai") and then click **Add**
+5. Copy the provided API key (NOTE: this will _NOT_ be saved in the console for you, so you must copy
+   it somewhere right away)
+
+However, Godai won't be able to actually use the API key, until you've bought some credits. To do that,
+click **Billing** and then **Buy credits**.
+
+The pricing is "per million tokens" where each word or punctuation mark that the AI processes is roughly
+1 token. So, if you're only testing it out, you won't pay much at all, however, with heavy usage it can
+begin to add up. But since credits must be purchased in advance, you are in control of the maximum that
+can be spent.
+
+Technical Details
+-----------------
+
+Godai is made up of two parts:
+
+- **Addon for the Godot editor:** this provides the core functionality of Godai, exposing editor features
+  to the AI agent. It's used in both the API and MCP mode.
+
+- **Command-line MCP server written in Go:** this is what Claude Code (or other MCP client) interacts
+  with when using MCP mode. It connects to the addon running in the Godot editor using WebSockets.
+  This is only used in MCP mode.
+
+This two part design allows the MCP server to launch the Godot editor, and interact with multiple Godot
+editor instances for different projects.
+
+It also maintains the connection to the MCP client if the editor restarts. This is important, because
+most MCP clients will only connect to your MCP servers at startup, and will give up on an MCP server if
+the connection is broken (until the MCP client is restarted).
+
+However, the addon itself does implement a full MCP server! If you go into **Editor Settings** and
+change the **Mcp Transport** to **HTTP**, you can connect to it directly from an MCP client.
+This is useful when manually testing with the
+[MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector).
 
 "What is this AI trash?!"
 -------------------------
@@ -198,18 +291,18 @@ That said, you always need to be careful when using AI. In working on Godai, I'v
 same handful of operations a hundred times, and it'll do something acceptable 9 out of 10 times. But
 that 10th time, it'll do something hilariously weird and unexpected - it's far from perfect.
 
-I also have fears about the long-term affects of LLMs on society, especially with regard to children
+I also have fears about the long-term effects of LLMs on society, especially with regard to children
 and students. Using AI too much can be a crutch that prevents real learning. Blindly following AI can
 lead to an enormous amount of wasted time when it makes stuff up. And you know what, doing the thing
 yourself is rewarding and fun - what happens if we all forget that due to our natural human laziness?
 
-So, while Godai may somewhat useful, ultimately, I work on it because it's a cool technology that's
+So, while Godai may be somewhat useful, ultimately, I work on it because it's a cool technology that's
 fun to play with. I absolutely enjoy making Godai, much more than actually using it. And, hey, it's
 Open Source, so you're free to have the same fun with me :-)
 
 License
 -------
 
-Copyright 2025 David Snopek.
+Copyright 2025-2026 David Snopek.
 
 Licensed under the [MIT License](LICENSE.txt).

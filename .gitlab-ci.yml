@@ -49,10 +49,11 @@ godot-test:
     - set -o pipefail
     - godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/gut -gexit 2>&1 | tee gut-output.log
     - '! grep -q "Nothing was run" gut-output.log'
-    # The functional tests of the editor's MCP server. These launch their own
-    # headless editor; GODAI_TEST_VERBOSE streams its log into the job output,
-    # since the temporary project directory can't be inspected after the job.
-    - GODAI_TEST_VERBOSE=1 go test -v -count=1 ./tests/functional/editor/
+    # The functional tests of the addon's MCP server and the Go MCP server.
+    # These launch their own headless editor; GODAI_TEST_VERBOSE streams its log
+    # into the job output, since the temporary project directory can't be
+    # inspected after the job.
+    - GODAI_TEST_VERBOSE=1 go test -v -count=1 -timeout 10m ./tests/functional/...
 
 # On release tags, require the version in plugin.cfg (the single source of
 # truth) to match the tag, so a release can't be made with a stale version.
