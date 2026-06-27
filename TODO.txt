@@ -21,7 +21,7 @@ For a 1.0
 - Addon: Add system prompt
 - Better installation story
 	- Options:
-    - Provide `brew` package
+    - Provide `brew` package (as a "cask", I guess?)
     - Provide `WinGet` package
     - Provide `curl | bash` style script for MacOS, Linux and Windows (it would be `irm | WinGet` for Windows)
   - Provide self-update feature
