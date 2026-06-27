@@ -17,13 +17,11 @@ func testContext(t *testing.T) context.Context {
 	return ctx
 }
 
-// callTool calls a tool on the main server.
 func callTool(t *testing.T, name string, args map[string]any) *ToolCallResult {
 	t.Helper()
 	return callToolWith(t, client, name, args)
 }
 
-// callToolWith calls a tool on a specific server.
 func callToolWith(t *testing.T, c *harness.MCPClient, name string, args map[string]any) *ToolCallResult {
 	t.Helper()
 	result, err := c.CallTool(testContext(t), name, args)
@@ -33,14 +31,11 @@ func callToolWith(t *testing.T, c *harness.MCPClient, name string, args map[stri
 	return result
 }
 
-// callToolOK calls a tool on the main server, asserts it succeeded, and returns
-// the structured content.
 func callToolOK(t *testing.T, name string, args map[string]any) map[string]any {
 	t.Helper()
 	return callToolOKWith(t, client, name, args)
 }
 
-// callToolOKWith is callToolOK against a specific server.
 func callToolOKWith(t *testing.T, c *harness.MCPClient, name string, args map[string]any) map[string]any {
 	t.Helper()
 	result := callToolWith(t, c, name, args)
@@ -54,8 +49,6 @@ func callToolOKWith(t *testing.T, c *harness.MCPClient, name string, args map[st
 	return structured
 }
 
-// callToolErr calls a tool, asserts it failed, and that the error text contains
-// wantSubstr.
 func callToolErr(t *testing.T, name string, args map[string]any, wantSubstr string) {
 	t.Helper()
 	result := callTool(t, name, args)
@@ -67,10 +60,6 @@ func callToolErr(t *testing.T, name string, args map[string]any, wantSubstr stri
 	}
 }
 
-// ensureProjectOpen makes sure the editor for the test project is running and
-// connected, by calling open_godot_project. The first call spawns the editor
-// (the real spawn path); later calls short-circuit in the server because the
-// editor is already connected.
 func ensureProjectOpen(t *testing.T) {
 	t.Helper()
 	result := callTool(t, "open_godot_project", map[string]any{

@@ -12,9 +12,8 @@ import (
 	"godai/mcp/jsonrpc"
 )
 
-// stdioTransport speaks line-delimited JSON-RPC over a process's stdin/stdout,
-// the way the Go MCP server expects its client to. A background reader routes
-// responses to the goroutine waiting on each request ID.
+// stdioTransport speaks line-delimited JSON-RPC over a process's stdin/stdout.
+// A background reader routes each response to the goroutine waiting on its ID.
 type stdioTransport struct {
 	w io.Writer
 
@@ -30,15 +29,10 @@ type stdioTransport struct {
 	handlers map[string]RequestHandler
 }
 
-// NewStdioClient returns an MCPClient that drives the Go MCP server over the
-// given stdin (writer) and stdout (reader) pipes, advertising no capabilities
-// and rejecting any server->client request.
 func NewStdioClient(stdin io.Writer, stdout io.Reader) *MCPClient {
 	return NewStdioClientWithConfig(stdin, stdout, ClientConfig{})
 }
 
-// NewStdioClientWithConfig is like NewStdioClient but advertises cfg.Capabilities
-// and answers server->client requests using cfg.Handlers.
 func NewStdioClientWithConfig(stdin io.Writer, stdout io.Reader, cfg ClientConfig) *MCPClient {
 	t := &stdioTransport{
 		w:        stdin,
@@ -68,9 +62,6 @@ func (t *stdioTransport) readLoop(r io.Reader) {
 			continue
 		}
 
-		// A message with a method is a request or notification from the server.
-		// Requests (those carrying an ID) get routed to a handler; notifications
-		// are ignored.
 		if msg.Method != "" {
 			if len(msg.ID) > 0 {
 				t.handleServerRequest(msg.Method, msg.ID, msg.Params)

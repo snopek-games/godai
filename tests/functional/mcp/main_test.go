@@ -1,21 +1,5 @@
-// Package mcp contains end-to-end tests for the Go MCP server (./mcp).
-//
-// These tests build the godai-mcp binary, drive it over stdio (the transport
-// a real MCP client uses), and exercise:
-//
-//   - the local tools in mcp/server/local_tools.go, and
-//   - a smoke test proving a remote tool call is forwarded across to a real
-//     Godot editor.
-//
-// The editor itself is started the way it is in production: by the
-// open_godot_project tool, which spawns it via the configured --godot-path. To
-// keep that headless, --godot-path points at a small wrapper script that adds
-// --headless before exec'ing the real Godot binary.
-//
-// Environment variables:
-//   - GODOT: path to the Godot binary (otherwise "godot"/"godot4" from PATH)
-//   - GODAI_TEST_VERBOSE: stream the server and editor logs to stderr
-//   - GODAI_TEST_KEEP: keep the temporary directory after the run
+// Package mcp contains end-to-end tests for the Go MCP server: they build the
+// godai-mcp binary and drive it over stdio.
 package mcp
 
 import (
@@ -38,31 +22,16 @@ import (
 const projectName = "Godai MCP Functional Test"
 
 var (
-	client *harness.MCPClient
-
-	// projectPath is the canonical path to the test project the server manages.
-	projectPath string
-
-	// instancesDir is where the editor advertises itself and where teardown
-	// looks for editors to kill.
-	instancesDir string
-
-	// serverCmd is the running godai-mcp process.
-	serverCmd *exec.Cmd
-
-	// serverBin is the godai-mcp binary built once in testMain, reused by tests
-	// that start their own server (e.g. the --global mode test).
-	serverBin string
-
-	// godotWrapperPath is the --headless wrapper script, reused as a valid
-	// --godot-path by servers that don't spawn an editor.
+	client           *harness.MCPClient
+	projectPath      string
+	instancesDir     string
+	serverCmd        *exec.Cmd
+	serverBin        string
 	godotWrapperPath string
 
-	// coverDir, when non-empty, is an absolute directory where coverage data
-	// from the spawned godai-mcp subprocess(es) is written. It's enabled by
-	// setting GODAI_COVERDIR; the binary is then built with -cover and each
-	// server runs with GOCOVERDIR pointing here. Coverage is flushed when the
-	// server exits normally (the SIGINT-driven graceful shutdown in stopServer).
+	// When set (via GODAI_COVERDIR), the binary is built with -cover and each
+	// server runs with GOCOVERDIR pointing here. Coverage is flushed only on the
+	// SIGINT-driven graceful shutdown in stopServer.
 	coverDir string
 )
 
@@ -126,7 +95,6 @@ func testMain(m *testing.M) int {
 		}
 	}()
 
-	// Lay out the temp tree.
 	rootDir := filepath.Join(base, "projects")
 	projectDir := filepath.Join(rootDir, "demo")
 	if err := os.MkdirAll(projectDir, 0o755); err != nil {
@@ -137,9 +105,6 @@ func testMain(m *testing.M) int {
 
 	instancesDir = filepath.Join(base, "cache", "godai-mcp", "instances")
 
-	// A bare project (no addon): open_godot_project installs and enables it,
-	// exercising that path. The Go server knows the secret from the instance
-	// file, so we don't disable the secret check.
 	if err := harness.CreateTestProject(projectDir, harness.ProjectOptions{Name: projectName}); err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: creating test project: %v\n", err)
 		return 1
@@ -167,8 +132,6 @@ func testMain(m *testing.M) int {
 		return 1
 	}
 
-	// The main server runs in non-global mode, scoped to our temp root, and
-	// spawns the editor through the headless wrapper.
 	inst, err := startServer(base, []string{
 		"--root", rootDir,
 		"--godot-path", godotWrapper,
@@ -195,24 +158,16 @@ func testMain(m *testing.M) int {
 	return code
 }
 
-// serverInstance is a running godai-mcp server driven over stdio.
 type serverInstance struct {
 	cmd     *exec.Cmd
 	client  *harness.MCPClient
 	logPath string
 }
 
-// startServer launches the godai-mcp binary with the given extra args, isolating
-// its XDG config/data/cache under xdgBase, applying extraEnv, and completing the
-// MCP initialize handshake. The caller is responsible for stopping the process
-// (and any editors it spawned).
 func startServer(xdgBase string, args, extraEnv []string, verbose bool) (*serverInstance, error) {
 	return startServerWithClient(xdgBase, args, extraEnv, verbose, harness.ClientConfig{})
 }
 
-// startServerWithClient is like startServer but drives the server with a client
-// configured by cfg: the capabilities it advertises (e.g. roots, elicitation)
-// and the handlers it uses to answer the server's callbacks.
 func startServerWithClient(xdgBase string, args, extraEnv []string, verbose bool, cfg harness.ClientConfig) (*serverInstance, error) {
 	cmd := exec.Command(serverBin, args...)
 	cmd.Env = append(os.Environ(),
@@ -259,13 +214,10 @@ func startServerWithClient(xdgBase string, args, extraEnv []string, verbose bool
 	return &serverInstance{cmd: cmd, client: c, logPath: logPath}, nil
 }
 
-// buildServer compiles the godai-mcp binary into dir and returns its path.
 func buildServer(dir string) (string, error) {
 	binPath := filepath.Join(dir, "godai-mcp")
 	args := []string{"build"}
 	if coverDir != "" {
-		// Instrument the binary so the spawned server emits coverage for the
-		// MCP packages to GOCOVERDIR.
 		args = append(args, "-cover", "-coverpkg=godai/mcp/...")
 	}
 	args = append(args, "-o", binPath, "./mcp")
@@ -277,8 +229,6 @@ func buildServer(dir string) (string, error) {
 	return binPath, nil
 }
 
-// stopServer closes the server's stdin (so its read loop hits EOF) and waits
-// for it to exit, escalating to a kill.
 func stopServer(cmd *exec.Cmd) {
 	if cmd == nil || cmd.Process == nil {
 		return
@@ -298,9 +248,8 @@ func stopServer(cmd *exec.Cmd) {
 	}
 }
 
-// killEditorInstances kills any editors still advertising themselves in the
-// instances directory. The server doesn't own the editors it spawns, so the
-// test harness has to clean them up.
+// The server doesn't own the editors it spawns, so the harness cleans up any
+// still advertising themselves in the instances directory.
 func killEditorInstances(dir string) {
 	if dir == "" {
 		return
@@ -327,9 +276,8 @@ func killEditorInstances(dir string) {
 	}
 }
 
-// killProcess terminates a non-child process (an editor the server spawned),
-// asking nicely first and escalating to SIGKILL. Since it isn't our child we
-// can't Wait on it; we poll for its exit with signal 0 instead.
+// killProcess terminates an editor the server spawned. It isn't our child, so
+// we can't Wait on it; we poll for its exit with signal 0 instead.
 func killProcess(pid int) {
 	proc, err := os.FindProcess(pid)
 	if err != nil {

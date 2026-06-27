@@ -137,9 +137,6 @@ func TestGetCurrentProject(t *testing.T) {
 	}
 }
 
-// TestNoSceneOpen covers the code paths that require no scene to be open in
-// the editor.
-
 func TestExecuteEditorScript(t *testing.T) {
 	t.Run("empty_code", func(t *testing.T) {
 		callToolErr(t, "execute_editor_script", map[string]any{
@@ -206,12 +203,8 @@ func TestExecuteEditorScript(t *testing.T) {
 	})
 }
 
-// settleEditor lets the editor process a couple of frames, so deferred state
-// (selection updates, newly-opened script tabs, etc) has a chance to settle.
-
 func TestRunProject(t *testing.T) {
-	// Running the project spawns a separate game process, so only exercise it
-	// against a project we control.
+	// Running the project spawns a separate game process; only exercise it on a project we control.
 	requireManagedProject(t)
 
 	setupSceneWithChild(t, "res://scenes/run_test.tscn")
@@ -220,7 +213,6 @@ func TestRunProject(t *testing.T) {
 	t.Run("run_current_and_stop", func(t *testing.T) {
 		is := is.New(t)
 
-		// Make sure we always stop, even if an assertion fails.
 		t.Cleanup(func() {
 			client.CallTool(testContext(t), "stop_project", map[string]any{})
 		})
@@ -233,14 +225,12 @@ func TestRunProject(t *testing.T) {
 		stopped := callToolOK(t, "stop_project", nil)
 		is.Equal(stopped["success"], true)
 
-		// After stopping, the editor is no longer playing.
 		runEditorScript(t, `if EditorInterface.is_playing_scene():
 	return FAILED
 return OK`)
 	})
 
 	t.Run("no_main_scene", func(t *testing.T) {
-		// The test project has no main scene configured.
 		callToolErr(t, "run_project", map[string]any{
 			"scene": "main",
 		}, "No main scene")
@@ -274,5 +264,3 @@ func TestGetLogMessages(t *testing.T) {
 	}
 	is.True(found)
 }
-
-// asStrings converts a decoded JSON array into a []string.

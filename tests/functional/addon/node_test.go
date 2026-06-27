@@ -9,7 +9,6 @@ import (
 )
 
 func TestAddNode(t *testing.T) {
-	// Create a fresh scene to work in.
 	callToolOK(t, "create_scene", map[string]any{
 		"file_path":      "res://scenes/add_node_test.tscn",
 		"root_node_type": "Node2D",
@@ -30,7 +29,6 @@ func TestAddNode(t *testing.T) {
 	t.Run("omitted_properties", func(t *testing.T) {
 		is := is.New(t)
 
-		// 'properties' is optional; omitting it adds the node with defaults.
 		structured := callToolOK(t, "add_node", map[string]any{
 			"parent_path": ".",
 			"node_type":   "Node",
@@ -69,9 +67,7 @@ func TestAddNode(t *testing.T) {
 			"parent_path": ".",
 			"node_type":   "Node2D",
 			"properties": map[string]any{
-				// A String property (no str_to_var conversion)...
-				"name": "MyChild",
-				// ... and a Vector2 property (str_to_var conversion).
+				"name":     "MyChild",
 				"position": "Vector2(10, 20)",
 			},
 		})
@@ -111,7 +107,6 @@ func TestAddNode(t *testing.T) {
 			},
 		}, "Cannot parse")
 
-		// The node must not have been created.
 		props := callToolOK(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"NotCreated"},
 		})
@@ -176,7 +171,7 @@ func TestNodeProperties(t *testing.T) {
 			"node_paths": []string{"NoSuchNode"},
 		})
 		nodeProps, ok := props["NoSuchNode"].(map[string]any)
-		is.True(ok)
+		is.True(ok) // a missing node gets a present-but-empty entry, not an error
 		is.Equal(len(nodeProps), 0)
 	})
 
@@ -192,7 +187,6 @@ func TestNodeProperties(t *testing.T) {
 	t.Run("string_property_raw", func(t *testing.T) {
 		is := is.New(t)
 
-		// String properties are passed raw, with no extra quoting.
 		callToolOK(t, "add_node", map[string]any{
 			"parent_path": ".",
 			"node_type":   "Label",
@@ -222,21 +216,18 @@ func TestNodeProperties(t *testing.T) {
 			},
 		})
 
-		// The resource property is summarized, not dumped.
 		props := callToolOK(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyMesh"},
 		})
 		nodeProps, _ := props["MyMesh"].(map[string]any)
 		is.Equal(nodeProps["mesh"], "Object(SphereMesh)")
 
-		// A colon path in the node path drills into the resource...
 		props = callToolOK(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyMesh:mesh"},
 		})
 		meshProps, _ := props["MyMesh:mesh"].(map[string]any)
 		is.Equal(meshProps["radius"], "2.0")
 
-		// ... or all the way down to a single value.
 		props = callToolOK(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyMesh:mesh:radius"},
 		})
@@ -246,7 +237,6 @@ func TestNodeProperties(t *testing.T) {
 	t.Run("set_sub_property", func(t *testing.T) {
 		is := is.New(t)
 
-		// A colon path in a property name sets a sub-property.
 		structured := callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Resize sphere",
 			"nodes": []any{
@@ -260,7 +250,6 @@ func TestNodeProperties(t *testing.T) {
 		})
 		is.Equal(structured["MyMesh"], true)
 
-		// A colon path in the node path works too.
 		callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Resize sphere",
 			"nodes": []any{
@@ -312,7 +301,6 @@ func TestNodeProperties(t *testing.T) {
 			},
 		})
 
-		// Assign a saved resource to a property by reference.
 		callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Assign label settings",
 			"nodes": []any{
@@ -346,8 +334,7 @@ func TestNodeProperties(t *testing.T) {
 			},
 		})
 
-		// One valid and one invalid value: the whole call is rejected, and
-		// the valid one must NOT be applied.
+		// One invalid value rejects the whole call; the valid one must NOT be applied.
 		callToolErr(t, "set_node_properties", map[string]any{
 			"action": "Move node",
 			"nodes": []any{
@@ -400,8 +387,7 @@ func TestNodeProperties(t *testing.T) {
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
 
-		// "position" was changed by earlier subtests; "rotation" is still at
-		// its default value.
+		// "position" was changed by earlier subtests; "rotation" is still at its default.
 		_, hasPosition := nodeProps["position"]
 		is.True(hasPosition)
 		_, hasRotation := nodeProps["rotation"]
@@ -483,7 +469,6 @@ func TestNodeGroups(t *testing.T) {
 	t.Run("add_idempotent", func(t *testing.T) {
 		is := is.New(t)
 
-		// Adding a group it's already in is a no-op success.
 		structured := callToolOK(t, "add_to_group", map[string]any{
 			"node_path": "MyChild",
 			"groups":    []string{"enemies"},
@@ -536,7 +521,6 @@ func TestNodeGroups(t *testing.T) {
 }
 
 func TestNodeSignals(t *testing.T) {
-	// A scene with a source and target node.
 	callToolOK(t, "create_scene", map[string]any{
 		"file_path":      "res://scenes/signals_test.tscn",
 		"root_node_type": "Node2D",
@@ -564,7 +548,6 @@ func TestNodeSignals(t *testing.T) {
 		structured := callToolOK(t, "connect_signal", connectArgs)
 		is.Equal(structured["success"], true)
 
-		// The connection really exists on the node.
 		runEditorScript(t, `var root = EditorInterface.get_edited_scene_root()
 var source = root.get_node("Source")
 var target = root.get_node("Target")
@@ -649,7 +632,6 @@ func TestNodeScript(t *testing.T) {
 		"properties":  map[string]any{"name": "ScriptHost"},
 	})
 
-	// A compatible script (extends Node) and an incompatible one (Node3D).
 	callToolOK(t, "create_script", map[string]any{
 		"file_path":  "res://scripts/ns_compatible.gd",
 		"base_class": "Node",
@@ -668,7 +650,6 @@ func TestNodeScript(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 
-		// The scene tree now reports the attached script.
 		tree := callToolOK(t, "get_current_scene_tree", nil)
 		children, _ := tree["children"].([]any)
 		var host map[string]any

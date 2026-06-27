@@ -6,9 +6,6 @@ import (
 	"github.com/matryer/is"
 )
 
-// TestServerListTools checks that the server advertises its local tools, the
-// forwarded remote tools, and the restart_editor override, while hiding tools
-// marked doNotForward.
 func TestServerListTools(t *testing.T) {
 	is := is.New(t)
 
@@ -20,7 +17,6 @@ func TestServerListTools(t *testing.T) {
 		names[tool.Name] = tool
 	}
 
-	// Local tools from local_tools.go.
 	for _, name := range []string{
 		"list_projects",
 		"open_godot_project",
@@ -37,8 +33,6 @@ func TestServerListTools(t *testing.T) {
 	_, hasRestart := names["restart_editor"]
 	is.True(hasRestart)
 
-	// A forwarded remote tool is listed, with project_path injected into its
-	// input schema by the server.
 	scene, hasScene := names["get_current_scene"]
 	is.True(hasScene)
 	props, _ := scene.InputSchema["properties"].(map[string]any)
@@ -52,16 +46,11 @@ func TestServerListTools(t *testing.T) {
 	is.True(len(names) > 5) // local + forwarded remote tools
 }
 
-// TestForwardRemoteTool is the smoke test: it proves a remote tool call is
-// forwarded across to a real Godot editor. We don't re-test the editor tools
-// themselves here (the editor suite does that) — just that the round trip
-// works.
 func TestForwardRemoteTool(t *testing.T) {
 	ensureProjectOpen(t)
 
-	// get_current_scene is a read-only editor tool that succeeds even with no
-	// scene open. Reaching it at all means: server -> websocket -> editor ->
-	// back.
+	// get_current_scene is read-only and succeeds even with no scene open;
+	// reaching it at all proves the server -> websocket -> editor round trip.
 	result := callTool(t, "get_current_scene", map[string]any{
 		"project_path": projectPath,
 	})

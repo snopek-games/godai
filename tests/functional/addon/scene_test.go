@@ -153,7 +153,6 @@ func TestCreateScene(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 
-		// The scene should now be open in the editor.
 		scene := callToolOK(t, "get_current_scene", nil)
 		is.Equal(scene["scene_path"], "res://scenes/main_scene.tscn")
 		is.Equal(scene["root_node_type"], "Node2D")
@@ -175,7 +174,7 @@ func TestCreateScene(t *testing.T) {
 	t.Run("relative_path_and_new_directory", func(t *testing.T) {
 		is := is.New(t)
 
-		// No res:// prefix, and in a directory that doesn't exist yet.
+		// No res:// prefix, and a directory that doesn't exist yet.
 		structured := callToolOK(t, "create_scene", map[string]any{
 			"file_path":      "scenes/sub_dir/second_scene.tscn",
 			"root_node_type": "Node3D",
@@ -290,7 +289,6 @@ return OK`)
 }
 
 func TestInstantiateScene(t *testing.T) {
-	// A source scene (with a child) to instantiate into other scenes.
 	callToolOK(t, "create_scene", map[string]any{
 		"file_path":      "res://scenes/instance_source.tscn",
 		"root_node_type": "Node2D",
@@ -302,7 +300,6 @@ func TestInstantiateScene(t *testing.T) {
 	})
 	callToolOK(t, "save_scene", nil)
 
-	// The scene we'll instantiate into.
 	callToolOK(t, "create_scene", map[string]any{
 		"file_path":      "res://scenes/instance_target.tscn",
 		"root_node_type": "Node2D",
@@ -319,14 +316,12 @@ func TestInstantiateScene(t *testing.T) {
 		is.Equal(structured["success"], true)
 		is.Equal(structured["node_path"], "MyInstance")
 
-		// The instance node exists in the scene.
 		props := callToolOK(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyInstance"},
 		})
 		nodeProps, _ := props["MyInstance"].(map[string]any)
 		is.True(len(nodeProps) > 0)
 
-		// Saving writes it out as an instanced scene reference.
 		callToolOK(t, "save_scene", nil)
 		if content := readProjectFile(t, "scenes/instance_target.tscn"); content != "" {
 			is.True(strings.Contains(content, "instance_source.tscn"))

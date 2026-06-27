@@ -94,7 +94,6 @@ func TestCreateResource(t *testing.T) {
 			"file_path":     "res://resources/custom.tres",
 			"resource_type": "GodaiTestCustomResource",
 			"properties": map[string]any{
-				// String property (no conversion) and int property (str_to_var).
 				"title":  "Hello",
 				"amount": "5",
 			},
@@ -113,7 +112,6 @@ func TestCreateResource(t *testing.T) {
 func TestResourceProperties(t *testing.T) {
 	is := is.New(t)
 
-	// A material to work on, for the whole test.
 	const materialPath = "res://resources/rp_material.tres"
 	callToolOK(t, "create_resource", map[string]any{
 		"file_path":     materialPath,
@@ -123,8 +121,6 @@ func TestResourceProperties(t *testing.T) {
 		},
 	})
 
-	// readMaterialFile returns the material's .tres file from disk, or ""
-	// when the project directory isn't available (GODAI_TEST_PORT mode).
 	readMaterialFile := func(t *testing.T) string {
 		t.Helper()
 		if projectDir == "" {
@@ -198,7 +194,6 @@ func TestResourceProperties(t *testing.T) {
 		})
 		is.Equal(props["albedo_color"], "Color(0, 1, 0, 1)")
 
-		// The change must have been saved to disk immediately.
 		if content := readMaterialFile(t); content != "" {
 			is.True(strings.Contains(content, "albedo_color = Color(0, 1, 0, 1)"))
 			is.True(strings.Contains(content, "metallic = 0.5"))
@@ -226,9 +221,7 @@ func TestResourceProperties(t *testing.T) {
 	t.Run("undo_restores_and_saves", func(t *testing.T) {
 		is := is.New(t)
 
-		// Undo the last action (the "Tweak color" from set_sub_property)
-		// through the editor's undo/redo system. Edits to a resource that
-		// isn't part of the edited scene land in the global history.
+		// Edits to a resource that isn't part of the edited scene land in the global history.
 		runEditorScript(t, `EditorInterface.get_editor_undo_redo().get_history_undo_redo(EditorUndoRedoManager.GLOBAL_HISTORY).undo()
 return OK`)
 
@@ -238,7 +231,6 @@ return OK`)
 		})
 		is.Equal(structured["albedo_color"], "Color(0, 1, 0, 1)")
 
-		// Undo must have re-saved the file, too.
 		if content := readMaterialFile(t); content != "" {
 			is.True(strings.Contains(content, "albedo_color = Color(0, 1, 0, 1)"))
 		}
@@ -255,13 +247,11 @@ return OK`)
 			},
 		})
 
-		// In the full property map, the embedded resource is a summary...
 		props := callToolOK(t, "get_resource_properties", map[string]any{
 			"file_path": materialPath,
 		})
 		is.Equal(props["albedo_texture"], "Object(GradientTexture1D)")
 
-		// ... but requesting it directly expands its properties.
 		structured := callToolOK(t, "get_resource_properties", map[string]any{
 			"file_path":  materialPath,
 			"properties": []string{"albedo_texture", "albedo_texture:width"},
@@ -367,7 +357,6 @@ return OK`)
 		})
 		is.Equal(structured["success"], true)
 
-		// The resource should now be shown in the inspector.
 		runEditorScript(t, `var edited = EditorInterface.get_inspector().get_edited_object()
 if edited is Resource and edited.resource_path == "res://resources/open_resource_test.tres":
 	return OK

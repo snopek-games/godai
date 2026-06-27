@@ -6,8 +6,7 @@ import (
 	"github.com/matryer/is"
 )
 
-// A stable, long-standing editor setting with an integer value, used as a
-// well-known target for the get/set tests.
+// A stable editor setting with an integer value, used as the get/set target.
 const editorSettingName = "text_editor/behavior/indent/size"
 
 func TestEditorSettings(t *testing.T) {
@@ -41,9 +40,7 @@ func TestEditorSettings(t *testing.T) {
 		})
 		allSettings, _ := all["settings"].(map[string]any)
 
-		// Including defaults yields many more settings than the modified-only set.
 		is.True(len(allSettings) > len(modified))
-		// The well-known setting exists in the full set.
 		_, ok := allSettings[editorSettingName]
 		is.True(ok)
 	})
@@ -51,8 +48,7 @@ func TestEditorSettings(t *testing.T) {
 	t.Run("set_roundtrip", func(t *testing.T) {
 		is := is.New(t)
 
-		// Capture the original value so the editor's global settings are left
-		// untouched (these tests can also run against an external editor).
+		// Restore the original so an external editor's global settings aren't polluted.
 		before := callToolOK(t, "get_editor_settings", map[string]any{
 			"names": []string{editorSettingName},
 		})
@@ -63,7 +59,6 @@ func TestEditorSettings(t *testing.T) {
 			})
 		})
 
-		// Pick a new value distinct from the original.
 		newValue := "20"
 		if original == newValue {
 			newValue = "18"
@@ -79,16 +74,12 @@ func TestEditorSettings(t *testing.T) {
 		})
 		is.Equal(after["settings"].(map[string]any)[editorSettingName], newValue)
 
-		// Having changed it from its default, it now appears in the
-		// modified-only listing.
 		modified := callToolOK(t, "get_editor_settings", nil)
 		_, ok := modified["settings"].(map[string]any)[editorSettingName]
 		is.True(ok)
 	})
 
 	t.Run("set_invalid_typed_value", func(t *testing.T) {
-		// The value can't be parsed as the existing setting's (int) type, so
-		// it's rejected and nothing is changed.
 		callToolErr(t, "set_editor_settings", map[string]any{
 			"settings": map[string]any{
 				editorSettingName: "not_a_number",

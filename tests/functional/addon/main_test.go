@@ -1,17 +1,7 @@
 // Package addon contains end-to-end tests that connect to a real Godot editor
-// over the MCP HTTP transport and exercise the addon's MCP server, including
-// the tools in addons/godai/tools/default/*_tools.gd.
-//
-// By default, a temporary Godot project is created (with the addon copied
-// into it) and a headless editor is launched against it. Alternatively, set
-// GODAI_TEST_PORT to connect to an already-running editor.
-//
-// Environment variables:
-//   - GODOT: path to the Godot binary (otherwise "godot" or "godot4" from PATH)
-//   - GODAI_TEST_PORT: connect to an editor already listening on this port,
-//     instead of launching a headless one
-//   - GODAI_TEST_VERBOSE: stream the editor log to stderr
-//   - GODAI_TEST_KEEP: keep the temporary project directory after the run
+// over the MCP HTTP transport and exercise the addon's MCP server. By default a
+// temporary project is created and a headless editor launched; set
+// GODAI_TEST_PORT to connect to an already-running editor instead.
 package addon
 
 import (
@@ -29,9 +19,7 @@ import (
 var (
 	client *harness.MCPClient
 
-	// projectDir is the Godot project the editor is running. It is empty when
-	// connecting to an external editor via GODAI_TEST_PORT, in which case
-	// tests that need to inspect the project directory are skipped.
+	// projectDir is empty when connecting to an external editor via GODAI_TEST_PORT.
 	projectDir string
 )
 
@@ -92,8 +80,7 @@ func testMain(m *testing.M) int {
 		Port:      port,
 		Transport: "http",
 		Verbose:   os.Getenv("GODAI_TEST_VERBOSE") != "",
-		// Let the restart_editor tool run end-to-end without actually
-		// restarting (which would kill the editor this harness manages).
+		// Let restart_editor run end-to-end without killing the editor this harness manages.
 		DisableRestart: true,
 	})
 	if err != nil {
@@ -123,7 +110,6 @@ func testMain(m *testing.M) int {
 	return code
 }
 
-// waitForEditor polls the MCP endpoint until an initialize request succeeds.
 func waitForEditor(ctx context.Context, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 

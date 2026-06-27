@@ -13,8 +13,8 @@ import (
 	"godai/mcp/jsonrpc"
 )
 
-// httpTransport talks to the Godot editor over the addon's streamable HTTP
-// transport (one JSON-RPC request per POST).
+// httpTransport talks to the Godot editor's HTTP transport, one JSON-RPC
+// request per POST.
 type httpTransport struct {
 	url    string
 	httpc  *http.Client
@@ -22,7 +22,6 @@ type httpTransport struct {
 	lastID int
 }
 
-// NewHTTPClient returns an MCPClient that talks to the editor at the given URL.
 func NewHTTPClient(url string) *MCPClient {
 	return &MCPClient{transport: &httpTransport{
 		url: url,

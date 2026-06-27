@@ -79,7 +79,6 @@ func deadPID(t *testing.T) int {
 	return pid
 }
 
-// removeInstance deletes a previously-written instance file.
 func removeInstance(t *testing.T, dir, instanceID string) {
 	t.Helper()
 	if err := os.Remove(filepath.Join(dir, instanceID+".json")); err != nil {

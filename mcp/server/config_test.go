@@ -55,7 +55,6 @@ func TestGetInstancesPath(t *testing.T) {
 	}
 	is := is.New(t)
 
-	// instances live under the cache dir.
 	t.Setenv("XDG_CACHE_HOME", "/xdg/cache")
 	path, err := GetInstancesPath()
 	is.NoErr(err)

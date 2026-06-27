@@ -23,7 +23,6 @@ func TestImportSettings(t *testing.T) {
 
 		options, _ := structured["options"].(map[string]any)
 		is.True(len(options) > 0)
-		// SVG textures expose an "svg/scale" option.
 		_, hasScale := options["svg/scale"]
 		is.True(hasScale)
 	})
@@ -35,7 +34,6 @@ func TestImportSettings(t *testing.T) {
 	})
 
 	t.Run("get_not_imported", func(t *testing.T) {
-		// A .tres resource isn't an imported asset (it has no .import file).
 		callToolOK(t, "create_resource", map[string]any{
 			"file_path":     "res://resources/imp_not_imported.tres",
 			"resource_type": "LabelSettings",

@@ -15,15 +15,12 @@ import (
 	"time"
 )
 
-// RepoRoot returns the absolute path to the repository root, based on the
-// location of this source file (tests/functional/internal/harness/process.go).
 func RepoRoot() string {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		panic("cannot determine source file location")
 	}
-	// process.go lives four directories below the repo root:
-	// tests/functional/internal/harness.
+	// process.go lives four directories below the repo root.
 	dir := filepath.Dir(file)
 	for range 4 {
 		dir = filepath.Dir(dir)
@@ -31,8 +28,6 @@ func RepoRoot() string {
 	return dir
 }
 
-// FindGodot locates a Godot binary, honouring the GODOT environment variable
-// and otherwise looking for "godot"/"godot4" on PATH.
 func FindGodot() (string, error) {
 	if bin := os.Getenv("GODOT"); bin != "" {
 		path, err := exec.LookPath(bin)
@@ -49,7 +44,6 @@ func FindGodot() (string, error) {
 	return "", fmt.Errorf("no Godot binary found (set the GODOT environment variable)")
 }
 
-// FindFreePort returns a currently-unused TCP port on the loopback interface.
 func FindFreePort() (int, error) {
 	l, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
@@ -59,22 +53,15 @@ func FindFreePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-// ProjectOptions controls what createTestProject writes into a fresh project.
 type ProjectOptions struct {
-	// Name is the project's config/name.
 	Name string
-	// InstallAddon copies the godai addon into the project and enables it in
-	// project.godot. Leave false to let open_godot_project install it.
+	// Leave false to let open_godot_project install the addon instead.
 	InstallAddon bool
-	// SkipSecretCheck adds the editor override that disables the MCP secret
-	// check. Needed when a client connects without knowing the secret (the
-	// editor HTTP tests); not needed for the Go server, which reads the secret
-	// from the editor's instance file.
+	// Needed when a client connects without knowing the secret (the editor HTTP
+	// tests); the Go server reads the secret from the editor's instance file.
 	SkipSecretCheck bool
 }
 
-// CreateTestProject writes a minimal Godot project plus the fixture files used
-// by the functional tests.
 func CreateTestProject(dir string, opts ProjectOptions) error {
 	if opts.InstallAddon {
 		addonSrc := filepath.Join(RepoRoot(), "addons", "godai")
@@ -137,27 +124,19 @@ script = ExtResource("1_script")
 	return nil
 }
 
-// EditorOptions configures a headless editor launched by LaunchEditor.
 type EditorOptions struct {
-	// Port is the base port the editor's MCP server listens on (port count 1).
 	Port int
-	// Transport selects the MCP transport: "http" or "websocket"/"ws". Empty
-	// means the editor default (WebSocket).
+	// "http" or "websocket"/"ws"; empty means the editor default (WebSocket).
 	Transport string
-	// XDGBase is the directory under which per-editor .xdg/<VAR> directories
-	// are created. Defaults to the project directory.
+	// Directory holding per-editor .xdg/<VAR> dirs. Defaults to projectDir.
 	XDGBase string
-	// DisableRestart lets the restart_editor tool run end-to-end without
-	// actually restarting (which would kill the editor the harness manages).
+	// Lets the restart_editor tool run end-to-end without actually restarting
+	// (which would kill the editor the harness manages).
 	DisableRestart bool
-	// Verbose streams the editor log to stderr in addition to the log file.
-	Verbose bool
-	// ExtraEnv is appended to the editor's environment.
-	ExtraEnv []string
+	Verbose        bool
+	ExtraEnv       []string
 }
 
-// LaunchEditor starts a headless Godot editor against the given project. It
-// returns the running command and the path to its log file.
 func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, string, error) {
 	// Use the explicit "--display-driver headless --audio-driver Dummy" form
 	// rather than the "--headless" shortcut: they're equivalent, but Godot
@@ -178,11 +157,9 @@ func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, s
 		env = append(env, "GODAI_DISABLE_RESTART=1")
 	}
 
-	// Point Godot's editor config/data/cache at temporary directories (it honours
-	// the XDG base-dir variables on Linux). This keeps the user's real editor
-	// settings out of the tests, gives editor-settings tests a deterministic,
-	// default starting point, and keeps the MCP instance files (written under
-	// XDG_CACHE_HOME) out of the user's real ~/.cache/godai-mcp/instances.
+	// Point Godot's config/data/cache at temporary XDG dirs so the tests get a
+	// deterministic default and don't touch the user's real editor settings or
+	// ~/.cache/godai-mcp/instances.
 	xdgBase := opts.XDGBase
 	if xdgBase == "" {
 		xdgBase = projectDir
@@ -222,7 +199,6 @@ func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, s
 	return cmd, logPath, nil
 }
 
-// StopEditor asks the editor to exit, escalating to SIGKILL if it doesn't.
 func StopEditor(cmd *exec.Cmd) {
 	if cmd == nil || cmd.Process == nil {
 		return

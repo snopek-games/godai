@@ -25,8 +25,6 @@ func callTool(t *testing.T, name string, args map[string]any) *ToolCallResult {
 	return result
 }
 
-// callToolOK calls a tool, asserts it succeeded, and returns the structured content.
-
 func callToolOK(t *testing.T, name string, args map[string]any) map[string]any {
 	t.Helper()
 	result := callTool(t, name, args)
@@ -39,9 +37,6 @@ func callToolOK(t *testing.T, name string, args map[string]any) map[string]any {
 	}
 	return structured
 }
-
-// callToolErr calls a tool, asserts it failed, and that the 'error' field
-// contains wantSubstr.
 
 func callToolErr(t *testing.T, name string, args map[string]any, wantSubstr string) map[string]any {
 	t.Helper()
@@ -60,9 +55,6 @@ func callToolErr(t *testing.T, name string, args map[string]any, wantSubstr stri
 	return structured
 }
 
-// requireManagedProject skips the test when running against an external
-// editor (GODAI_TEST_PORT), where we don't control the project directory.
-
 func requireManagedProject(t *testing.T) {
 	t.Helper()
 	if projectDir == "" {
@@ -70,17 +62,12 @@ func requireManagedProject(t *testing.T) {
 	}
 }
 
-// runEditorScript runs GDScript code in the editor via the
-// execute_editor_script tool, asserting that it succeeds.
-
 func runEditorScript(t *testing.T, code string) map[string]any {
 	t.Helper()
 	return callToolOK(t, "execute_editor_script", map[string]any{
 		"code": code,
 	})
 }
-
-// closeAllScenes closes any scenes that are open in the editor.
 
 func closeAllScenes(t *testing.T) {
 	t.Helper()
@@ -92,9 +79,6 @@ for i in range(100):
 	await Engine.get_main_loop().process_frame
 return FAILED`)
 }
-
-// setupSceneWithChild creates and opens a fresh scene containing a single
-// "MyChild" node, for tests that operate on existing nodes.
 
 func setupSceneWithChild(t *testing.T, scenePath string) {
 	t.Helper()
@@ -117,9 +101,6 @@ func settleEditor(t *testing.T) {
 await Engine.get_main_loop().process_frame
 return OK`)
 }
-
-// readProjectFile reads a file from the test project directory, or returns ""
-// when the project directory isn't available (GODAI_TEST_PORT mode).
 
 func readProjectFile(t *testing.T, relPath string) string {
 	t.Helper()

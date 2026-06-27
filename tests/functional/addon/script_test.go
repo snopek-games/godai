@@ -90,14 +90,12 @@ func TestScriptFiles(t *testing.T) {
 			"file_path": "res://scripts/sf_open.gd",
 		})
 
-		// Open it in the editor.
 		structured := callToolOK(t, "open_script", map[string]any{
 			"file_path": "res://scripts/sf_open.gd",
 		})
 		is.Equal(structured["success"], true)
 		settleEditor(t)
 
-		// read_script now reflects the open editor buffer.
 		read := callToolOK(t, "read_script", map[string]any{
 			"file_path": "res://scripts/sf_open.gd",
 		})
@@ -112,13 +110,11 @@ func TestScriptFiles(t *testing.T) {
 		is.Equal(written["open_in_editor"], true)
 		is.Equal(written["saved"], false)
 
-		// The buffer reflects the new content...
 		read = callToolOK(t, "read_script", map[string]any{
 			"file_path": "res://scripts/sf_open.gd",
 		})
 		is.Equal(read["content"], body)
 
-		// ... and save_script flushes it to disk.
 		saved := callToolOK(t, "save_script", map[string]any{
 			"file_path": "res://scripts/sf_open.gd",
 		})
@@ -153,13 +149,11 @@ f.close()
 EditorInterface.get_resource_filesystem().update_file("res://scripts/sf_external.gd")
 return OK`)
 
-		// Writing without reading first is refused.
 		callToolErr(t, "write_script", map[string]any{
 			"file_path": "res://scripts/sf_external.gd",
 			"content":   "extends Node\n\nvar overwritten := true\n",
 		}, "must read")
 
-		// After reading it, writing is allowed.
 		callToolOK(t, "read_script", map[string]any{
 			"file_path": "res://scripts/sf_external.gd",
 		})
@@ -187,18 +181,15 @@ f.close()
 EditorInterface.get_resource_filesystem().update_file("res://scripts/sf_stale.gd")
 return OK`)
 
-		// The AI's write must be refused, since the file changed since it read.
 		callToolErr(t, "write_script", map[string]any{
 			"file_path": "res://scripts/sf_stale.gd",
 			"content":   "extends Node\n\nvar ai_edit := 1\n",
 		}, "has changed since you last read")
 
-		// The user's edit is still intact on disk.
 		if content := readProjectFile(t, "scripts/sf_stale.gd"); content != "" {
 			is.True(strings.Contains(content, "user_edit"))
 		}
 
-		// Re-reading clears the staleness, and the write then succeeds.
 		read := callToolOK(t, "read_script", map[string]any{
 			"file_path": "res://scripts/sf_stale.gd",
 		})
