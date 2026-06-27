@@ -21,11 +21,11 @@ For a 1.0
 - Addon: Add system prompt
 - Better installation story
 	- Options:
-    - Provide `go install`
     - Provide `brew` package
-    - Provide `curl | bash` style script for Linux/MacOS, and `WinGet` version for Windows
-      - Ideally, this one will come with a self updating feature
-  - These _may_ be possible to do via go-releaser and go-selfupdate?
+    - Provide `WinGet` package
+    - Provide `curl | bash` style script for MacOS, Linux and Windows (it would be `irm | WinGet` for Windows)
+  - Provide self-update feature
+    - See https://github.com/creativeprojects/go-selfupdate
 - Test thoroughly on Windows and MacOS!
 - Add to Godot asset store
 - Add to MCP Registry
