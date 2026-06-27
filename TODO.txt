@@ -19,13 +19,27 @@ For a 1.0
 - Addon: Implement support for at least one other LLM API (maybe Gemini?)
 - Addon: Add a way to cancel a request
 - Addon: Add system prompt
+- Better installation story
+	- Options:
+    - Provide `go install`
+    - Provide `brew` package
+    - Provide `curl | bash` style script for Linux/MacOS, and `WinGet` version for Windows
+      - Ideally, this one will come with a self updating feature
+  - These _may_ be possible to do via go-releaser and go-selfupdate?
+- Test thoroughly on Windows and MacOS!
 - Add to Godot asset store
-- Add to Claude directory
+- Add to MCP Registry
+  - https://registry.modelcontextprotocol.io/
+  - See: https://modelcontextprotocol.info/tools/registry/publishing/
+- Add MCPB to Claude directory
   - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
 
 Backlog
 -------
 
+- Make a Godot plugin in the Claude marketplace (which includes the .mcp.json)
+  - Users do `/plugin marketplace add snopek-games/godai-mcp` or `claude plugin install ...`
+  - See: https://claude.com/blog/claude-code-plugins
 - Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
 - Addon: Chat history
   - Save and restore current chat when restarting the editor
