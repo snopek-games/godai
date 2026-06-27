@@ -9,7 +9,7 @@ import (
 
 	"github.com/matryer/is"
 
-	"godai/tests/functional/internal/harness"
+	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
 func waitForClosedProject(t *testing.T, c *harness.MCPClient, projectPath string, timeout time.Duration) {

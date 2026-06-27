@@ -2,7 +2,7 @@ package godot
 
 import (
 	"bufio"
-	"godai/mcp/godot/variant"
+	"gitlab.com/snopek-games/godai/mcp/godot/variant"
 	"io"
 	"os"
 	"strings"

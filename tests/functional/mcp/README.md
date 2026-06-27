@@ -1,6 +1,6 @@
 # Functional tests: Go MCP server
 
-These tests exercise the Go MCP server (`./mcp`) end-to-end, by building the
+These tests exercise the Go MCP server (`./cmd/godai-mcp`) end-to-end, by building the
 `godai-mcp` binary and drive it over **stdio** - the transport a real MCP
 client (Claude, Cursor, ...) uses.
 

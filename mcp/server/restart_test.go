@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"godai/mcp/godot"
+	"gitlab.com/snopek-games/godai/mcp/godot"
 	"testing"
 	"time"
 

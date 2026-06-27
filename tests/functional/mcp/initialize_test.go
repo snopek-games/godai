@@ -1,7 +1,7 @@
 package mcp
 
 import (
-	"godai/mcp/server"
+	"gitlab.com/snopek-games/godai/mcp/server"
 	"testing"
 
 	"github.com/matryer/is"

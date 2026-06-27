@@ -10,8 +10,8 @@ import (
 
 	"github.com/matryer/is"
 
-	"godai/mcp/godot"
-	"godai/tests/functional/internal/harness"
+	"gitlab.com/snopek-games/godai/mcp/godot"
+	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
 func TestGlobalMode(t *testing.T) {

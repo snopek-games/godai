@@ -10,7 +10,7 @@ import (
 
 	"github.com/matryer/is"
 
-	"godai/tests/functional/internal/harness"
+	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
 func processAlive(pid int) bool {

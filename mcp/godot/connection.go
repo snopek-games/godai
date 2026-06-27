@@ -3,7 +3,7 @@ package godot
 import (
 	"context"
 	"encoding/json"
-	"godai/mcp/jsonrpc"
+	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
 	"log/slog"
 	"strconv"
 	"sync"

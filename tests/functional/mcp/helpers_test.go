@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"godai/tests/functional/internal/harness"
+	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
 func testContext(t *testing.T) context.Context {

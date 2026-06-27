@@ -127,11 +127,11 @@ fallback if CI is broken. Run from the repository root:
 
 ```sh
 # Build the binaries for all platforms, the same way CI does:
-CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-linux-x86_64/godai-mcp-linux-x86_64 ./mcp/
-CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-linux-arm64/godai-mcp-linux-arm64 ./mcp/
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-windows-x86_64/godai-mcp-windows-x86_64.exe ./mcp/
-CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-windows-arm64/godai-mcp-windows-arm64.exe ./mcp/
-CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-macos-arm64/godai-mcp-macos-arm64 ./mcp/
+CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-linux-x86_64/godai-mcp-linux-x86_64 ./cmd/godai-mcp/
+CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-linux-arm64/godai-mcp-linux-arm64 ./cmd/godai-mcp/
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-windows-x86_64/godai-mcp-windows-x86_64.exe ./cmd/godai-mcp/
+CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-windows-arm64/godai-mcp-windows-arm64.exe ./cmd/godai-mcp/
+CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-macos-arm64/godai-mcp-macos-arm64 ./cmd/godai-mcp/
 
 # Generate the npm packages with the right version stamped in
 # (npm never allows re-publishing a version, even a deleted one):

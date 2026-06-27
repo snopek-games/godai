@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"sync"
 
-	"godai/mcp/jsonrpc"
+	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
 )
 
 // stdioTransport speaks line-delimited JSON-RPC over a process's stdin/stdout.

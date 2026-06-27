@@ -12,8 +12,8 @@ import (
 
 	"github.com/matryer/is"
 
-	"godai/mcp/jsonrpc"
-	"godai/tests/functional/internal/harness"
+	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
+	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
 func fileURI(path string) string {

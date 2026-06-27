@@ -1,4 +1,4 @@
-module godai
+module gitlab.com/snopek-games/godai
 
 go 1.25.3
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"godai/mcp/godot"
+	"gitlab.com/snopek-games/godai/mcp/godot"
 	"log/slog"
 	"os"
 	"path/filepath"

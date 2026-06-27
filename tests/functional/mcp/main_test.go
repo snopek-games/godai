@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"godai/tests/functional/internal/harness"
+	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
 const projectName = "Godai MCP Functional Test"
@@ -218,9 +218,9 @@ func buildServer(dir string) (string, error) {
 	binPath := filepath.Join(dir, "godai-mcp")
 	args := []string{"build"}
 	if coverDir != "" {
-		args = append(args, "-cover", "-coverpkg=godai/mcp/...")
+		args = append(args, "-cover", "-coverpkg=gitlab.com/snopek-games/godai/cmd/godai-mcp,gitlab.com/snopek-games/godai/mcp/...")
 	}
-	args = append(args, "-o", binPath, "./mcp")
+	args = append(args, "-o", binPath, "./cmd/godai-mcp")
 	cmd := exec.Command("go", args...)
 	cmd.Dir = harness.RepoRoot()
 	if out, err := cmd.CombinedOutput(); err != nil {

@@ -1,6 +1,6 @@
 package addon
 
-import "godai/tests/functional/internal/harness"
+import "gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 
 type (
 	ToolCallResult = harness.ToolCallResult

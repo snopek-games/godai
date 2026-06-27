@@ -27,7 +27,7 @@ if [ "${1:-}" = "-o" ]; then
 	PROFILE_OUT="${2:?-o requires a file path}"
 fi
 
-COVPKG="godai/mcp/..."
+COVPKG="gitlab.com/snopek-games/godai/mcp/..."
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 UNIT_DIR="$WORK/unit"

@@ -76,7 +76,7 @@ Quick Start: MCP mode
 If you have Node installed (with `npx` available), then you can run:
 
 ```bash
-claude mcp add godai -- npx @snopek-games/godai-mcp
+claude mcp add godai -- npx -y @snopek-games/godai-mcp
 ```
 Then restart Claude Code if it was already running. And that's it!
 
@@ -95,7 +95,7 @@ claude mcp add godai -- /path/to/godai-mcp
 In order to specify the path to Godot:
 
 ```bash
-claude mcp add godai -- npx @snopek-games/godai-mcp --godot-path /path/to/godot4
+claude mcp add godai -- npx -y @snopek-games/godai-mcp --godot-path /path/to/godot4
 ```
 
 > [!NOTE]
@@ -140,7 +140,7 @@ Edit or create that file, and add an entry for Godai, for example:
     "godai": {
       "command": "npx",
       "args": [
-        "@snopek-games/godai-mcp",
+        "-y", "@snopek-games/godai-mcp",
         "--global",
         "--godot-path", "/path/to/godot4",
         "--project-base-path", "/path/to/my/godot/projects"
@@ -155,7 +155,7 @@ Edit or create that file, and add an entry for Godai, for example:
 
 If you don't have (or don't want to use) Node/`npx`, you can download a standalone binary for your
 platform from the [latest release](https://gitlab.com/snopek-games/godai/-/releases) of Godai,
-then give the full path to that instead as the `"command"`, and drop the `"@snopek-games/godai-mcp"`
+then give the full path to that instead as the `"command"`, and drop the `"-y", "@snopek-games/godai-mcp"`
 argument.
 
 So, for example:
@@ -186,7 +186,7 @@ and provide that with the `--x11-display` option, for example:
     "godai": {
       "command": "npx",
       "args": [
-        "@snopek-games/godai-mcp",
+        "-y", "@snopek-games/godai-mcp",
         // ... other arguments
         "--x11-display", ":1"
       ]

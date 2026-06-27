@@ -10,7 +10,7 @@ default:
     - linux
 
 variables:
-  MCP_MAIN_PKG: "./mcp/"
+  MCP_MAIN_PKG: "./cmd/godai-mcp/"
   MCP_APP_NAME: "godai-mcp"
   GO_VERSION: "1.25.3"
   GOPATH: "$CI_PROJECT_DIR/.go"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"godai/mcp/server"
+	"gitlab.com/snopek-games/godai/mcp/server"
 	"io"
 	"log/slog"
 	"os"

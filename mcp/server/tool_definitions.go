@@ -4,7 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"godai"
+	"gitlab.com/snopek-games/godai"
 	"strings"
 	"sync"
 )

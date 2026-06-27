@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"godai/mcp/jsonrpc"
-	"godai/mcp/server"
+	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
+	"gitlab.com/snopek-games/godai/mcp/server"
 )
 
 type ToolDef struct {

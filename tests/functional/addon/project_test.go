@@ -3,8 +3,8 @@ package addon
 import (
 	"encoding/json"
 	"fmt"
-	"godai/mcp/jsonrpc"
-	"godai/mcp/server"
+	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
+	"gitlab.com/snopek-games/godai/mcp/server"
 	"path/filepath"
 	"slices"
 	"strings"
