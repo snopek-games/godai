@@ -47,11 +47,20 @@ func mustGetGodaiVersion() string {
 	return v
 }
 
+const GodaiMcpName string = "Godai"
+const GodaiMcpTitle string = "Godai: AI agent integration with the Godot Engine"
+const GodaiMcpInstructions string = `Open and control the Godot editor: inspect and edit the scene tree, node properties, scripts, resources, and project settings. Prefer these tools over editing .tscn/.tres/.gd files on disk - the editor owns that state and direct file edits can be clobbered or rejected.
+
+Most tools require a project_path; call list_open_projects (or open_godot_project) first.
+
+Before any add/remove/edit, read get_current_scene_tree and only use node paths you've seen there. Node and scene edits are in-memory until save_scene; scripts, resources, and project settings persist on their own (for an open script, use save_script). Most edits use the editor's undo/redo, so batch related changes into one call.`
+
 const TooManyToolCallsErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode - 0
 const RequestQueueFullErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode - 1
 
 type appInfo struct {
 	Name    string `json:"name"`
+	Title   string `json:"title"`
 	Version string `json:"version"`
 }
 
@@ -65,6 +74,7 @@ type initializeResult struct {
 	ProtocolVersion string         `json:"protocolVersion"`
 	Capabilities    map[string]any `json:"capabilities,omitempty"`
 	ServerInfo      appInfo        `json:"serverInfo"`
+	Instructions    string         `json:"instructions"`
 }
 
 type callToolParams struct {
@@ -541,9 +551,11 @@ func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (
 			"tools": map[string]any{},
 		},
 		ServerInfo: appInfo{
-			Name:    "Godai",
+			Name:    GodaiMcpName,
+			Title:   GodaiMcpTitle,
 			Version: GodaiVersion,
 		},
+		Instructions: GodaiMcpInstructions,
 	}
 
 	return response, nil

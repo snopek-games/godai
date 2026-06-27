@@ -55,9 +55,11 @@ type InitializeResult struct {
 	ProtocolVersion string `json:"protocolVersion"`
 	ServerInfo      struct {
 		Name    string `json:"name"`
+		Title   string `json:"title"`
 		Version string `json:"version"`
 	} `json:"serverInfo"`
 	Capabilities map[string]json.RawMessage `json:"capabilities"`
+	Instructions string                     `json:"instructions"`
 }
 
 type RequestHandler func(params json.RawMessage) (result any, rpcErr *jsonrpc.Error)

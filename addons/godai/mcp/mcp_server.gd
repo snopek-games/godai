@@ -184,6 +184,7 @@ func _rpc_initialize(p_params: Dictionary):
 		},
 		serverInfo = {
 			name = "Godai",
+			title = "Godai: AI agent integration with the Godot Engine",
 			version = GODAI_VERSION,
 		}
 	}

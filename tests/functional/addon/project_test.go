@@ -18,7 +18,8 @@ func TestInitialize(t *testing.T) {
 
 	result, err := client.Initialize(testContext(t))
 	is.NoErr(err)
-	is.Equal(result.ServerInfo.Name, "Godai")
+	is.Equal(result.ServerInfo.Name, server.GodaiMcpName)
+	is.Equal(result.ServerInfo.Title, server.GodaiMcpTitle)
 	is.True(result.ServerInfo.Version != "" && result.ServerInfo.Version != "unknown")
 	is.Equal(result.ProtocolVersion, server.ProtocolVersion)
 	_, ok := result.Capabilities["tools"]
