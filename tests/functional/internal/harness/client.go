@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"godai/mcp/jsonrpc"
+	"godai/mcp/server"
 )
 
 // ToolDef is a tool entry from tools/list.
@@ -88,13 +89,19 @@ type MCPClient struct {
 // client's configured capabilities (none by default, so the server relies on
 // its own configuration rather than calling back to us).
 func (c *MCPClient) Initialize(ctx context.Context) (*InitializeResult, error) {
+	return c.InitializeWithVersion(ctx, server.ProtocolVersion)
+}
+
+// InitializeWithVersion is like Initialize but requests a specific protocol
+// version, so tests can exercise version negotiation.
+func (c *MCPClient) InitializeWithVersion(ctx context.Context, protocolVersion string) (*InitializeResult, error) {
 	capabilities := c.capabilities
 	if capabilities == nil {
 		capabilities = map[string]any{}
 	}
 
 	resp, err := c.Call(ctx, "initialize", map[string]any{
-		"protocolVersion": "2025-06-18",
+		"protocolVersion": protocolVersion,
 		"capabilities":    capabilities,
 		"clientInfo": map[string]any{
 			"name":    "godai-functional-tests",

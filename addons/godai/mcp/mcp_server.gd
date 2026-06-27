@@ -5,7 +5,17 @@ const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const JSONRPCDispatcher = preload("res://addons/godai/mcp/jsonrpc_dispatcher.gd")
 const Utils = preload("res://addons/godai/utils.gd")
 
-const PROTOCOL_VERSION = "2025-06-18"
+const PROTOCOL_VERSION = "2025-11-25"
+
+const SUPPORTED_PROTOCOL_VERSIONS = {
+	"2025-06-18": true,
+	"2025-11-25": true,
+}
+
+static func _negotiate_protocol_version(p_requested: String) -> String:
+	if SUPPORTED_PROTOCOL_VERSIONS.has(p_requested):
+		return p_requested
+	return PROTOCOL_VERSION
 
 static var GODAI_VERSION: String = _load_godai_version()
 
@@ -168,7 +178,7 @@ func _rpc_initialize(p_params: Dictionary):
 	client_state_changed.emit(_client_state)
 
 	return {
-		protocolVersion = PROTOCOL_VERSION,
+		protocolVersion = _negotiate_protocol_version(p_params.get('protocolVersion', '')),
 		capabilities = {
 			tools = {},
 		},

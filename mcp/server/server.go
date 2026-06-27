@@ -23,7 +23,19 @@ import (
 	"time"
 )
 
-const ProtocolVersion string = "2025-06-18"
+const ProtocolVersion string = "2025-11-25"
+
+var supportedProtocolVersions = map[string]bool{
+	"2025-06-18": true,
+	"2025-11-25": true,
+}
+
+func negotiateProtocolVersion(requested string) string {
+	if supportedProtocolVersions[requested] {
+		return requested
+	}
+	return ProtocolVersion
+}
 
 var GodaiVersion string = mustGetGodaiVersion()
 
@@ -524,7 +536,7 @@ func (s *Server) rpcInitialize(ctx context.Context, rawParams json.RawMessage) (
 	s.connectionManager.Start()
 
 	response := initializeResult{
-		ProtocolVersion: ProtocolVersion,
+		ProtocolVersion: negotiateProtocolVersion(params.ProtocolVersion),
 		Capabilities: map[string]any{
 			"tools": map[string]any{},
 		},
