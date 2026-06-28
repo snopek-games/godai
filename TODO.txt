@@ -14,10 +14,31 @@ For a 1.0
 - Addon: Have separate tools for MCP and API mode
   - API mode needs to have file management tools
   - Having a way to "reload" the tools would help iteration during development
-- Addon: Move the API settings under a section
-  - Maybe MCP too?
-- Addon: Implement support for at least one other LLM API (maybe Gemini?)
-  - And allow selecting the AI model
+- Addon: Move the API and MCP settings under their own sections
+  - MCP should have an "automatically start MCP server" option which acts like its enable/disable
+  - API mode should have an "enabled" setting
+- Addon: Implement support for more LLM APIs
+  - Make 2-3 client backends:
+    - `Anthropic`: "Anthropic"
+    - `OpenAIChatCompletions`: "OpenAI Chat Completions - works everywhere"
+    - `OpenAIResponses` (optional): "OpenAI Responses - OpenAI's newer agentic API"
+  - The configuration then is:
+    - API type (the backend from above)
+    - API URL
+    - API key
+    - Model
+  - Set of "profiles" which would be like:
+    - OpenAI: `OpenAIResponses`, with real OpenAI URL
+    - Anthropic (Claude): `Anthropic` with real Anthropic URL
+    - Google (Gemini): `OpenAIChatCompletions` with Gemini URI
+  - "Config" button in the "AI" panel
+    - It should allow selecting one of the profiles or "custom", which gives you the underlying fields
+    - This should basically reflect what we have in Editor Settings but friendlier
+  - "Model" selection field in the "AI" panel
+    - It'll need to query the list of available models
+    - We might need profiles to have a "filter" for the models to include/exclude (and maybe an editor setting too?)
+    - Or, we may want to pull the model list from the models.dev API? It allows us to filter based on capability
+      - See https://models.dev/api.json
 - Addon: Add a way to cancel a request
 - Addon: Add system prompt
 - Better installation story
