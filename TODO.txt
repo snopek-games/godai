@@ -17,6 +17,7 @@ For a 1.0
 - Addon: Move the API settings under a section
   - Maybe MCP too?
 - Addon: Implement support for at least one other LLM API (maybe Gemini?)
+  - And allow selecting the AI model
 - Addon: Add a way to cancel a request
 - Addon: Add system prompt
 - Better installation story
