@@ -13,6 +13,9 @@ For a 1.0
   - When headless it should automatically reject everything (unless the editor setting or env variable are set)
 - Addon: Have separate tools for MCP and API mode
   - API mode needs to have file management tools
+    - See https://platform.claude.com/docs/en/agents-and-tools/tool-use/text-editor-tool
+    - The tricky thing is that this is Anthropic specific (OpenAI has their own thing)
+    - How does this overlap with our tools for script editing?
   - Having a way to "reload" the tools would help iteration during development
 - Addon: Move the API and MCP settings under their own sections
   - MCP should have an "automatically start MCP server" option which acts like its enable/disable
@@ -65,6 +68,7 @@ Backlog
 - Make a Godot plugin in the Claude marketplace (which includes the .mcp.json)
   - Users do `/plugin marketplace add snopek-games/godai-mcp` or `claude plugin install ...`
   - See: https://claude.com/blog/claude-code-plugins
+  - See: https://github.com/alexmeckes/godot-claude-skills
 - Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
 - Addon: Chat history
   - Save and restore current chat when restarting the editor
