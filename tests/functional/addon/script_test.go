@@ -1,6 +1,7 @@
 package addon
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -162,6 +163,54 @@ return OK`)
 			"content":   "extends Node\n\nvar overwritten := true\n",
 		})
 		is.Equal(structured["success"], true)
+	})
+
+	// A file that isn't a Script gets a tab in the script editor just like a
+	// script does: the tools have to keep track of which tab holds which file,
+	// or they read and write the buffer of some other open file.
+	t.Run("with_a_non_script_file_open", func(t *testing.T) {
+		is := is.New(t)
+
+		const notesPath = "res://scripts/sf_tab_notes.json"
+		const notesBody = "{\n\t\"not\": \"a script\"\n}\n"
+		const onePath = "res://scripts/sf_tab_one.gd"
+		const twoPath = "res://scripts/sf_tab_two.gd"
+
+		callToolOK(t, "create_script", map[string]any{
+			"file_path":  onePath,
+			"base_class": "Node",
+		})
+		callToolOK(t, "create_script", map[string]any{
+			"file_path":  twoPath,
+			"base_class": "Node2D",
+		})
+		writeProjectFileFromEditor(t, notesPath, notesBody)
+
+		openNonScriptInScriptEditor(t, notesPath)
+		callToolOK(t, "open_script", map[string]any{"file_path": onePath})
+		callToolOK(t, "open_script", map[string]any{"file_path": twoPath})
+		settleEditor(t)
+		t.Cleanup(func() { closeScriptEditorFiles(t, notesPath, onePath, twoPath) })
+
+		one := callToolOK(t, "read_script", map[string]any{"file_path": onePath})
+		is.Equal(one["open_in_editor"], true)
+		is.Equal(one["content"], "extends Node\n")
+
+		two := callToolOK(t, "read_script", map[string]any{"file_path": twoPath})
+		is.Equal(two["open_in_editor"], true)
+		is.Equal(two["content"], "extends Node2D\n")
+
+		body := "extends Node\n\nvar written := true\n"
+		callToolOK(t, "write_script", map[string]any{
+			"file_path": onePath,
+			"content":   body,
+		})
+
+		// Only the script that was written to may have changed.
+		buffers := scriptEditorBuffers(t)
+		is.True(slices.Contains(buffers, notesBody))
+		is.True(slices.Contains(buffers, body))
+		is.True(slices.Contains(buffers, "extends Node2D\n"))
 	})
 
 	t.Run("write_rejects_stale", func(t *testing.T) {

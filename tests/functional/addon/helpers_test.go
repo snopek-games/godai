@@ -2,6 +2,8 @@ package addon
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,6 +102,75 @@ func settleEditor(t *testing.T) {
 	runEditorScript(t, `await Engine.get_main_loop().process_frame
 await Engine.get_main_loop().process_frame
 return OK`)
+}
+
+// Opens a file that isn't a Script in the script editor, where it gets a tab of
+// its own alongside the open scripts. Only works for a file some ResourceLoader
+// recognizes (a .json, say): a .txt has no loader, so there is no resource to
+// hand to edit_resource(), and the script editor's own "File > Open..." is the
+// only way in.
+func openNonScriptInScriptEditor(t *testing.T, path string) {
+	t.Helper()
+	runEditorScript(t, fmt.Sprintf(`var res := ResourceLoader.load(%q)
+if not res:
+	push_error("nothing to edit: " + %q + " didn't load as a resource")
+	return FAILED
+EditorInterface.edit_resource(res)
+await Engine.get_main_loop().process_frame
+return OK`, path, path))
+}
+
+func closeScriptEditorFiles(t *testing.T, paths ...string) {
+	t.Helper()
+	quoted := make([]string, 0, len(paths))
+	for _, path := range paths {
+		quoted = append(quoted, fmt.Sprintf("%q", path))
+	}
+	runEditorScript(t, fmt.Sprintf(`var script_editor := EditorInterface.get_script_editor()
+script_editor.save_all_scripts()
+for path in [%s]:
+	script_editor.close_file(path)
+	await Engine.get_main_loop().process_frame
+return OK`, strings.Join(quoted, ", ")))
+}
+
+// Returns the live text of every buffer open in the script editor, so a test
+// can check which file a tool actually wrote to.
+func scriptEditorBuffers(t *testing.T) []string {
+	t.Helper()
+	out := runEditorScript(t, `for editor in EditorInterface.get_script_editor().get_open_script_editors():
+	var base = editor.get_base_editor()
+	if base is TextEdit:
+		print("BUFFER:", JSON.stringify(base.text))
+return OK`)
+
+	lines, _ := out["output"].([]any)
+	var buffers []string
+	for _, line := range asStrings(lines) {
+		encoded, found := strings.CutPrefix(line, "BUFFER:")
+		if !found {
+			continue
+		}
+		var text string
+		if err := json.Unmarshal([]byte(encoded), &text); err != nil {
+			t.Fatalf("decoding editor buffer %q: %v", encoded, err)
+		}
+		buffers = append(buffers, text)
+	}
+	return buffers
+}
+
+func writeProjectFileFromEditor(t *testing.T, path, content string) {
+	t.Helper()
+	runEditorScript(t, fmt.Sprintf(`DirAccess.make_dir_recursive_absolute(%q.get_base_dir())
+var f = FileAccess.open(%q, FileAccess.WRITE)
+if not f:
+	push_error("could not write " + %q)
+	return FAILED
+f.store_string(%q)
+f.close()
+EditorInterface.get_resource_filesystem().update_file(%q)
+return OK`, path, path, path, content, path))
 }
 
 func readProjectFile(t *testing.T, relPath string) string {

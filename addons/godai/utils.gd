@@ -244,15 +244,23 @@ static func get_open_script_editor(p_script_path: String) -> TextEdit:
 	if not script_editor:
 		return null
 
-	# get_open_scripts() and get_open_script_editors() iterate the open
-	# scripts in the same order, so the two arrays line up.
+	# get_open_script_editors() has an entry for every tab in the script editor,
+	# including files that aren't scripts (a .txt open in a tab of its own, for
+	# example), while get_open_scripts() only has the scripts. The two only line
+	# up once the tabs editing something other than a script are skipped.
 	var scripts := script_editor.get_open_scripts()
 	var editors := script_editor.get_open_script_editors()
 
-	for i in range(min(scripts.size(), editors.size())):
-		var script: Script = scripts[i]
+	var index := 0
+	for editor in editors:
+		if not editor.is_class("ScriptTextEditor"):
+			continue
+		if index >= scripts.size():
+			break
+		var script: Script = scripts[index]
+		index += 1
 		if script and script.resource_path == p_script_path:
-			var base: Control = editors[i].get_base_editor()
+			var base: Control = editor.get_base_editor()
 			if base is TextEdit:
 				return base
 			return null
