@@ -4,9 +4,6 @@ TODO
 For a 1.0
 ---------
 
-- Addon: Ability to configure "effort" level
-- Addon: Make user_chat.tscn and error_chat.tscn expand for their text, but wrap when they right the max width
-  - I think we can do this my measuring the length of each line, and if one is over a certain threshold, then we expand to fill the whole parent
 - Addon: Have separate tools for MCP and API mode
   - API mode needs to have file management tools
     - See https://platform.claude.com/docs/en/agents-and-tools/tool-use/text-editor-tool
@@ -38,6 +35,7 @@ For a 1.0
     - We might need profiles to have a "filter" for the models to include/exclude (and maybe an editor setting too?)
     - Or, we may want to pull the model list from the models.dev API? It allows us to filter based on capability
       - See https://models.dev/api.json
+- Addon: Ability to configure "effort" level
 - Addon: Add a way to cancel a request
 - Addon: Add system prompt
 - Better installation story
@@ -81,3 +79,5 @@ Backlog
 - Addon: Allow editor plugins to register custom tools for a particular project
   - Will need to allow MCP to update it's tools list
 - MCP: Add a command for creating a new project
+- Addon: Make user_chat.tscn and error_chat.tscn expand for their text, but wrap when they right the max width
+  - I think we can do this my measuring the length of each line, and if one is over a certain threshold, then we expand to fill the whole parent
