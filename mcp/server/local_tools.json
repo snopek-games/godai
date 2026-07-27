@@ -1,5 +1,5 @@
 {
-	"$schema": "../../addons/godai/tools/default_tools.schema.json",
+	"$schema": "../../addons/godai/tools/default/default_tools.schema.json",
 	"tools": {
 		"list_projects": {
 			"title": "List Godot projects",
@@ -8,7 +8,11 @@
 				"",
 				"When using --global this includes those registered in the project manager and under the project base path.",
 				"Otherwise, this recursively searches in the allowed root paths."
-			]
+			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			}
 		},
 		"open_godot_project": {
 			"title": "Open Godot project",
@@ -28,11 +32,21 @@
 					}
 				},
 				"required": ["project_path"]
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": false
 			}
 		},
 		"list_open_projects": {
 			"title": "List open Godot projects",
-			"description": "Lists the projects currently open in each Godot editor instance"
+			"description": "Lists the projects currently open in each Godot editor instance",
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			}
 		},
 		"get_mcp_configuration": {
 			"title": "Get the Godai MCP configuration",
@@ -41,7 +55,11 @@
 				"",
 				"This doesn't include all configuration that can be set via command-line arguments, but only those values that can be updated at runtime.",
 				"Use the `set_mcp_configuration` tool to change these configuration values."
-			]
+			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			}
 		},
 		"set_mcp_configuration": {
 			"title": "Set the Godai MCP configuration",
@@ -51,6 +69,12 @@
 				"This doesn't include all configuration that can be set via command-line arguments, but only those values that can be updated at runtime.",
 				"Use the `get_mcp_configuration` tool to see the current configuration values."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {

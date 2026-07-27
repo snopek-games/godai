@@ -4,6 +4,9 @@ const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolResult = ToolManager.ToolResult
 const DefaultTool = ToolManager.DefaultTool
 const Utils = preload("res://addons/godai/utils.gd")
+const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
+
+const GODAI_SETTING_MESSAGE = "'%s' overrides a Godai setting; those are only accessible to the user, via Editor Settings."
 
 
 static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
@@ -28,11 +31,22 @@ class ProjectGetSettings extends DefaultTool:
 		var names: Array = p_input.get('names', [])
 		var include_defaults: bool = p_input.get('include_defaults', false)
 
+		for name in names:
+			if GodaiEditorSettings.is_godai_project_setting(name):
+				return ToolResult.rejected({error = GODAI_SETTING_MESSAGE % name})
+
 		var result := Utils.get_settings_map(ProjectSettings, names, include_defaults)
 		if result.has('error'):
 			return ToolResult.rejected({error = result['error']})
 
-		return ToolResult.resolved({ settings = result['settings'] })
+		# Only has anything to do when 'names' was empty, since named Godai
+		# overrides are rejected above.
+		var settings: Dictionary = result['settings']
+		for name in settings.keys():
+			if GodaiEditorSettings.is_godai_project_setting(name):
+				settings.erase(name)
+
+		return ToolResult.resolved({ settings = settings })
 
 
 class ProjectSetSettings extends DefaultTool:
@@ -40,6 +54,10 @@ class ProjectSetSettings extends DefaultTool:
 		var settings: Dictionary = p_input.get('settings', {})
 		if settings.is_empty():
 			return ToolResult.rejected({error = "'settings' is required"})
+
+		for name in settings:
+			if GodaiEditorSettings.is_godai_project_setting(name):
+				return ToolResult.rejected({error = GODAI_SETTING_MESSAGE % name})
 
 		var result := Utils.decode_settings(ProjectSettings, settings)
 		if result.has('error'):
@@ -71,6 +89,8 @@ class ProjectRun extends DefaultTool:
 			EditorInterface.play_current_scene()
 		else:
 			var scene_path := Utils.to_res_path(scene)
+			if scene_path.is_empty():
+				return ToolResult.rejected({error = "'scene' must be inside the project (res://)"})
 			if not FileAccess.file_exists(scene_path):
 				return ToolResult.rejected({error = "'%s' doesn't exist" % scene_path})
 			EditorInterface.play_custom_scene(scene_path)

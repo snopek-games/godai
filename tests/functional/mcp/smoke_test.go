@@ -46,6 +46,30 @@ func TestServerListTools(t *testing.T) {
 	_, hasCurrentProject := names["get_current_project"]
 	is.True(!hasCurrentProject)
 
+	for _, tool := range tools {
+		if err := tool.ValidateAnnotations(); err != nil {
+			t.Error(err)
+		}
+	}
+
+	is.Equal(scene.Annotations["title"], scene.Title)
+	is.Equal(scene.Annotations["readOnlyHint"], true)
+	is.Equal(scene.Annotations["openWorldHint"], false)
+
+	setProps := names["set_node_properties"].Annotations
+	is.Equal(setProps["readOnlyHint"], false)
+	is.Equal(setProps["destructiveHint"], true)
+	is.Equal(setProps["idempotentHint"], true)
+
+	saveAs, hasSaveAs := names["save_scene_as"]
+	is.True(hasSaveAs) // forwarded remote tool
+	saveAsProps, _ := saveAs.InputSchema["properties"].(map[string]any)
+	_, hasFilePath := saveAsProps["file_path"]
+	is.True(hasFilePath)
+	is.Equal(saveAs.Annotations["readOnlyHint"], false)
+	is.Equal(saveAs.Annotations["destructiveHint"], false)
+	is.Equal(saveAs.Annotations["openWorldHint"], false)
+
 	is.True(len(names) > 5) // local + forwarded remote tools
 }
 

@@ -1,10 +1,10 @@
-[gd_scene load_steps=3 format=3 uid="uid://jyj3ipnnhatv"]
+[gd_scene format=3 uid="uid://jyj3ipnnhatv"]
 
 [ext_resource type="Script" uid="uid://buii8lg05ksix" path="res://addons/godai/ui/assistant_chat.gd" id="1_wtqsg"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_o4iq4"]
 
-[node name="AssistantChat" type="RichTextLabel"]
+[node name="AssistantChat" type="RichTextLabel" unique_id=281525504]
 anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 23.0

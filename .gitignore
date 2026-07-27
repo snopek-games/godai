@@ -1,6 +1,9 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+/.nomedia
+
+# Build artifacts
 /bundle/server
 /bundle/*.mcpb
 /dist/

@@ -3,12 +3,13 @@ package addon
 import (
 	"encoding/json"
 	"fmt"
-	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
-	"gitlab.com/snopek-games/godai/mcp/server"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
+	"gitlab.com/snopek-games/godai/mcp/server"
 
 	"github.com/matryer/is"
 )
@@ -67,6 +68,7 @@ func TestListTools(t *testing.T) {
 		"get_selected_nodes",
 		"instantiate_scene",
 		"save_scene",
+		"save_scene_as",
 		"add_to_group",
 		"remove_from_group",
 		"get_node_groups",
@@ -93,16 +95,44 @@ func TestListTools(t *testing.T) {
 	}
 
 	var got []string
+	byName := make(map[string]ToolDef, len(tools))
 	for _, tool := range tools {
 		got = append(got, tool.Name)
+		byName[tool.Name] = tool
 		if tool.Title == "" || tool.Description == "" || tool.InputSchema == nil {
 			t.Errorf("tool %s is missing its title, description or inputSchema", tool.Name)
+		}
+		if err := tool.ValidateAnnotations(); err != nil {
+			t.Error(err)
 		}
 	}
 
 	slices.Sort(got)
 	slices.Sort(want)
 	is.Equal(got, want)
+
+	// Spot-check representative annotation values against default_tools.json.
+	readOnly := byName["get_current_scene"].Annotations
+	is.Equal(readOnly["readOnlyHint"], true)
+	is.Equal(readOnly["openWorldHint"], false)
+
+	setProps := byName["set_node_properties"].Annotations
+	is.Equal(setProps["readOnlyHint"], false)
+	is.Equal(setProps["destructiveHint"], true)
+	is.Equal(setProps["idempotentHint"], true)
+	is.Equal(setProps["openWorldHint"], false)
+
+	addNode := byName["add_node"].Annotations
+	is.Equal(addNode["destructiveHint"], false)
+	is.Equal(addNode["idempotentHint"], false)
+
+	// stop_project: not read-only, but non-destructive and idempotent.
+	stop := byName["stop_project"].Annotations
+	is.Equal(stop["readOnlyHint"], false)
+	is.Equal(stop["destructiveHint"], false)
+	is.Equal(stop["idempotentHint"], true)
+
+	is.Equal(byName["execute_editor_script"].Annotations["openWorldHint"], true)
 }
 
 func TestCallUnknownTool(t *testing.T) {
@@ -136,6 +166,55 @@ func TestGetCurrentProject(t *testing.T) {
 		is.NoErr(err)
 		is.Equal(gotResolved, wantPath)
 	}
+}
+
+// A project setting under 'editor_overrides/' overrides the editor setting of
+// the same name for this project alone, so it's a second route to Godai's own
+// settings - including the tool approvals the AI must not be able to grant
+// itself.
+func TestGodaiProjectSettingOverridesAreHidden(t *testing.T) {
+	const autoApproveOverride = "editor_overrides/godai/tools/auto_approve"
+	// Written into project.godot by the harness, so it's really there to find.
+	const skipSecretCheckOverride = "editor_overrides/godai/mcp/skip_secret_check"
+
+	t.Run("get_by_name_is_rejected", func(t *testing.T) {
+		callToolErr(t, "get_project_settings", map[string]any{
+			"names": []string{skipSecretCheckOverride},
+		}, "overrides a Godai setting")
+	})
+
+	t.Run("set_is_rejected", func(t *testing.T) {
+		requireManagedProject(t)
+
+		callToolErr(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{autoApproveOverride: "true"},
+		}, "overrides a Godai setting")
+
+		// Rejected before anything was written.
+		runEditorScript(t, fmt.Sprintf(`if ProjectSettings.has_setting(%q):
+	return FAILED
+return OK`, autoApproveOverride))
+	})
+
+	t.Run("omitted_when_listing_everything", func(t *testing.T) {
+		requireManagedProject(t)
+		is := is.New(t)
+
+		// Prove the filter has something to hide, since the listing goes through
+		// ProjectSettings rather than the file.
+		runEditorScript(t, fmt.Sprintf(`if not ProjectSettings.has_setting(%q):
+	return FAILED
+return OK`, skipSecretCheckOverride))
+
+		for _, args := range []map[string]any{nil, {"include_defaults": true}} {
+			structured := callToolOK(t, "get_project_settings", args)
+			settings, _ := structured["settings"].(map[string]any)
+			is.True(len(settings) > 0)
+			for name := range settings {
+				is.True(!strings.HasPrefix(name, "editor_overrides/godai/"))
+			}
+		}
+	})
 }
 
 func TestExecuteEditorScript(t *testing.T) {

@@ -65,6 +65,9 @@ func TestCloseHeadlessEditorsOnShutdown(t *testing.T) {
 		"GODAI_MCP_TRANSPORT=websocket",
 		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", port),
 		"GODAI_MCP_PORT_COUNT=1",
+		// Without this the editor denies close_editor, since it's headless and
+		// nobody is there to approve it.
+		"GODAI_AUTO_APPROVE_TOOLS=1",
 	}, os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
 	t.Cleanup(func() {

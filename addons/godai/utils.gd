@@ -222,10 +222,15 @@ static func get_default_property_value(p_object: Object, p_prop_name: String) ->
 
 
 ## Normalizes a path into a `res://` path, adding the prefix if missing.
+## Returns "" if the path escapes the project (e.g. via ".." segments).
 static func to_res_path(p_path: String) -> String:
-	if p_path.begins_with("res://"):
-		return p_path
-	return "res://" + p_path.lstrip("/")
+	if not p_path.begins_with("res://"):
+		p_path = "res://" + p_path.lstrip("/")
+	var root := ProjectSettings.globalize_path("res://").simplify_path()
+	var resolved := ProjectSettings.globalize_path(p_path).simplify_path()
+	if resolved != root and not resolved.begins_with(root + "/"):
+		return ""
+	return p_path.simplify_path()
 
 
 ## Finds the live text editor for a script that is open in the script editor,

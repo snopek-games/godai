@@ -22,6 +22,9 @@ class ImportReimport extends DefaultTool:
 		var errors := PackedStringArray()
 		for fp in file_paths:
 			var path := Utils.to_res_path(fp)
+			if path.is_empty():
+				errors.append("'%s' must be inside the project (res://)" % fp)
+				continue
 			if not FileAccess.file_exists(path):
 				errors.append("'%s' doesn't exist" % path)
 				continue
@@ -45,6 +48,8 @@ class ImportGetSettings extends DefaultTool:
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if not FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
 
@@ -81,6 +86,8 @@ class ImportSetSettings extends DefaultTool:
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if not FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
 

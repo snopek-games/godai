@@ -16,6 +16,34 @@ type ToolDef struct {
 	Description  string         `json:"description"`
 	InputSchema  map[string]any `json:"inputSchema"`
 	OutputSchema map[string]any `json:"outputSchema"`
+	Annotations  map[string]any `json:"annotations"`
+}
+
+func (d ToolDef) ValidateAnnotations() error {
+	ann := d.Annotations
+	if ann == nil {
+		return fmt.Errorf("tool %s: missing annotations", d.Name)
+	}
+	if title, _ := ann["title"].(string); title != d.Title {
+		return fmt.Errorf("tool %s: annotations.title = %v, want %q", d.Name, ann["title"], d.Title)
+	}
+	readOnly, ok := ann["readOnlyHint"].(bool)
+	if !ok {
+		return fmt.Errorf("tool %s: annotations.readOnlyHint missing or not a bool", d.Name)
+	}
+	if _, ok := ann["openWorldHint"].(bool); !ok {
+		return fmt.Errorf("tool %s: annotations.openWorldHint missing or not a bool", d.Name)
+	}
+	_, hasDestructive := ann["destructiveHint"]
+	_, hasIdempotent := ann["idempotentHint"]
+	if readOnly {
+		if hasDestructive || hasIdempotent {
+			return fmt.Errorf("tool %s: read-only tool must not set destructiveHint/idempotentHint", d.Name)
+		}
+	} else if !hasDestructive || !hasIdempotent {
+		return fmt.Errorf("tool %s: non-read-only tool must set destructiveHint and idempotentHint", d.Name)
+	}
+	return nil
 }
 
 type ContentItem struct {

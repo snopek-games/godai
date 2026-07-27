@@ -433,6 +433,8 @@ class NodeAttachScript extends DefaultTool:
 		if script_path.is_empty():
 			return ToolResult.rejected({error = "'script_path' is required"})
 		script_path = Utils.to_res_path(script_path)
+		if script_path.is_empty():
+			return ToolResult.rejected({error = "'script_path' must be inside the project (res://)"})
 
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:

@@ -2,6 +2,7 @@
 extends Node
 
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
+const ToolAuth = preload("res://addons/godai/tools/tool_auth.gd")
 const JSONRPCDispatcher = preload("res://addons/godai/mcp/jsonrpc_dispatcher.gd")
 const Utils = preload("res://addons/godai/utils.gd")
 
@@ -11,6 +12,11 @@ const SUPPORTED_PROTOCOL_VERSIONS = {
 	"2025-06-18": true,
 	"2025-11-25": true,
 }
+
+const TIMEOUT_META_KEY = "godai/timeout_ms"
+
+## Only used by a client that talks to us directly; matches the MCP server's own default.
+const DEFAULT_TIMEOUT := 300.0
 
 static func _negotiate_protocol_version(p_requested: String) -> String:
 	if SUPPORTED_PROTOCOL_VERSIONS.has(p_requested):
@@ -75,6 +81,10 @@ var _jsonrpc := JSONRPCDispatcher.new()
 
 var tools: ToolManager
 var skip_secret_check: bool
+
+## Optional hook, called as `tool_use_authorizer.call(name, input)` before a tool
+## runs. Returns a ToolAuth.Request. When unset, every tool runs unauthorized.
+var tool_use_authorizer: Callable
 
 signal server_state_changed(state: ServerState)
 signal client_state_changed(state: ClientState)
@@ -208,6 +218,13 @@ func _rpc_list_tools(p_params: Dictionary):
 		if tool_obj.output_schema.size() > 0:
 			d['outputSchema'] = tool_obj.output_schema
 
+		var annotations: Dictionary
+		if tool_obj.annotations != null:
+			annotations = tool_obj.annotations.to_dict()
+		# Set 'title' on annotations for backwards compatibility with old MCP clients.
+		annotations['title'] = tool_obj.title
+		d['annotations'] = annotations
+
 		result.push_back(d)
 
 	return {tools = result}
@@ -225,14 +242,61 @@ func _rpc_call_tool(p_params: Dictionary):
 	var id: String = "mcp:" + str(_last_tool_id)
 	tool_use_requested.emit(id, name, args)
 
-	var result: ToolManager.ToolResult = tools.execute_tool(name, args)
+	if tool_use_authorizer.is_valid():
+		var request = tool_use_authorizer.call(name, args)
+		if not request.is_done():
+			# Only when we actually have to wait on the user does the whole call
+			# become asynchronous. Resolving an AsyncResult before returning it
+			# would emit `completed` before the dispatcher is listening, and the
+			# request would hang.
+			var auth_result := JSONRPCDispatcher.AsyncResult.new()
+			_call_tool_when_authorized(id, name, args, request, auth_result)
+			request.start_timeout(self, _get_timeout(p_params))
+			return auth_result
+
+		if not request.allowed:
+			return _unauthorized_tool_result(id, name, false)
+
+	return _call_tool(id, name, args)
+
+
+func _call_tool_when_authorized(p_id: String, p_name: String, p_input: Dictionary, p_request, p_async_result: JSONRPCDispatcher.AsyncResult) -> void:
+	await p_request.completed
+
+	if not p_request.allowed:
+		p_async_result.resolve(_unauthorized_tool_result(p_id, p_name, p_request.timed_out))
+		return
+
+	var result = _call_tool(p_id, p_name, p_input)
+	if result is JSONRPCDispatcher.AsyncResult:
+		p_async_result.resolve(await result.completed)
+	else:
+		p_async_result.resolve(result)
+
+
+static func _get_timeout(p_params: Dictionary) -> float:
+	var meta = p_params.get("_meta")
+	if meta is Dictionary:
+		var timeout_ms = meta.get(TIMEOUT_META_KEY)
+		if timeout_ms is float or timeout_ms is int:
+			return float(timeout_ms) / 1000.0
+	return DEFAULT_TIMEOUT
+
+
+func _unauthorized_tool_result(p_id: String, p_name: String, p_timed_out: bool):
+	var result := ToolAuth.timed_out_result(p_name) if p_timed_out else ToolAuth.denied_result(p_name)
+	return _process_tool_result(p_id, result)
+
+
+func _call_tool(p_id: String, p_name: String, p_input: Dictionary):
+	var result: ToolManager.ToolResult = tools.execute_tool(p_name, p_input)
 	if result.is_done():
-		return _process_tool_result(id, result)
+		return _process_tool_result(p_id, result)
 
 	# Handle async results.
 	var async_result = JSONRPCDispatcher.AsyncResult.new()
 	result.completed.connect(func (_content):
-		async_result.resolve(_process_tool_result(id, result))
+		async_result.resolve(_process_tool_result(p_id, result))
 	)
 	return async_result
 

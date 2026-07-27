@@ -5,8 +5,10 @@ const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
 
 const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
+const ToolAuth = preload("res://addons/godai/tools/tool_auth.gd")
 const DefaultToolsLoader = preload("res://addons/godai/tools/default/loader.gd")
 const MCPServer = preload("res://addons/godai/mcp/mcp_server.gd")
+const ToolUseAuthDialog = preload("res://addons/godai/ui/tool_use_auth_dialog.gd")
 
 const UserChatScene = preload("res://addons/godai/ui/user_chat.tscn")
 const AssistantChatScene = preload("res://addons/godai/ui/assistant_chat.tscn")
@@ -26,13 +28,20 @@ const ErrorChatScene = preload("res://addons/godai/ui/error_chat.tscn")
 @onready var submit_button: Button = %SubmitButton
 @onready var clear_button: Button = %ClearButton
 @onready var tool_use_info_dialog: AcceptDialog = %ToolUseInfoDialog
+@onready var tool_use_auth_dialog: ToolUseAuthDialog = %ToolUseAuthDialog
 
 var claude_client: ClaudeClient
 var current_chat: ClaudeClient.Chat
 var tools: ToolManager = ToolManager.new()
+var tool_auth: ToolAuth = ToolAuth.new()
 var mcp_server: MCPServer
 
 var _pending_tool_chats: Dictionary
+var _pending_auth_requests: Array[ToolAuth.Request]
+var _shown_auth_request: ToolAuth.Request
+var _updating_auth_queue := false
+var _current_request: ClaudeClient.Request
+
 var _mcp_instance_id: String
 var _mcp_instance_secret: String
 var _mcp_transport: MCPServer.Transport = GodaiEditorSettings.MCP_TRANSPORT_DEFAULT
@@ -53,6 +62,10 @@ func _ready() -> void:
 
 	DefaultToolsLoader.load_default_tools(tools)
 	claude_client.tools = tools
+	claude_client.tool_use_authorizer = _authorize_tool_use
+
+	tool_use_auth_dialog.tool_use_allowed.connect(_on_tool_use_allowed)
+	tool_use_auth_dialog.tool_use_denied.connect(_on_tool_use_denied)
 
 	# Generate MCP instance ID and secret.
 	const MCP_TOKEN_LENGTH := 32
@@ -60,6 +73,7 @@ func _ready() -> void:
 	_mcp_instance_secret = _generate_string(MCP_TOKEN_LENGTH)
 
 	mcp_server = MCPServer.new(tools, _mcp_instance_secret)
+	mcp_server.tool_use_authorizer = _authorize_tool_use
 	add_child(mcp_server)
 	mcp_server.server_state_changed.connect(_on_mcp_server_state_changed)
 	mcp_server.client_state_changed.connect(_on_mcp_client_state_changed)
@@ -94,6 +108,7 @@ func show_panel() -> void:
 
 func _update_from_editor_settings(p_settings: EditorSettings) -> void:
 	claude_client.api_key = p_settings.get_setting(GodaiEditorSettings.ANTHROPIC_API_KEY_SETTING)
+	claude_client.model = p_settings.get_setting(GodaiEditorSettings.ANTHROPIC_API_MODEL_SETTING)
 	mcp_server.skip_secret_check = GodaiEditorSettings.get_mcp_skip_secret_check()
 	_mcp_transport = GodaiEditorSettings.get_mcp_transport() as MCPServer.Transport
 	_mcp_base_port = GodaiEditorSettings.get_mcp_base_port()
@@ -128,7 +143,12 @@ func _on_mcp_server_state_changed(p_server_state: MCPServer.ServerState) -> void
 func _on_mcp_client_state_changed(p_client_state: MCPServer.ClientState) -> void:
 	_update_mcp_status_bar()
 
+	# Must go first: it cancels the request before releasing the approvals that
+	# would otherwise let the client resume.
 	_stop_current_chat()
+
+	# "For this session" lasts as long as the client stays connected.
+	tool_auth.clear_session()
 	if p_client_state == MCPServer.ClientState.CONNECTED:
 		prompt_bar.visible = false
 	else:
@@ -385,6 +405,113 @@ func _add_error_to_chat(p_msg: String) -> void:
 	chat.setup_error_chat(p_msg)
 
 
+## Decides whether a tool may run, asking the user when we have no standing
+## answer. Both the MCP server and the API client call this through their
+## `tool_use_authorizer` hook.
+func _authorize_tool_use(p_name: String, p_input) -> ToolAuth.Request:
+	var tool_obj := tools.get_tool(p_name)
+	if not ToolAuth.needs_authorization(tool_obj):
+		return ToolAuth.Request.resolved(p_name, p_input, true)
+
+	match tool_auth.get_decision(p_name):
+		ToolAuth.Decision.ALLOW:
+			return ToolAuth.Request.resolved(p_name, p_input, true)
+		ToolAuth.Decision.DENY:
+			return ToolAuth.Request.resolved(p_name, p_input, false)
+
+	if GodaiEditorSettings.get_auto_approve_tools():
+		return ToolAuth.Request.resolved(p_name, p_input, true)
+
+	if DisplayServer.get_name() == "headless":
+		push_warning("Denying use of the '%s' tool: running headless, and %s is not set."
+			% [p_name, GodaiEditorSettings.AUTO_APPROVE_TOOLS_ENV])
+		return ToolAuth.Request.resolved(p_name, p_input, false)
+
+	var request := ToolAuth.Request.new(p_name, p_input)
+	request.completed.connect(_on_auth_request_completed)
+	_pending_auth_requests.push_back(request)
+	_update_auth_queue()
+	return request
+
+
+func _on_auth_request_completed(_p_allowed: bool) -> void:
+	_update_auth_queue()
+
+
+func _update_auth_queue() -> void:
+	# Resolving re-enters here, so this has to be the only loop walking the queue.
+	if _updating_auth_queue:
+		return
+	_updating_auth_queue = true
+
+	while _pending_auth_requests.size() > 0:
+		var request: ToolAuth.Request = _pending_auth_requests[0]
+
+		# The MCP server resolves these on its own when they time out.
+		if request.is_done():
+			_pending_auth_requests.pop_front()
+			continue
+
+		# Check tool_auth again, in case we recorded an allow/deny for this tool
+		# earlier in the queue.
+		var decision := tool_auth.get_decision(request.tool_name)
+		if decision == ToolAuth.Decision.ASK:
+			break
+
+		_pending_auth_requests.pop_front()
+		request.resolve(decision == ToolAuth.Decision.ALLOW)
+
+	if _pending_auth_requests.size() > 0:
+		var request: ToolAuth.Request = _pending_auth_requests[0]
+		if _shown_auth_request != request:
+			_shown_auth_request = request
+			tool_use_auth_dialog.setup_tool_use_auth_dialog(request.tool_name, request.input)
+			tool_use_auth_dialog.popup_centered()
+	else:
+		_shown_auth_request = null
+		tool_use_auth_dialog.hide()
+
+	_updating_auth_queue = false
+
+
+func _resolve_current_auth_request(p_type: ToolUseAuthDialog.AllowDenyType, p_allowed: bool) -> void:
+	var request := _shown_auth_request
+	if request == null:
+		return
+
+	match p_type:
+		ToolUseAuthDialog.AllowDenyType.TOOL_FOR_SESSION:
+			tool_auth.set_tool_for_session(request.tool_name, p_allowed)
+		ToolUseAuthDialog.AllowDenyType.TOOL_ALWAYS:
+			tool_auth.set_tool_always(request.tool_name, p_allowed)
+		ToolUseAuthDialog.AllowDenyType.ALL_FOR_SESSION:
+			# Only makes sense for allow - denying all for this session isn't a thing.
+			if p_allowed:
+				tool_auth.set_allow_all_for_session(true)
+
+	request.resolve(p_allowed)
+
+
+func _on_tool_use_allowed(p_type: ToolUseAuthDialog.AllowDenyType) -> void:
+	_resolve_current_auth_request(p_type, true)
+
+
+func _on_tool_use_denied(p_type: ToolUseAuthDialog.AllowDenyType) -> void:
+	_resolve_current_auth_request(p_type, false)
+
+
+## Denies everything still waiting, for when there's no longer anyone to answer
+## for (the MCP client went away, or the chat was cleared).
+func _cancel_pending_auth_requests() -> void:
+	var pending := _pending_auth_requests.duplicate()
+	_pending_auth_requests.clear()
+	_shown_auth_request = null
+	tool_use_auth_dialog.hide()
+
+	for request in pending:
+		request.resolve(false)
+
+
 func _show_tool_info(p_id: String, p_name: String, p_input, p_output) -> void:
 	tool_use_info_dialog.popup_centered_ratio(0.6)
 	tool_use_info_dialog.setup_tool_info(p_id, p_name, p_input, p_output)
@@ -405,12 +532,24 @@ func _stop_current_chat() -> void:
 		current_chat.message_added.disconnect(_on_current_chat_message_added)
 	current_chat = null
 
+	# Cancel before denying the pending approvals: denying them lets the client
+	# carry on, and without the cancel it would submit a follow-up request for
+	# the chat we're throwing away. Clearing the member first, because cancelling
+	# resolves the request and resumes whoever is awaiting it right here.
+	if _current_request:
+		var request := _current_request
+		_current_request = null
+		request.cancel()
+
 	_pending_tool_chats.clear()
+	_cancel_pending_auth_requests()
 
 	for chat in chat_container.get_children():
 		chat.queue_free()
 
 	prompt.clear()
+	prompt.editable = true
+	submit_button.disabled = false
 	clear_button.disabled = true
 	loading_label.visible = false
 
@@ -427,7 +566,16 @@ func _submit_message() -> void:
 	loading_label.visible = true
 	prompt.editable = false
 
-	var resp: ClaudeClient.Response = await claude_client.submit_chat(current_chat).completed
+	var request := claude_client.submit_chat(current_chat)
+	_current_request = request
+
+	var resp: ClaudeClient.Response = await request.completed
+
+	# The chat was cleared (or restarted) while we were waiting, so there's
+	# nothing left to report this into.
+	if _current_request != request:
+		return
+	_current_request = null
 
 	submit_button.disabled = false
 	loading_label.visible = false

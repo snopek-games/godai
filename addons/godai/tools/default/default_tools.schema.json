@@ -21,6 +21,24 @@
 							"type": "string"
 						}
 					},
+					"annotations": {
+						"type": "object",
+						"properties": {
+							"readOnlyHint": {
+								"type": "boolean"
+							},
+							"destructiveHint": {
+								"type": "boolean"
+							},
+							"idempotentHint": {
+								"type": "boolean"
+							},
+							"openWorldHint": {
+								"type": "boolean"
+							}
+						},
+						"required": ["readOnlyHint", "openWorldHint"]
+					},
 					"inputSchema": {
 						"$ref": "https://json-schema.org/draft/2020-12/schema"
 					},
@@ -32,7 +50,7 @@
 						"default": "false"
 					}
 				},
-				"required": ["title", "description"],
+				"required": ["title", "description", "annotations"],
 				"additionalProperties": false
 			}
 		}

@@ -76,7 +76,7 @@ func CreateTestProject(dir string, opts ProjectOptions) error {
 		"config/name=\"" + opts.Name + "\"\n" +
 		"config/features=PackedStringArray(\"4.6\")\n"
 	if opts.SkipSecretCheck {
-		projectGodot += "\n[editor_overrides]\n\ngodai/mcp_skip_secret_check=true\n"
+		projectGodot += "\n[editor_overrides]\n\ngodai/mcp/skip_secret_check=true\n"
 	}
 	if opts.InstallAddon {
 		projectGodot += "\n[editor_plugins]\n\nenabled=PackedStringArray(\"res://addons/godai/plugin.cfg\")\n"
@@ -133,8 +133,12 @@ type EditorOptions struct {
 	// Lets the restart_editor and close_editor tools run end-to-end without
 	// actually shutting down the editor the harness manages.
 	DisableShutdown bool
-	Verbose        bool
-	ExtraEnv       []string
+	// Leaves auto-approval off, so tools needing the user's approval are denied
+	// instead. Only useful for testing that denial path: every other test wants
+	// approval granted, since a headless editor has nobody to answer the dialog.
+	NoAutoApproveTools bool
+	Verbose            bool
+	ExtraEnv           []string
 }
 
 func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, string, error) {
@@ -153,6 +157,11 @@ func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, s
 		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", opts.Port),
 		"GODAI_MCP_PORT_COUNT=1",
 	)
+	if !opts.NoAutoApproveTools {
+		// Nobody is there to answer the approval dialog in a headless editor, so
+		// without this every tool that needs approval would be denied.
+		env = append(env, "GODAI_AUTO_APPROVE_TOOLS=1")
+	}
 	if opts.DisableShutdown {
 		env = append(env, "GODAI_DISABLE_CLOSE=1")
 	}

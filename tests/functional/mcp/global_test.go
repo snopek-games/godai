@@ -135,6 +135,7 @@ func TestGlobalModeOpenAndConnect(t *testing.T) {
 		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", port),
 		"GODAI_MCP_PORT_COUNT=1",
 		"GODAI_DISABLE_CLOSE=1",
+		"GODAI_AUTO_APPROVE_TOOLS=1",
 	}, os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
 	t.Cleanup(func() {

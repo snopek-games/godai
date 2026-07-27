@@ -23,6 +23,8 @@ class ScriptCreate extends DefaultTool:
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' already exists" % file_path})
 
@@ -57,6 +59,8 @@ class ScriptOpen extends DefaultTool:
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if not FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
 
@@ -76,6 +80,8 @@ class ScriptRead extends DefaultTool:
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if not FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
 
@@ -105,6 +111,8 @@ class ScriptWrite extends DefaultTool:
 		var content: String = p_input['content']
 
 		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if not FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' doesn't exist - use create_script to make a new script" % file_path})
 
@@ -155,6 +163,8 @@ class ScriptSave extends DefaultTool:
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if not FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3 uid="uid://cep3fyplgkkxp"]
+[gd_scene format=3 uid="uid://cep3fyplgkkxp"]
 
 [ext_resource type="Script" uid="uid://bgp3n5yk3asph" path="res://addons/godai/ui/user_chat.gd" id="1_ruxvb"]
 
@@ -14,14 +14,17 @@ corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 corner_detail = 5
 
-[node name="UserChat" type="PanelContainer"]
+[node name="UserChat" type="PanelContainer" unique_id=1017708745]
 offset_right = 40.0
 offset_bottom = 40.0
-size_flags_horizontal = 0
+size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_etgcp")
 script = ExtResource("1_ruxvb")
 
-[node name="Label" type="Label" parent="."]
+[node name="Label" type="Label" parent="." unique_id=1226333232]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(400, 0)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "My very good question"
+autowrap_mode = 3

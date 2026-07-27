@@ -5,6 +5,9 @@ const ToolResult = ToolManager.ToolResult
 const DefaultTool = ToolManager.DefaultTool
 const Utils = preload("res://addons/godai/utils.gd")
 const CustomLogger = preload("res://addons/godai/custom_logger.gd")
+const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
+
+const GODAI_SETTING_MESSAGE = "'%s' is a Godai setting; those are only accessible to the user, via Editor Settings."
 
 
 static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
@@ -21,11 +24,22 @@ class EditorGetSettings extends DefaultTool:
 		var names: Array = p_input.get('names', [])
 		var include_defaults: bool = p_input.get('include_defaults', false)
 
+		for name in names:
+			if GodaiEditorSettings.is_godai_setting(name):
+				return ToolResult.rejected({error = GODAI_SETTING_MESSAGE % name})
+
 		var result := Utils.get_settings_map(EditorInterface.get_editor_settings(), names, include_defaults)
 		if result.has('error'):
 			return ToolResult.rejected({error = result['error']})
 
-		return ToolResult.resolved({ settings = result['settings'] })
+		# Only has anything to do when 'names' was empty, since named Godai
+		# settings are rejected above.
+		var settings: Dictionary = result['settings']
+		for name in settings.keys():
+			if GodaiEditorSettings.is_godai_setting(name):
+				settings.erase(name)
+
+		return ToolResult.resolved({ settings = settings })
 
 
 class EditorSetSettings extends DefaultTool:
@@ -33,6 +47,10 @@ class EditorSetSettings extends DefaultTool:
 		var settings: Dictionary = p_input.get('settings', {})
 		if settings.is_empty():
 			return ToolResult.rejected({error = "'settings' is required"})
+
+		for name in settings:
+			if GodaiEditorSettings.is_godai_setting(name):
+				return ToolResult.rejected({error = GODAI_SETTING_MESSAGE % name})
 
 		var editor_settings := EditorInterface.get_editor_settings()
 

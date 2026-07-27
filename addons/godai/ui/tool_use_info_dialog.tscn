@@ -1,50 +1,52 @@
-[gd_scene load_steps=2 format=3 uid="uid://bfvgd1nbdtmqr"]
+[gd_scene format=3 uid="uid://bfvgd1nbdtmqr"]
 
 [ext_resource type="Script" uid="uid://bu7a46ttco11h" path="res://addons/godai/ui/tool_use_info_dialog.gd" id="1_l0hf3"]
 
-[node name="ToolUseInfoDialog" type="AcceptDialog"]
+[node name="ToolUseInfoDialog" type="AcceptDialog" unique_id=1306944380]
 oversampling_override = 1.0
 title = "Tool use info"
+position = Vector2i(0, 36)
 size = Vector2i(768, 450)
 visible = true
+dialog_autowrap = true
 script = ExtResource("1_l0hf3")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=31446292]
 offset_left = 8.0
 offset_top = 8.0
 offset_right = 760.0
 offset_bottom = 401.0
 
-[node name="GridContainer" type="GridContainer" parent="VBoxContainer"]
+[node name="GridContainer" type="GridContainer" parent="VBoxContainer" unique_id=1373113103]
 layout_mode = 2
 size_flags_horizontal = 3
 columns = 2
 
-[node name="NameLabel" type="Label" parent="VBoxContainer/GridContainer"]
+[node name="NameLabel" type="Label" parent="VBoxContainer/GridContainer" unique_id=666547586]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Tool name:"
 
-[node name="NameField" type="Label" parent="VBoxContainer/GridContainer"]
+[node name="NameField" type="Label" parent="VBoxContainer/GridContainer" unique_id=1933381357]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "blah_blah"
 
-[node name="IDLabel" type="Label" parent="VBoxContainer/GridContainer"]
+[node name="IDLabel" type="Label" parent="VBoxContainer/GridContainer" unique_id=1506635915]
 layout_mode = 2
 text = "Tool use ID:"
 
-[node name="IDField" type="Label" parent="VBoxContainer/GridContainer"]
+[node name="IDField" type="Label" parent="VBoxContainer/GridContainer" unique_id=1345166279]
 unique_name_in_owner = true
 layout_mode = 2
 text = "tool_xyz123"
 
-[node name="InputLabel" type="Label" parent="VBoxContainer"]
+[node name="InputLabel" type="Label" parent="VBoxContainer" unique_id=1394976665]
 layout_mode = 2
 text = "Input:"
 
-[node name="InputField" type="RichTextLabel" parent="VBoxContainer"]
+[node name="InputField" type="RichTextLabel" parent="VBoxContainer" unique_id=1476878093]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
@@ -53,11 +55,11 @@ focus_mode = 2
 context_menu_enabled = true
 selection_enabled = true
 
-[node name="OutputLabel" type="Label" parent="VBoxContainer"]
+[node name="OutputLabel" type="Label" parent="VBoxContainer" unique_id=351117008]
 layout_mode = 2
 text = "Output:"
 
-[node name="OutputField" type="RichTextLabel" parent="VBoxContainer"]
+[node name="OutputField" type="RichTextLabel" parent="VBoxContainer" unique_id=680389270]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2

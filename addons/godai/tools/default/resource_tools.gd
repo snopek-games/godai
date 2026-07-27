@@ -24,8 +24,9 @@ class ResourceCreate extends DefaultTool:
 		if resource_type.is_empty():
 			return ToolResult.rejected({error = "'resource_type' is required"})
 
-		if not file_path.begins_with('res://'):
-			file_path = 'res://' + file_path.lstrip('/')
+		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' already exists" % file_path})
 
@@ -94,8 +95,9 @@ class ResourceOpen extends DefaultTool:
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' is required"})
 
-		if not file_path.begins_with('res://'):
-			file_path = 'res://' + file_path.lstrip('/')
+		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if not FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
 
@@ -117,8 +119,9 @@ class ResourceGetProperties extends DefaultTool:
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' is required"})
 
-		if not file_path.begins_with('res://'):
-			file_path = 'res://' + file_path.lstrip('/')
+		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		# Skip past the colon in "res://".
 		if file_path.find(":", 6) != -1:
 			return ToolResult.rejected({error = "'file_path' must point at just the file - request sub-properties via the 'properties' input (e.g. \"albedo_color:r\")"})
@@ -157,8 +160,9 @@ class ResourceSetProperties extends DefaultTool:
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' is required"})
 
-		if not file_path.begins_with('res://'):
-			file_path = 'res://' + file_path.lstrip('/')
+		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		# Skip past the colon in "res://".
 		if file_path.find(":", 6) != -1:
 			return ToolResult.rejected({error = "'file_path' must point at just the file - set sub-properties via colon-separated keys in 'properties' (e.g. \"albedo_color:r\")"})

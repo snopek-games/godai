@@ -14,6 +14,7 @@ static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
 	p_tools.register_tool(SceneGetSelectedNodes.new(p_data["get_selected_nodes"]))
 	p_tools.register_tool(SceneInstantiate.new(p_data["instantiate_scene"]))
 	p_tools.register_tool(SceneSave.new(p_data["save_scene"]))
+	p_tools.register_tool(SceneSaveAs.new(p_data["save_scene_as"]))
 
 
 class SceneGetCurrent extends DefaultTool:
@@ -80,8 +81,9 @@ class SceneCreate extends DefaultTool:
 		if root_node_type.is_empty():
 			return ToolResult.rejected({error = "'root_node_type' is required"})
 
-		if not file_path.begins_with('res://'):
-			file_path = 'res://' + file_path.lstrip('/')
+		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' already exists" % file_path})
 
@@ -133,8 +135,9 @@ class SceneOpen extends DefaultTool:
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' is required"})
 
-		if not file_path.begins_with('res://'):
-			file_path = 'res://' + file_path.lstrip('/')
+		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
 		if not FileAccess.file_exists(file_path):
 			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
 
@@ -176,6 +179,8 @@ class SceneInstantiate extends DefaultTool:
 		if scene_path.is_empty():
 			return ToolResult.rejected({error = "'scene_path' is required"})
 		scene_path = Utils.to_res_path(scene_path)
+		if scene_path.is_empty():
+			return ToolResult.rejected({error = "'scene_path' must be inside the project (res://)"})
 		if not FileAccess.file_exists(scene_path):
 			return ToolResult.rejected({error = "'%s' doesn't exist" % scene_path})
 
@@ -215,11 +220,37 @@ class SceneSave extends DefaultTool:
 			return ToolResult.rejected({error = "No scene open"})
 
 		if edited_scene_root.scene_file_path.is_empty():
-			return ToolResult.rejected({error = "The current scene has never been saved, so it has no file path"})
+			return ToolResult.rejected({error = "The current scene has never been saved, so it has no file path. Use save_scene_as instead."})
 
 		var err := EditorInterface.save_scene()
 		if err != OK:
 			return ToolResult.rejected({error = "Failed to save scene: %s" % error_string(err)})
+
+		return ToolResult.resolved({
+			success = true,
+			scene_path = edited_scene_root.scene_file_path,
+		})
+
+
+class SceneSaveAs extends DefaultTool:
+	func execute(p_input) -> ToolResult:
+		var file_path: String = p_input.get('file_path', '')
+
+		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
+		if not edited_scene_root:
+			return ToolResult.rejected({error = "No scene open"})
+
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' is required"})
+		file_path = Utils.to_res_path(file_path)
+		if file_path.is_empty():
+			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
+		if FileAccess.file_exists(file_path):
+			return ToolResult.rejected({error = "'%s' already exists" % file_path})
+
+		EditorInterface.save_scene_as(file_path)
+		if not FileAccess.file_exists(file_path):
+			return ToolResult.rejected({error = "'%s' failed to save" % file_path})
 
 		return ToolResult.resolved({
 			success = true,

@@ -1,11 +1,23 @@
 extends Node
 
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
+const ToolAuth = preload("res://addons/godai/tools/tool_auth.gd")
 
 const ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1/"
 const ANTHROPIC_VERSION = "2023-06-01"
-const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-5"
-const DEFAULT_MAX_TOKENS = 1024
+const DEFAULT_CLAUDE_MODEL = "claude-sonnet-5"
+
+## `max_tokens` caps thinking and response text together, so this needs enough
+## headroom for a whole turn of adaptive thinking plus the answer.
+const DEFAULT_MAX_TOKENS = 16000
+
+## Stop reasons that end the turn without Claude having said everything it meant
+## to. Mapped to something we can show the user, since the response itself
+## usually looks like an ordinary (if short) reply.
+const STOP_REASON_ERRORS = {
+	max_tokens = "The response was cut off after reaching the 'max_tokens' limit.",
+	refusal = "Claude declined to continue with this response.",
+}
 
 const HTTP_REQUEST_META = 'godai_request'
 
@@ -54,6 +66,13 @@ class Message extends RefCounted:
 				content.push_back(c)
 			else:
 				push_error("Invalid message content: %s", c)
+
+	func remove_tool_use() -> void:
+		var kept: Array[MessageContent]
+		for c in content:
+			if c.get_type() != "tool_use":
+				kept.push_back(c)
+		content = kept
 
 	func to_dict() -> Dictionary:
 		return {
@@ -114,6 +133,10 @@ class Request extends RefCounted:
 
 	var model: String
 	var max_tokens: int
+	var effort: String
+
+	var _cancelled := false
+	var _done := false
 
 	## Emitted when any response is received. May be emitted multiple times.
 	signal response_received(response: Response)
@@ -126,29 +149,60 @@ class Request extends RefCounted:
 		chat = p_chat
 
 	func resolve(p_response: Response) -> void:
+		if _done:
+			return
+		_done = true
 		completed.emit(p_response)
+
+	## Gives up on the request: no more tools run and no follow-up is submitted.
+	## Resolves right away so whoever is awaiting it isn't left hanging - anything
+	## still in flight is thrown away when it arrives.
+	func cancel() -> void:
+		if _cancelled:
+			return
+		_cancelled = true
+		resolve(Response.new(null, ResponseError.new("cancelled", "The request was cancelled.")))
+
+	func is_cancelled() -> bool:
+		return _cancelled
 
 
 var api_key: String
+var model := DEFAULT_CLAUDE_MODEL
+var max_tokens := DEFAULT_MAX_TOKENS
+var effort := "high"
+
 var tools: ToolManager
+
+## Optional hook, called as `tool_use_authorizer.call(name, input)` before a tool
+## runs. Returns a ToolAuth.Request. When unset, every tool runs unauthorized.
+var tool_use_authorizer: Callable
 
 
 func _init() -> void:
 	pass
 
 
-func submit_chat(p_chat: Chat, p_max_tokens: int = DEFAULT_MAX_TOKENS, p_model: String = DEFAULT_CLAUDE_MODEL) -> Request:
+func submit_chat(p_chat: Chat) -> Request:
 	var req := Request.new(p_chat)
-	req.model = p_model
-	req.max_tokens = p_max_tokens
+	req.model = model
+	req.max_tokens = max_tokens
+	req.effort = effort
 	_submit_request(req)
 	return req
 
 
 func _submit_request(p_request: Request) -> void:
+	if p_request.is_cancelled():
+		return
+
 	var data: Dictionary = p_request.chat.to_dict()
 	data['model'] = p_request.model
 	data['max_tokens'] = p_request.max_tokens
+
+	if not p_request.effort.is_empty():
+		data['thinking'] = {type = "adaptive"}
+		data['output_config'] = {effort = p_request.effort}
 
 	if tools and tools.tools.size() > 0:
 		data['tools'] = tools.tools.values().map(func (v): return v.to_dict())
@@ -180,6 +234,9 @@ func _on_request_completed(p_result: int, p_code: int, p_headers: PackedStringAr
 	var req: Request = p_http_request.get_meta(HTTP_REQUEST_META)
 	remove_child(p_http_request)
 
+	if req.is_cancelled():
+		return
+
 	var data = JSON.parse_string(p_body.get_string_from_utf8())
 
 	var msg: Message
@@ -194,13 +251,23 @@ func _on_request_completed(p_result: int, p_code: int, p_headers: PackedStringAr
 	else:
 		resp.payload = data
 
+		var stop_reason: String = data.get("stop_reason", "")
+
 		# We're going to make a follow-up request!
-		if data['stop_reason'] in ["tool_use", "pause_turn"]:
+		if stop_reason in ["tool_use", "pause_turn"]:
 			complete = false
+		elif stop_reason in STOP_REASON_ERRORS:
+			resp.error = ResponseError.new(stop_reason, STOP_REASON_ERRORS[stop_reason])
 
 		var resp_type: String = data.get("type", "")
 		if resp_type == "message":
 			msg = Message.new(data.get("role", "assistant"), data.get("content", []))
+
+			# If the turn was cut short, we need to remove any tool_use, because
+			# we'll never respond to them, which will lead to any continuation of
+			# the conversation to hit an API error.
+			if stop_reason in STOP_REASON_ERRORS:
+				msg.remove_tool_use()
 
 		else:
 			print("Unable to handle response type '%s': %s" % [resp_type, data])
@@ -228,14 +295,25 @@ func _on_request_completed(p_result: int, p_code: int, p_headers: PackedStringAr
 						req.resolve(new_resp)
 						return
 
-					var tool_result: ToolManager.ToolResult = tool_obj.execute(tool_input)
-					if not tool_result.is_done():
-						await tool_result.completed
+					var allowed := await _authorize_tool_use(tool_name, tool_input)
+					if req.is_cancelled():
+						return
+
+					var tool_result: ToolManager.ToolResult
+					if allowed:
+						tool_result = tool_obj.execute(tool_input)
+						if not tool_result.is_done():
+							await tool_result.completed
+							if req.is_cancelled():
+								return
+					else:
+						tool_result = ToolAuth.denied_result(tool_name)
 
 					tool_results.push_back(MessageContent.from_dict({
 						type = "tool_result",
 						tool_use_id = tool_id,
 						content = tool_result.get_content_as_string(),
+						is_error = tool_result.is_error(),
 					}))
 
 			if tool_results.size() > 0:
@@ -246,3 +324,13 @@ func _on_request_completed(p_result: int, p_code: int, p_headers: PackedStringAr
 
 	if complete:
 		req.resolve(resp)
+
+
+func _authorize_tool_use(p_name: String, p_input) -> bool:
+	if not tool_use_authorizer.is_valid():
+		return true
+
+	var request = tool_use_authorizer.call(p_name, p_input)
+	if not request.is_done():
+		await request.completed
+	return request.allowed

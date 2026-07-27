@@ -404,3 +404,74 @@ func TestSaveScene(t *testing.T) {
 		}
 	})
 }
+
+func TestSaveSceneAs(t *testing.T) {
+	t.Run("no_scene_open", func(t *testing.T) {
+		requireManagedProject(t)
+		closeAllScenes(t)
+		callToolErr(t, "save_scene_as", map[string]any{
+			"file_path": "res://scenes/save_as_nope.tscn",
+		}, "No scene open")
+	})
+
+	t.Run("missing_file_path", func(t *testing.T) {
+		callToolOK(t, "create_scene", map[string]any{
+			"file_path":      "res://scenes/save_as_missing_path.tscn",
+			"root_node_type": "Node2D",
+		})
+		callToolErr(t, "save_scene_as", nil, "'file_path' is required")
+	})
+
+	t.Run("escapes_project", func(t *testing.T) {
+		callToolOK(t, "create_scene", map[string]any{
+			"file_path":      "res://scenes/save_as_escape.tscn",
+			"root_node_type": "Node2D",
+		})
+		callToolErr(t, "save_scene_as", map[string]any{
+			"file_path": "../outside.tscn",
+		}, "must be inside the project")
+	})
+
+	t.Run("success", func(t *testing.T) {
+		is := is.New(t)
+
+		callToolOK(t, "create_scene", map[string]any{
+			"file_path":      "res://scenes/save_as_source.tscn",
+			"root_node_type": "Node2D",
+		})
+		callToolOK(t, "add_node", map[string]any{
+			"parent_path": ".",
+			"node_type":   "Node2D",
+			"properties":  map[string]any{"name": "SavedAsChild"},
+		})
+
+		// No res:// prefix, to also cover the prefixing code path.
+		structured := callToolOK(t, "save_scene_as", map[string]any{
+			"file_path": "scenes/save_as_dest.tscn",
+		})
+		is.Equal(structured["success"], true)
+		is.Equal(structured["scene_path"], "res://scenes/save_as_dest.tscn")
+
+		// The current scene's path follows the save-as to the new file.
+		scene := callToolOK(t, "get_current_scene", nil)
+		is.Equal(scene["scene_path"], "res://scenes/save_as_dest.tscn")
+
+		if content := readProjectFile(t, "scenes/save_as_dest.tscn"); content != "" {
+			is.True(strings.Contains(content, `name="SavedAsChild"`))
+		}
+
+		// A subsequent save_scene writes to the new path.
+		saved := callToolOK(t, "save_scene", nil)
+		is.Equal(saved["scene_path"], "res://scenes/save_as_dest.tscn")
+	})
+
+	t.Run("already_exists", func(t *testing.T) {
+		callToolOK(t, "create_scene", map[string]any{
+			"file_path":      "res://scenes/save_as_existing.tscn",
+			"root_node_type": "Node2D",
+		})
+		callToolErr(t, "save_scene_as", map[string]any{
+			"file_path": "res://scenes/save_as_existing.tscn",
+		}, "already exists")
+	})
+}

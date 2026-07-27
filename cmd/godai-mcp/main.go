@@ -83,6 +83,11 @@ func main() {
 				Usage: "the timeout (in seconds) when making a request to the editor",
 				Value: 15,
 			},
+			&cli.IntFlag{
+				Name:  "editor-tool-timeout",
+				Usage: "the timeout (in seconds) when calling a tool in the editor, which may include waiting for the user to approve it",
+				Value: 300,
+			},
 			&cli.StringFlag{
 				Name:    "x11-display",
 				Usage:   "the x11 DISPLAY variable (may be needed on Linux to launch the editor)",
@@ -122,6 +127,7 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 		EditorScanInterval:  time.Second * time.Duration(cmd.Int("editor-scan-interval")),
 		EditorRetryDelay:    time.Second * time.Duration(cmd.Int("editor-retry-delay")),
 		EditorTimeout:       time.Second * time.Duration(cmd.Int("editor-timeout")),
+		EditorToolTimeout:   time.Second * time.Duration(cmd.Int("editor-tool-timeout")),
 		DefaultGodotPath:    cmd.String("godot-path"),
 		ProjectBasePath:     cmd.String("project-base-path"),
 		X11Display:          cmd.String("x11-display"),

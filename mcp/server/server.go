@@ -6,9 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gitlab.com/snopek-games/godai"
-	"gitlab.com/snopek-games/godai/mcp/godot"
-	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
 	"io"
 	"log/slog"
 	"net/url"
@@ -21,6 +18,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"gitlab.com/snopek-games/godai"
+	"gitlab.com/snopek-games/godai/mcp/godot"
+	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
 )
 
 const ProtocolVersion string = "2025-11-25"
@@ -80,7 +81,12 @@ type initializeResult struct {
 type callToolParams struct {
 	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments"`
+	Meta      map[string]any  `json:"_meta,omitempty"`
 }
+
+// Lets the editor stop waiting when we do, rather than finishing a call the
+// client was already told had failed.
+const timeoutMetaKey = "godai/timeout_ms"
 
 type toolTextContent struct {
 	Type string `json:"type"`
@@ -685,6 +691,36 @@ func (s *Server) rpcRootsListChanged(ctx context.Context, rawParams json.RawMess
 	return nil, nil
 }
 
+func buildAnnotations(title string, ann map[string]any) map[string]any {
+	// 'title' is also set on the annotations for backwards compatibility with old MCP clients.
+	out := map[string]any{"title": title}
+
+	readOnlyHint, _ := ann["readOnlyHint"].(bool)
+	out["readOnlyHint"] = readOnlyHint
+
+	if openWorldHint, ok := ann["openWorldHint"]; ok {
+		out["openWorldHint"] = openWorldHint
+	} else {
+		out["openWorldHint"] = true
+	}
+
+	if !readOnlyHint {
+		if destructiveHint, ok := ann["destructiveHint"]; ok {
+			out["destructiveHint"] = destructiveHint
+		} else {
+			out["destructiveHint"] = true
+		}
+
+		if idempotentHint, ok := ann["idempotentHint"]; ok {
+			out["idempotentHint"] = idempotentHint
+		} else {
+			out["idempotentHint"] = false
+		}
+	}
+
+	return out
+}
+
 func (s *Server) rpcListTools(ctx context.Context, rawParams json.RawMessage) (any, *jsonrpc.Error) {
 	type toolOut struct {
 		Name         string          `json:"name"`
@@ -692,6 +728,7 @@ func (s *Server) rpcListTools(ctx context.Context, rawParams json.RawMessage) (a
 		Description  string          `json:"description"`
 		InputSchema  json.RawMessage `json:"inputSchema"`
 		OutputSchema json.RawMessage `json:"outputSchema,omitempty"`
+		Annotations  map[string]any  `json:"annotations"`
 	}
 
 	list := []toolOut{}
@@ -707,7 +744,9 @@ func (s *Server) rpcListTools(ctx context.Context, rawParams json.RawMessage) (a
 			Description:  toolDef.GetDescription(),
 			InputSchema:  toolDef.GetInputSchema(),
 			OutputSchema: toolDef.GetOutputSchema(),
+			Annotations:  buildAnnotations(toolDef.Title, toolDef.Annotations),
 		}
+
 		list = append(list, out)
 	}
 	for name, toolDef := range GetDefaultRemoteToolDefinitions() {
@@ -741,6 +780,7 @@ func (s *Server) rpcListTools(ctx context.Context, rawParams json.RawMessage) (a
 			Description:  toolDef.GetDescription(),
 			InputSchema:  rawInputSchema,
 			OutputSchema: toolDef.GetOutputSchema(),
+			Annotations:  buildAnnotations(toolDef.Title, toolDef.Annotations),
 		}
 		list = append(list, out)
 	}
@@ -792,15 +832,44 @@ func (s *Server) callLocalTool(ctx context.Context, tool *Tool, params *callTool
 	return output, nil
 }
 
-func (s *Server) callRemoteTool(ctx context.Context, params *callToolParams) (*jsonrpc.Response, error) {
-	var partialToolArguments struct {
-		ProjectPath string `json:"project_path"`
-	}
-	if err := json.Unmarshal(params.Arguments, &partialToolArguments); err != nil {
-		return nil, newUserVisibleError("project_path argument is required", err, nil)
+// Splits the "project_path" argument, which selects the editor to talk to, from
+// the arguments forwarded to it.
+//
+// Decoding one level deep keeps every remaining value as the bytes the client
+// sent: decoding into a map[string]any would turn each number into a float64,
+// and re-encoding that silently rounds anything past 2^53.
+func splitProjectPath(raw json.RawMessage) (string, json.RawMessage, error) {
+	var arguments map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &arguments); err != nil {
+		return "", nil, newUserVisibleError("unable to parse tool arguments", err, nil)
 	}
 
-	projectPath, err := canonicalPath(partialToolArguments.ProjectPath)
+	rawProjectPath, ok := arguments["project_path"]
+	if !ok {
+		return "", nil, newUserVisibleError("project_path argument is required", nil, nil)
+	}
+
+	var projectPath string
+	if err := json.Unmarshal(rawProjectPath, &projectPath); err != nil {
+		return "", nil, newUserVisibleError("project_path argument must be a string", err, nil)
+	}
+
+	delete(arguments, "project_path")
+	forwarded, err := json.Marshal(arguments)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return projectPath, forwarded, nil
+}
+
+func (s *Server) callRemoteTool(ctx context.Context, params *callToolParams) (*jsonrpc.Response, error) {
+	rawProjectPath, forwardedArguments, err := splitProjectPath(params.Arguments)
+	if err != nil {
+		return nil, err
+	}
+
+	projectPath, err := canonicalPath(rawProjectPath)
 	if err != nil {
 		return nil, err
 	}
@@ -810,10 +879,16 @@ func (s *Server) callRemoteTool(ctx context.Context, params *callToolParams) (*j
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, s.config.EditorTimeout)
+	ctx, cancel := context.WithTimeout(ctx, s.config.EditorToolTimeout)
 	defer cancel()
 
-	return conn.CallMethod(ctx, "tools/call", params)
+	return conn.CallMethod(ctx, "tools/call", &callToolParams{
+		Name:      params.Name,
+		Arguments: forwardedArguments,
+		Meta: map[string]any{
+			timeoutMetaKey: s.config.EditorToolTimeout.Milliseconds(),
+		},
+	})
 }
 
 func (s *Server) rpcCallTool(ctx context.Context, rawParams json.RawMessage) (any, *jsonrpc.Error) {

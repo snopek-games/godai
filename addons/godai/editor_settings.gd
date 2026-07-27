@@ -1,21 +1,44 @@
 extends RefCounted
 
-const ANTHROPIC_API_KEY_SETTING = "godai/anthropic_api_key"
-const MCP_TRANSPORT_SETTING = "godai/mcp_transport"
-const MCP_BASE_PORT_SETTING = "godai/mcp_base_port"
-const MCP_PORT_COUNT_SETTING = "godai/mcp_port_count"
-const MCP_SKIP_SECRET_CHECK = "godai/mcp_skip_secret_check"
+const SETTING_PREFIX = "godai/"
+const EDITOR_OVERRIDES_PREFIX = "editor_overrides/"
 
+const ANTHROPIC_API_KEY_SETTING = "godai/api/anthropic_key"
+const ANTHROPIC_API_MODEL_SETTING = "godai/api/anthropic_model"
+
+const MCP_TRANSPORT_SETTING = "godai/mcp/transport"
+const MCP_BASE_PORT_SETTING = "godai/mcp/base_port"
+const MCP_PORT_COUNT_SETTING = "godai/mcp/port_count"
+const MCP_SKIP_SECRET_CHECK_SETTING = "godai/mcp/skip_secret_check"
+
+const AUTO_APPROVE_TOOLS_SETTING = "godai/tools/auto_approve"
+const ALLOWED_TOOLS_SETTING = "godai/tools/allowed"
+const DENIED_TOOLS_SETTING = "godai/tools/denied"
+
+const ANTHROPIC_API_MODEL_DEFAULT = "claude-sonnet-5"
 const MCP_TRANSPORT_DEFAULT = 0
 const MCP_BASE_PORT_DEFAULT = 12120
 const MCP_PORT_COUNT_DEFAULT = 10
 const MCP_SKIP_SECRET_CHECK_DEFAULT = false
+const AUTO_APPROVE_TOOLS_DEFAULT = false
 
 # Environment variables that override the editor settings (used for testing).
 const MCP_TRANSPORT_ENV = "GODAI_MCP_TRANSPORT"
 const MCP_BASE_PORT_ENV = "GODAI_MCP_BASE_PORT"
 const MCP_PORT_COUNT_ENV = "GODAI_MCP_PORT_COUNT"
 const MCP_SKIP_SECRET_CHECK_ENV = "GODAI_MCP_SKIP_SECRET_CHECK"
+const AUTO_APPROVE_TOOLS_ENV = "GODAI_AUTO_APPROVE_TOOLS"
+
+
+static func is_godai_setting(p_name) -> bool:
+	return str(p_name).begins_with(SETTING_PREFIX)
+
+
+static func is_godai_project_setting(p_name) -> bool:
+	var name := str(p_name)
+	if not name.begins_with(EDITOR_OVERRIDES_PREFIX):
+		return false
+	return is_godai_setting(name.substr(EDITOR_OVERRIDES_PREFIX.length()))
 
 
 static func _add_editor_setting(p_name: String, p_type: int, p_default, p_hint = null, p_hint_string = null) -> void:
@@ -39,11 +62,17 @@ static func _add_editor_setting(p_name: String, p_type: int, p_default, p_hint =
 
 
 static func add_editor_settings() -> void:
+	_add_editor_setting(ANTHROPIC_API_KEY_SETTING, TYPE_STRING, "", PROPERTY_HINT_PASSWORD)
+	_add_editor_setting(ANTHROPIC_API_MODEL_SETTING, TYPE_STRING, ANTHROPIC_API_MODEL_DEFAULT)
+
 	_add_editor_setting(MCP_TRANSPORT_SETTING, TYPE_INT, MCP_TRANSPORT_DEFAULT, PROPERTY_HINT_ENUM, "WebSocket,HTTP")
 	_add_editor_setting(MCP_BASE_PORT_SETTING, TYPE_INT, MCP_BASE_PORT_DEFAULT)
 	_add_editor_setting(MCP_PORT_COUNT_SETTING, TYPE_INT, MCP_PORT_COUNT_DEFAULT)
-	_add_editor_setting(MCP_SKIP_SECRET_CHECK, TYPE_BOOL, MCP_SKIP_SECRET_CHECK_DEFAULT)
-	_add_editor_setting(ANTHROPIC_API_KEY_SETTING, TYPE_STRING, "", PROPERTY_HINT_PASSWORD)
+	_add_editor_setting(MCP_SKIP_SECRET_CHECK_SETTING, TYPE_BOOL, MCP_SKIP_SECRET_CHECK_DEFAULT)
+
+	_add_editor_setting(AUTO_APPROVE_TOOLS_SETTING, TYPE_BOOL, AUTO_APPROVE_TOOLS_DEFAULT)
+	_add_editor_setting(ALLOWED_TOOLS_SETTING, TYPE_STRING, "", PROPERTY_HINT_MULTILINE_TEXT)
+	_add_editor_setting(DENIED_TOOLS_SETTING, TYPE_STRING, "", PROPERTY_HINT_MULTILINE_TEXT)
 
 
 static func _get_int_env_or_setting(p_env: String, p_setting: String) -> int:
@@ -83,4 +112,46 @@ static func get_mcp_skip_secret_check() -> bool:
 		var value := OS.get_environment(MCP_SKIP_SECRET_CHECK_ENV)
 		if not value.is_empty() and value != "0":
 			return true
-	return EditorInterface.get_editor_settings().get_setting(MCP_SKIP_SECRET_CHECK)
+	return EditorInterface.get_editor_settings().get_setting(MCP_SKIP_SECRET_CHECK_SETTING)
+
+
+## When true, tools that would otherwise need the user's approval run without
+## asking. Needed for headless editors, where nobody can answer the dialog.
+static func get_auto_approve_tools() -> bool:
+	if OS.has_environment(AUTO_APPROVE_TOOLS_ENV):
+		var value := OS.get_environment(AUTO_APPROVE_TOOLS_ENV)
+		if not value.is_empty() and value != "0":
+			return true
+	return EditorInterface.get_editor_settings().get_setting(AUTO_APPROVE_TOOLS_SETTING)
+
+
+static func _get_tool_list(p_setting: String) -> PackedStringArray:
+	var tools := PackedStringArray()
+	var value: String = EditorInterface.get_editor_settings().get_setting(p_setting)
+	for line in value.split("\n", false):
+		var tool_name := line.strip_edges()
+		if not tool_name.is_empty():
+			tools.push_back(tool_name)
+	return tools
+
+
+static func _set_tool_list(p_setting: String, p_tools: PackedStringArray) -> void:
+	EditorInterface.get_editor_settings().set_setting(p_setting, "\n".join(p_tools))
+
+
+## Tools the user has approved for every session, one name per line.
+static func get_allowed_tools() -> PackedStringArray:
+	return _get_tool_list(ALLOWED_TOOLS_SETTING)
+
+
+static func set_allowed_tools(p_tools: PackedStringArray) -> void:
+	_set_tool_list(ALLOWED_TOOLS_SETTING, p_tools)
+
+
+## Tools the user has rejected for every session, one name per line.
+static func get_denied_tools() -> PackedStringArray:
+	return _get_tool_list(DENIED_TOOLS_SETTING)
+
+
+static func set_denied_tools(p_tools: PackedStringArray) -> void:
+	_set_tool_list(DENIED_TOOLS_SETTING, p_tools)

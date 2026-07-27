@@ -1,6 +1,7 @@
 package addon
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/matryer/is"
@@ -91,5 +92,53 @@ func TestEditorSettings(t *testing.T) {
 		callToolErr(t, "set_editor_settings", map[string]any{
 			"settings": map[string]any{},
 		}, "'settings' is required")
+	})
+}
+
+// Godai's own settings hold the Anthropic API key and the persisted tool
+// approvals, so the AI can neither read the key nor grant itself permissions the
+// user never approved.
+func TestGodaiEditorSettingsAreHidden(t *testing.T) {
+	const apiKeySetting = "godai/api/anthropic_key"
+
+	t.Run("get_by_name_is_rejected", func(t *testing.T) {
+		callToolErr(t, "get_editor_settings", map[string]any{
+			"names": []string{apiKeySetting},
+		}, "is a Godai setting")
+	})
+
+	t.Run("set_is_rejected", func(t *testing.T) {
+		is := is.New(t)
+
+		setToolSetting(t, allowedToolsSetting, "")
+		callToolErr(t, "set_editor_settings", map[string]any{
+			"settings": map[string]any{allowedToolsSetting: approvalTool},
+		}, "is a Godai setting")
+
+		// Rejected before anything was written.
+		is.Equal(getToolSetting(t, allowedToolsSetting), "")
+	})
+
+	t.Run("omitted_when_listing_everything", func(t *testing.T) {
+		is := is.New(t)
+
+		// Make sure at least one Godai setting differs from its default, so it
+		// would show up in both listings if it weren't filtered out.
+		setToolSetting(t, allowedToolsSetting, approvalTool)
+		t.Cleanup(func() { setToolSetting(t, allowedToolsSetting, "") })
+
+		for _, args := range []map[string]any{nil, {"include_defaults": true}} {
+			structured := callToolOK(t, "get_editor_settings", args)
+			settings, _ := structured["settings"].(map[string]any)
+			for name := range settings {
+				is.True(!strings.HasPrefix(name, "godai/"))
+			}
+		}
+
+		// The modified-only listing can legitimately be empty once the Godai
+		// settings are filtered out, so prove the filter isn't just hiding an
+		// empty result.
+		all := callToolOK(t, "get_editor_settings", map[string]any{"include_defaults": true})
+		is.True(len(all["settings"].(map[string]any)) > 0)
 	})
 }

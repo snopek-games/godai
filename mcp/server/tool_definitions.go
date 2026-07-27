@@ -4,9 +4,10 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"gitlab.com/snopek-games/godai"
 	"strings"
 	"sync"
+
+	"gitlab.com/snopek-games/godai"
 )
 
 //go:embed local_tools.json
@@ -22,6 +23,7 @@ type ToolDefinition struct {
 	InputSchema  json.RawMessage `json:"inputSchema,omitempty"`
 	OutputSchema json.RawMessage `json:"outputSchema,omitempty"`
 	DoNotForward bool            `json:"doNotForward,omitempty"`
+	Annotations  map[string]any  `json:"annotations"`
 }
 
 func (d *ToolDescription) UnmarshalJSON(data []byte) error {

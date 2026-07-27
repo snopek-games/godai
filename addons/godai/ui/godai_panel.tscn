@@ -1,16 +1,17 @@
-[gd_scene load_steps=5 format=3 uid="uid://e7j3j2cm4648"]
+[gd_scene format=3 uid="uid://e7j3j2cm4648"]
 
 [ext_resource type="Script" uid="uid://buj0mo4e6ylmw" path="res://addons/godai/ui/godai_panel.gd" id="1_lwv6s"]
 [ext_resource type="PackedScene" uid="uid://dqpb2cxw458dk" path="res://addons/godai/ui/loading_label.tscn" id="2_g1jqj"]
 [ext_resource type="PackedScene" uid="uid://bfvgd1nbdtmqr" path="res://addons/godai/ui/tool_use_info_dialog.tscn" id="3_3f5xt"]
+[ext_resource type="PackedScene" uid="uid://b6m0c04phsknd" path="res://addons/godai/ui/tool_use_auth_dialog.tscn" id="4_ccki8"]
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_3f5xt"]
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_wf8qb"]
 content_margin_left = 0.0
 content_margin_top = 0.0
 content_margin_right = 0.0
 content_margin_bottom = 0.0
 
-[node name="GodaiPanel" type="VBoxContainer"]
+[node name="GodaiPanel" type="VBoxContainer" unique_id=588651610]
 custom_minimum_size = Vector2(0, 200)
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,59 +20,59 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_lwv6s")
 
-[node name="StatusBar" type="HBoxContainer" parent="."]
+[node name="StatusBar" type="HBoxContainer" parent="." unique_id=205466234]
 layout_mode = 2
 
-[node name="MCPStatusLabel" type="Label" parent="StatusBar"]
+[node name="MCPStatusLabel" type="Label" parent="StatusBar" unique_id=1831483839]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "MCP server was unable to start."
+text = "MCP server stopped."
 
-[node name="StartMCPButton" type="Button" parent="StatusBar"]
+[node name="StartMCPButton" type="Button" parent="StatusBar" unique_id=1835681392]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Start MCP"
 
-[node name="StopMCPButton" type="Button" parent="StatusBar"]
+[node name="StopMCPButton" type="Button" parent="StatusBar" unique_id=2035161287]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 text = "Stop MCP"
 
-[node name="ChatPanel" type="PanelContainer" parent="."]
+[node name="ChatPanel" type="PanelContainer" parent="." unique_id=801427094]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_styles/panel = SubResource("StyleBoxEmpty_3f5xt")
+theme_override_styles/panel = SubResource("StyleBoxEmpty_wf8qb")
 
-[node name="ChatScroll" type="ScrollContainer" parent="ChatPanel"]
+[node name="ChatScroll" type="ScrollContainer" parent="ChatPanel" unique_id=756818761]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 vertical_scroll_mode = 4
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ChatPanel/ChatScroll"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ChatPanel/ChatScroll" unique_id=906686212]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ChatContainer" type="VBoxContainer" parent="ChatPanel/ChatScroll/VBoxContainer"]
+[node name="ChatContainer" type="VBoxContainer" parent="ChatPanel/ChatScroll/VBoxContainer" unique_id=1795629659]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="LoadingLabel" parent="ChatPanel/ChatScroll/VBoxContainer" instance=ExtResource("2_g1jqj")]
+[node name="LoadingLabel" parent="ChatPanel/ChatScroll/VBoxContainer" unique_id=633152949 instance=ExtResource("2_g1jqj")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 
-[node name="PromptBar" type="HBoxContainer" parent="."]
+[node name="PromptBar" type="HBoxContainer" parent="." unique_id=1351267045]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="Prompt" type="TextEdit" parent="PromptBar"]
+[node name="Prompt" type="TextEdit" parent="PromptBar" unique_id=1818640624]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -80,24 +81,28 @@ scroll_fit_content_height = true
 caret_blink = true
 caret_multiple = false
 
-[node name="SubmitButton" type="Button" parent="PromptBar"]
+[node name="SubmitButton" type="Button" parent="PromptBar" unique_id=2091228063]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Submit"
 
-[node name="ClearButton" type="Button" parent="PromptBar"]
+[node name="ClearButton" type="Button" parent="PromptBar" unique_id=1214724503]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "Clear"
 
-[node name="MCPStoppingTimer" type="Timer" parent="."]
+[node name="MCPStoppingTimer" type="Timer" parent="." unique_id=1688743947]
 unique_name_in_owner = true
 wait_time = 5.0
 one_shot = true
 ignore_time_scale = true
 
-[node name="ToolUseInfoDialog" parent="." instance=ExtResource("3_3f5xt")]
+[node name="ToolUseInfoDialog" parent="." unique_id=753216104 instance=ExtResource("3_3f5xt")]
+unique_name_in_owner = true
+visible = false
+
+[node name="ToolUseAuthDialog" parent="." unique_id=1305495561 instance=ExtResource("4_ccki8")]
 unique_name_in_owner = true
 visible = false
 

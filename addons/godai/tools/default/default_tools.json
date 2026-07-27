@@ -11,6 +11,10 @@
 				" - project_name: The project's configured name",
 				" - headless: Whether the editor is running with a headless display driver"
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"outputSchema": {
 				"type": "object",
 				"properties": {
@@ -41,6 +45,10 @@
 				"",
 				"Returns 'settings': a map of setting name to value, in Godot variant syntax."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -79,6 +87,12 @@
 				"Pass 'settings': a map of setting name (e.g. 'display/window/size/viewport_width') to value. Values are strings in Godot variant syntax (e.g. `1280`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
 				"Settings that don't exist yet are created. Use get_project_settings to see the available setting names and their current values."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -115,6 +129,10 @@
 				" - root_node_name: The name of the root Node of the scene",
 				"If no scene is currently open, it'll return an empty string for all of the above."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"outputSchema": {
 				"type": "object",
 				"properties": {
@@ -147,6 +165,10 @@
 				" - children: An array of objects with the same structure, representing the child nodes; will be omitted if node has no children",
 				"If no scene is currently open, it'll return an empty object."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"outputSchema": {
 				"type": "object",
 				"description": "A node in the scene tree, or an empty object if no scene is open. Children share this same structure.",
@@ -193,6 +215,12 @@
 					}
 				}
 			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"outputSchema": {
 				"type": "object",
 				"properties": {
@@ -207,6 +235,10 @@
 		"open_scene": {
 			"title": "Open Scene",
 			"description": "Opens a scene in the editor",
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -241,6 +273,10 @@
 				"To inspect the properties of an embedded resource, append a colon-separated property path to the node path: `MyMesh:mesh` returns the properties of the mesh resource, and `MyMesh:mesh:radius` returns just that value.",
 				"If a node isn't found, its value will be an empty object. If a property path can't be resolved, its value will be an object with an `error` key."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -296,6 +332,12 @@
 				"Otherwise, returns an object with a key for each node path, containing true if we were able to find the node; otherwise, false.",
 				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -347,6 +389,12 @@
 				"Otherwise, returns true and the path of the new node.",
 				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -386,6 +434,12 @@
 		"remove_node": {
 			"title": "Remove Node",
 			"description": "Removes the given node (and all its children) from the current scene",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -418,6 +472,12 @@
 				" - To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
 				"If any property name or value is invalid, an error is returned and the resource is NOT created."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -453,6 +513,10 @@
 		"open_resource": {
 			"title": "Open Resource",
 			"description": "Opens a resource in the inspector.",
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -489,6 +553,10 @@
 				"If a requested property holds an embedded resource (e.g. `noise`), all of that resource's properties are returned for it, instead of just a summary.",
 				"If a requested property can't be resolved, its value will be an object with an `error` key."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -548,6 +616,12 @@
 				"If any property name or value is invalid, an error is returned and NO properties are changed.",
 				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -588,6 +662,10 @@
 				"Returns an object with a 'node_paths' key: an array of node paths (relative to the scene root) for the selected nodes.",
 				"If no scene is open or nothing is selected, 'node_paths' is an empty array."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"outputSchema": {
 				"type": "object",
 				"properties": {
@@ -610,6 +688,12 @@
 				"Returns true and the path of the new instance node.",
 				"This uses the Godot editor's undo/redo system."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -645,6 +729,45 @@
 		"save_scene": {
 			"title": "Save Scene",
 			"description": "Saves the scene currently open in the editor to its file. Fails if no scene is open, or if the current scene has never been saved (has no file path).",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "True if the scene was saved"
+					},
+					"scene_path": {
+						"type": "string",
+						"description": "The path the scene was saved to"
+					}
+				},
+				"required": ["success", "scene_path"]
+			}
+		},
+		"save_scene_as": {
+			"title": "Save Scene As",
+			"description": "Saves the scene currently open in the editor to the given path, changing the path of the current scene, such that subsequent save_scene calls would save to the new path. Fails if no scene is open.",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"file_path": {
+						"type": "string",
+						"description": "Path to the .tscn file to save to, relative to the project root"
+					}
+				}
+			},
 			"outputSchema": {
 				"type": "object",
 				"properties": {
@@ -667,6 +790,12 @@
 				"",
 				"This uses the Godot editor's undo/redo system."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -702,6 +831,12 @@
 				"",
 				"This uses the Godot editor's undo/redo system."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -737,6 +872,10 @@
 				"",
 				"Returns an object with a key for each requested node path, containing an array of group names. Internal engine groups are omitted. If a node isn't found, its value is an empty array."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -768,6 +907,12 @@
 				"Both nodes must be in the current scene. The signal must exist on the 'from' node, and the method on the 'to' node.",
 				"This uses the Godot editor's undo/redo system."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -807,6 +952,12 @@
 				"",
 				"This uses the Godot editor's undo/redo system."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -847,6 +998,12 @@
 				"The script's base type must be compatible with the node's type. Use create_script first if the script doesn't exist yet.",
 				"This uses the Godot editor's undo/redo system."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -874,6 +1031,12 @@
 		"detach_script": {
 			"title": "Detach Script",
 			"description": "Removes the script attached to a node in the current scene. This uses the Godot editor's undo/redo system.",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -901,6 +1064,12 @@
 				"",
 				"If 'content' is given, it is used as the file's contents. Otherwise, a minimal script extending 'base_class' is generated."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -932,6 +1101,10 @@
 		"open_script": {
 			"title": "Open Script",
 			"description": "Opens a script file in the editor's script editor.",
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -959,6 +1132,12 @@
 				"",
 				"If the script is open in the editor, its current (possibly unsaved) contents are written to disk. If it isn't open, there is nothing to save and this is a no-op."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -991,6 +1170,10 @@
 				"If the script is currently open in the editor, its live (possibly unsaved) buffer is returned and 'open_in_editor' is true. Otherwise the contents are read from disk.",
 				"Returns 'content' and 'open_in_editor'."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1024,6 +1207,12 @@
 				"If the script is open in the editor, its editor buffer is updated instead of the file on disk (so unsaved edits aren't silently clobbered); 'saved' will be false, and you can call save_script to write it to disk. If it isn't open, the file is written directly and 'saved' is true.",
 				"Use create_script to make a new script."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1063,6 +1252,12 @@
 				"",
 				"'scene' controls what runs: omit it or use 'main' to run the project's main scene, 'current' to run the scene open in the editor, or a path to run a specific scene file."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1086,6 +1281,12 @@
 		"stop_project": {
 			"title": "Stop Project",
 			"description": "Stops the running project, if any.",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"outputSchema": {
 				"type": "object",
 				"properties": {
@@ -1104,6 +1305,12 @@
 				"",
 				"Each path must be an imported asset (i.e. have a .import file). If any path is invalid, nothing is reimported."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1134,6 +1341,10 @@
 				"",
 				"Returns 'importer' (the name of the importer used) and 'options' (a map of import option names to values, in Godot variant syntax)."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1169,6 +1380,12 @@
 				"Only pass the options you wish to change. Option values are strings in Godot variant syntax (e.g. `2`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
 				"Use get_import_settings to see the available option names and the current importer."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1209,8 +1426,14 @@
 				"Pass 'names' to get specific settings by name (returned regardless of whether they match their default).",
 				"Otherwise, all settings are returned, but only those whose value differs from the default; pass 'include_defaults' as true to also include settings left at their default value.",
 				"",
-				"Returns 'settings': a map of setting name to value, in Godot variant syntax."
+				"Returns 'settings': a map of setting name to value, in Godot variant syntax.",
+				"",
+				"Settings under 'godai/' are Godai's own configuration and are never returned; only the user can see them, via Editor Settings."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1247,8 +1470,16 @@
 				"Changes settings in the Godot editor itself (editor-wide preferences, not project settings). Changes take effect immediately and are persisted by the editor.",
 				"",
 				"Pass 'settings': a map of setting name (e.g. 'interface/editor/code_font_size') to value. Values are strings in Godot variant syntax (e.g. `16`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
-				"Use get_editor_settings to see the available setting names and their current values."
+				"Use get_editor_settings to see the available setting names and their current values.",
+				"",
+				"Settings under 'godai/' are Godai's own configuration and can't be changed; only the user can, via Editor Settings."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1282,6 +1513,10 @@
 				"Returns a 'messages' array of the most recent log lines (oldest first).",
 				"Note: Only includes messages from code run in the editor, not from running the project."
 			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1319,6 +1554,12 @@
 				"If you are using `EditorUndoRedoManager` to add or remove a node, you MUST call one of those helper methods before calling `commit_action()`. This will add some `add_do_method()` and `add_undo_method()` calls to ensure the changes are synchronized to the live game if the game is running.",
 				"If the script successfully runs, the output from `print()` will be returned."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1356,6 +1597,12 @@
 				"By default, unsaved changes are saved before restarting; pass 'skip_save' as true to discard them instead.",
 				"If the user declines the prompt, the editor is not restarted and this returns an error."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -1386,6 +1633,12 @@
 				"By default, unsaved changes are saved before closing; pass 'skip_save' as true to discard them instead.",
 				"If the user declines the prompt, the editor is not closed and this returns an error."
 			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
 			"inputSchema": {
 				"type": "object",
 				"properties": {

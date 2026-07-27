@@ -16,6 +16,7 @@ type Config struct {
 	EditorScanInterval  time.Duration
 	EditorRetryDelay    time.Duration
 	EditorTimeout       time.Duration
+	EditorToolTimeout   time.Duration
 	DefaultGodotPath    string
 	ProjectBasePath     string
 	X11Display          string

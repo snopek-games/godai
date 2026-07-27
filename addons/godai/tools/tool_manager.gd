@@ -48,6 +48,28 @@ class ToolResult extends RefCounted:
 		result.reject(p_content)
 		return result
 
+class ToolAnnotations extends RefCounted:
+	var read_only_hint: bool = false
+	var destructive_hint: bool = true
+	var idempotent_hint: bool = false
+	var open_world_hint: bool = true
+
+	func from_dict(p_json: Dictionary) -> void:
+		read_only_hint = p_json.get("readOnlyHint", false)
+		destructive_hint = p_json.get("destructiveHint", true)
+		idempotent_hint = p_json.get("idempotentHint", false)
+		open_world_hint = p_json.get("openWorldHint", true)
+
+	func to_dict() -> Dictionary:
+		var d := {
+			"readOnlyHint": read_only_hint,
+			"openWorldHint": open_world_hint,
+		}
+		if not read_only_hint:
+			d["destructiveHint"] = destructive_hint
+			d["idempotentHint"] = idempotent_hint
+		return d
+
 @abstract
 class Tool extends RefCounted:
 	var name: String
@@ -55,9 +77,18 @@ class Tool extends RefCounted:
 	var description: String
 	var input_schema: Dictionary
 	var output_schema: Dictionary
+	var annotations: ToolAnnotations
 
 	@abstract
 	func execute(p_input) -> ToolResult
+
+	func is_read_only() -> bool:
+		return annotations and annotations.read_only_hint
+
+	func is_destructive() -> bool:
+		if annotations:
+			return not annotations.read_only_hint and annotations.destructive_hint
+		return true
 
 	func to_dict() -> Dictionary:
 		var data := {
@@ -68,7 +99,6 @@ class Tool extends RefCounted:
 		if input_schema.size() > 0:
 			data['input_schema'] = input_schema
 		return data
-
 
 class CallbackTool extends Tool:
 	var callback: Callable
@@ -99,6 +129,10 @@ class DefaultTool extends Tool:
 
 		input_schema = p_data.get("inputSchema", INPUT_SCHEMA_EMPTY)
 		output_schema = p_data.get("outputSchema", {})
+
+		if p_data.has("annotations"):
+			annotations = ToolAnnotations.new()
+			annotations.from_dict(p_data["annotations"])
 
 class QueueItem extends RefCounted:
 	var tool_obj: Tool
