@@ -216,6 +216,27 @@ Two important notes:
   if your client supports it. If not, it'll use the current directory it was spawned from as its
   root. If you want to manually specify the allowed roots, add one or more `--root PATH` arguments.
 
+### Updating the MCP server
+
+If you're using a standalone binary, it can update itself:
+
+```bash
+godai-mcp self-update --check   # is there a newer release?
+godai-mcp self-update           # install it
+godai-mcp self-update --rollback  # go back to the version the last update replaced
+```
+
+Only stable releases are offered; betas and release candidates are skipped. The previous version is
+kept next to the executable (as `godai-mcp....old`), which is what `--rollback` restores.
+
+> [!NOTE]
+> If you installed via `npx`/npm, use `npm install -g @snopek-games/godai-mcp@latest` instead - npm
+> replaces the executable on its next install, so a self-update wouldn't stick. Claude Desktop
+> extensions (.MCPB) are updated by installing the new .MCPB file.
+
+The Godai addon inside your projects doesn't need updating separately: the MCP server carries a copy
+of the matching addon, and reinstalls it in your project when the versions don't match.
+
 Quick Start: API mode
 ---------------------
 

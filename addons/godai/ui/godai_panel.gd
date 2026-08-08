@@ -77,6 +77,7 @@ func _ready() -> void:
 	add_child(mcp_server)
 	mcp_server.server_state_changed.connect(_on_mcp_server_state_changed)
 	mcp_server.client_state_changed.connect(_on_mcp_client_state_changed)
+	mcp_server.update_available_changed.connect(_on_mcp_update_available_changed)
 	mcp_server.tool_use_requested.connect(_add_tool_use_to_chat)
 	mcp_server.tool_use_completed.connect(_add_tool_result_to_chat)
 
@@ -155,6 +156,10 @@ func _on_mcp_client_state_changed(p_client_state: MCPServer.ClientState) -> void
 		prompt_bar.visible = true
 
 
+func _on_mcp_update_available_changed(_p_update_available: Dictionary) -> void:
+	_update_mcp_status_bar()
+
+
 func _update_mcp_status_bar() -> void:
 	var server_state: MCPServer.ServerState = mcp_server.get_server_state()
 	var client_state: MCPServer.ClientState = mcp_server.get_client_state()
@@ -165,6 +170,8 @@ func _update_mcp_status_bar() -> void:
 	else:
 		start_mcp_button.visible = false
 		stop_mcp_button.visible = true
+
+	var tooltip := ""
 
 	if server_state == MCPServer.ServerState.STOPPED:
 		mcp_status_label.text = "MCP server stopped."
@@ -185,7 +192,14 @@ func _update_mcp_status_bar() -> void:
 			else:
 				status += " Connected."
 
+			var update_available := mcp_server.get_update_available()
+			if update_available.size() > 0:
+				status += " (godai-mcp %s is available)" % update_available['latest_version']
+				tooltip = "Run 'godai-mcp self-update' in a terminal to install godai-mcp %s." % update_available['latest_version']
+
 		mcp_status_label.text = status
+
+	mcp_status_label.tooltip_text = tooltip
 
 
 static func _get_project_path() -> String:

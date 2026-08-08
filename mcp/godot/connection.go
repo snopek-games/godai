@@ -20,6 +20,7 @@ const (
 type Connection struct {
 	ws               *websocket.Conn
 	port             int
+	writeMutex       sync.Mutex
 	requestMutex     sync.Mutex
 	lastRequestID    int
 	pendingResponses map[int]chan *jsonrpc.Response
@@ -104,7 +105,7 @@ func (c *Connection) CallMethod(ctx context.Context, name string, rawParams any)
 
 	req := jsonrpc.NewRequest(strconv.Itoa(id), name, params)
 
-	if err := c.ws.WriteJSON(req); err != nil {
+	if err := c.writeJSON(req); err != nil {
 		c.requestMutex.Lock()
 		delete(c.pendingResponses, id)
 		c.requestMutex.Unlock()
@@ -138,6 +139,13 @@ func (c *Connection) SendNotification(ctx context.Context, name string, rawParam
 	}
 
 	req := jsonrpc.NewRequest("", name, params)
+
+	return c.writeJSON(req)
+}
+
+func (c *Connection) writeJSON(req *jsonrpc.Request) error {
+	c.writeMutex.Lock()
+	defer c.writeMutex.Unlock()
 
 	return c.ws.WriteJSON(req)
 }

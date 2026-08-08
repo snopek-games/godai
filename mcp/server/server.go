@@ -200,6 +200,8 @@ type Server struct {
 	rootsMutex         sync.RWMutex
 	headlessProjects   map[string]struct{}
 	headlessMutex      sync.Mutex
+	updateAvailable    string
+	updateMutex        sync.RWMutex
 }
 
 func NewServer(config *Config) *Server {
@@ -407,6 +409,9 @@ func (s *Server) onEditorConnect(conn *godot.Connection) error {
 	s.editorsMutex.Lock()
 	s.editors = append(s.editors, editor)
 	s.editorsMutex.Unlock()
+
+	// Must stay after the editor is registered, or checkForUpdate() can miss it.
+	s.sendUpdateNotification(ctx, conn)
 
 	return nil
 }
@@ -1291,6 +1296,7 @@ func (s *Server) Run(ctx context.Context) error {
 	go s.writeLoop(ctx)
 	go s.toolLoop(ctx)
 	go s.requestLoop(ctx)
+	go s.checkForUpdate(ctx)
 
 	err := s.readLoop(ctx)
 	s.closeHeadlessEditors()

@@ -74,6 +74,7 @@ var _server_state: ServerState = ServerState.STOPPED
 var _transport: Transport = Transport.WEBSOCKET
 var _client_state: ClientState = ClientState.NOT_CONNECTED
 var _client_info: Dictionary
+var _update_available: Dictionary
 var _last_peer_id := 1
 var _last_tool_id := 0
 
@@ -88,6 +89,7 @@ var tool_use_authorizer: Callable
 
 signal server_state_changed(state: ServerState)
 signal client_state_changed(state: ClientState)
+signal update_available_changed(update_available: Dictionary)
 signal tool_use_requested(p_id: String, p_name: String, p_input: Dictionary)
 signal tool_use_completed(p_id: String, p_content)
 
@@ -100,6 +102,7 @@ func _init(p_tools: ToolManager, p_secret: String) -> void:
 
 	_jsonrpc.set_method("initialize", _rpc_initialize)
 	_jsonrpc.set_method("notifications/initialized", _rpc_client_initialized)
+	_jsonrpc.set_method("notifications/godai/update_available", _rpc_update_available)
 	_jsonrpc.set_method("tools/list", _rpc_list_tools)
 	_jsonrpc.set_method("tools/call", _rpc_call_tool)
 
@@ -122,6 +125,11 @@ func get_client_state() -> ClientState:
 
 func get_client_info() -> Dictionary:
 	return _client_info
+
+
+## Empty until the connected godai-mcp reports that a newer release exists.
+func get_update_available() -> Dictionary:
+	return _update_available
 
 
 func start_server(p_base_port: int, p_port_count: int, p_transport: Transport) -> Error:
@@ -202,6 +210,18 @@ func _rpc_initialize(p_params: Dictionary):
 
 func _rpc_client_initialized(_params: Dictionary):
 	pass
+
+
+func _rpc_update_available(p_params: Dictionary):
+	var latest_version := str(p_params.get('latest_version', ''))
+	if latest_version.is_empty():
+		_update_available = {}
+	else:
+		_update_available = {
+			current_version = str(p_params.get('current_version', '')),
+			latest_version = latest_version,
+		}
+	update_available_changed.emit(_update_available)
 
 
 func _rpc_list_tools(p_params: Dictionary):
@@ -419,6 +439,8 @@ func _remove_peer(p_peer: Peer) -> void:
 
 	if _transport == Transport.WEBSOCKET:
 		_client_info = {}
+		_update_available = {}
+		update_available_changed.emit(_update_available)
 		_client_state = ClientState.NOT_CONNECTED
 		client_state_changed.emit(_client_state)
 

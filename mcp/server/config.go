@@ -20,6 +20,7 @@ type Config struct {
 	DefaultGodotPath    string
 	ProjectBasePath     string
 	X11Display          string
+	UpdateCheckInterval time.Duration
 	Debug               bool
 	SavedConfigPath     string
 }

@@ -170,7 +170,7 @@ func startServer(xdgBase string, args, extraEnv []string, verbose bool) (*server
 }
 
 func startServerWithClient(xdgBase string, args, extraEnv []string, verbose bool, cfg harness.ClientConfig) (*serverInstance, error) {
-	cmd := exec.Command(serverBin, args...)
+	cmd := exec.Command(serverBin, append([]string{"--no-update-check"}, args...)...)
 	cmd.Env = append(os.Environ(),
 		"XDG_CONFIG_HOME="+filepath.Join(xdgBase, "config"),
 		"XDG_DATA_HOME="+filepath.Join(xdgBase, "data"),

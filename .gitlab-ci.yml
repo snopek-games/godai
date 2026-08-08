@@ -12,7 +12,7 @@ default:
 variables:
   MCP_MAIN_PKG: "./cmd/godai-mcp/"
   MCP_APP_NAME: "godai-mcp"
-  GO_VERSION: "1.25.3"
+  GO_VERSION: "1.25.12"
   GOPATH: "$CI_PROJECT_DIR/.go"
   GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
   CGO_ENABLED: "0"
@@ -29,11 +29,9 @@ mcp-test:
   script:
     - go version
     - go env
-    # -short skips the functional tests, which are run by the godot-test job.
+    # -short skips the functional tests, which the godot-test job runs.
     - go test -short ./...
 
-# Runs the tests that need a real Godot editor: the GUT unit tests, and the
-# functional tests of the editor's MCP server.
 godot-test:
   stage: test
   image: golang:${GO_VERSION}
@@ -47,21 +45,16 @@ godot-test:
     - rm "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
     - godot --version
   script:
-    # Import the project, so its resources are available to the GUT tests.
     - godot --headless --import
-    # The GUT unit tests. GUT exits non-zero on test failures, but exits zero
-    # when it doesn't find any tests, so we have to check for that ourselves.
+    # GUT exits zero when it doesn't find any tests, so check for that too.
     - set -o pipefail
     - godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/gut -gexit 2>&1 | tee gut-output.log
     - '! grep -q "Nothing was run" gut-output.log'
-    # The functional tests of the addon's MCP server and the Go MCP server.
-    # These launch their own headless editor; GODAI_TEST_VERBOSE streams its log
-    # into the job output, since the temporary project directory can't be
-    # inspected after the job.
+    # GODAI_TEST_VERBOSE streams the headless editor's log into the job output,
+    # since its temporary project directory is gone by the time the job ends.
     - GODAI_TEST_VERBOSE=1 go test -v -count=1 -timeout 10m ./tests/functional/...
 
-# On release tags, require the version in plugin.cfg (the single source of
-# truth) to match the tag, so a release can't be made with a stale version.
+# plugin.cfg is the single source of truth for the version.
 version-check:
   stage: test
   rules:
@@ -131,7 +124,7 @@ mcp-package-bundle:
     - cp dist/mcp/${MCP_APP_NAME}-windows-x86_64/${MCP_APP_NAME}-windows-x86_64.exe bundle/server/
     - cp dist/mcp/${MCP_APP_NAME}-macos-arm64/${MCP_APP_NAME}-macos-arm64 bundle/server/
 
-    # Stamp the real version into manifest.json (committed as 0.0.0-dev).
+    # manifest.json is committed with a placeholder version.
     - |
       if [ -n "$CI_COMMIT_TAG" ]; then
         BUNDLE_VERSION="${CI_COMMIT_TAG#v}"
@@ -149,8 +142,7 @@ mcp-package-bundle:
     paths:
       - dist/mcpb/
 
-# Validates the npm packaging on every pipeline (without publishing), so
-# breakage is caught before release time.
+# Catches packaging breakage before release time.
 mcp-package-npm:
   stage: package
   image: node:current
@@ -199,35 +191,35 @@ release:
   script:
     - mkdir -p dist/release/
 
-    # Upload the addon.
-    - |
-      PKG_FN=godai-addon-${CI_COMMIT_TAG}.zip
-      zip -r dist/release/$PKG_FN addons/godai/
-      cd dist/release
-      echo curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file $PKG_FN ${PACKAGE_REGISTRY_URL}/$PKG_FN
-      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file $PKG_FN ${PACKAGE_REGISTRY_URL}/$PKG_FN
-      cd ../..
+    # Everything is gathered into dist/release/ first, so the checksums can
+    # cover all of it before any of it is uploaded.
+    - zip -r dist/release/godai-addon-${CI_COMMIT_TAG}.zip addons/godai/
 
-
-    # Upload the individual MCP builds.
     - |
       cd dist/mcp
       for d in *; do
         PKG_DIR=$d-${CI_COMMIT_TAG}
-        PKG_FN=${PKG_DIR}.zip
-
         mv $d $PKG_DIR
-        zip -r ../release/$PKG_FN $PKG_DIR
-
-        (cd ../release && curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file $PKG_FN ${PACKAGE_REGISTRY_URL}/$PKG_FN)
+        zip -r ../release/${PKG_DIR}.zip $PKG_DIR
       done
       cd ../..
 
-    # Upload the MCP bundle.
+    - cp dist/mcpb/godai-mcp.mcpb dist/release/godai-mcp-${CI_COMMIT_TAG}.mcpb
+
+    # `godai-mcp self-update` won't install a release without this file.
     - |
-      PKG_FN=godai-mcp-${CI_COMMIT_TAG}.mcpb
-      cp dist/mcpb/godai-mcp.mcpb dist/release/$PKG_FN
-      (cd dist/release && curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file $PKG_FN ${PACKAGE_REGISTRY_URL}/$PKG_FN)
+      cd dist/release
+      sha256sum * > ../checksums.txt
+      mv ../checksums.txt checksums-${CI_COMMIT_TAG}.txt
+      cat checksums-${CI_COMMIT_TAG}.txt
+      cd ../..
+
+    - |
+      cd dist/release
+      for PKG_FN in *; do
+        curl --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file $PKG_FN ${PACKAGE_REGISTRY_URL}/$PKG_FN
+      done
+      cd ../..
   release:
     tag_name: $CI_COMMIT_TAG
     name: "Release $CI_COMMIT_TAG"
@@ -250,3 +242,5 @@ release:
           url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-${CI_COMMIT_TAG}.mcpb"
         - name: "godai-addon.zip"
           url: "${PACKAGE_REGISTRY_URL}/godai-addon-${CI_COMMIT_TAG}.zip"
+        - name: "checksums-${CI_COMMIT_TAG}.txt"
+          url: "${PACKAGE_REGISTRY_URL}/checksums-${CI_COMMIT_TAG}.txt"

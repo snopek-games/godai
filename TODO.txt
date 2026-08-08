@@ -7,13 +7,12 @@ For a 1.0
 0.4: Finish critical MCP stuff
 ------------------------------
 
+- Rename `godai-mcp` to `godai` and rework to be a "Godot automation CLI with an MCP"
 - MCP: Better installation story
   - Options:
-  - Provide `brew` package (as a "cask", I guess?)
+    - Provide `brew` package (as a "cask", I guess?)
     - Provide `WinGet` package
     - Provide `curl | bash` style script for MacOS, Linux and Windows (it would be `irm | WinGet` for Windows)
-  - Provide self-update feature
-    - See https://github.com/creativeprojects/go-selfupdate
 - MCP: Test thoroughly on Windows and MacOS!
 - Add to MCP Registry
   - https://registry.modelcontextprotocol.io/

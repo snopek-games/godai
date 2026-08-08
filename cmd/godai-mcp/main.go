@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gitlab.com/snopek-games/godai/mcp/server"
 	"io"
 	"log/slog"
 	"os"
@@ -12,6 +11,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"gitlab.com/snopek-games/godai/mcp/selfupdate"
+	"gitlab.com/snopek-games/godai/mcp/server"
 
 	"github.com/urfave/cli/v3"
 )
@@ -99,10 +101,17 @@ func main() {
 				Usage: "a file to write the log output to",
 			},
 			&cli.BoolFlag{
+				Name:  "no-update-check",
+				Usage: "don't check whether a newer release of godai-mcp is available",
+			},
+			&cli.BoolFlag{
 				Name:    "debug",
 				Usage:   "enable debug features and logging",
 				Sources: cli.EnvVars("DEBUG"),
 			},
+		},
+		Commands: []*cli.Command{
+			selfUpdateCommand(),
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			return runServer(ctx, cmd, configPath)
@@ -131,6 +140,7 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 		DefaultGodotPath:    cmd.String("godot-path"),
 		ProjectBasePath:     cmd.String("project-base-path"),
 		X11Display:          cmd.String("x11-display"),
+		UpdateCheckInterval: updateCheckInterval(cmd.Bool("no-update-check")),
 		Debug:               cmd.Bool("debug"),
 		SavedConfigPath:     configPath,
 	}
@@ -156,6 +166,10 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 		Level: logLevel,
 	}))
 	slog.SetDefault(logger)
+
+	if cmd.Args().Present() {
+		return fmt.Errorf("unexpected arguments: %v", cmd.Args().Slice())
+	}
 
 	if config.Global {
 		if len(config.RootPaths) > 0 {
@@ -194,4 +208,11 @@ func tryDiscoverRootPaths() []string {
 	}
 
 	return []string{}
+}
+
+func updateCheckInterval(disabled bool) time.Duration {
+	if disabled {
+		return 0
+	}
+	return selfupdate.DefaultCheckInterval
 }
