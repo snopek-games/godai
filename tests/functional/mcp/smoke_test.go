@@ -21,8 +21,8 @@ func TestServerListTools(t *testing.T) {
 		"list_projects",
 		"open_godot_project",
 		"list_open_projects",
-		"get_mcp_configuration",
-		"set_mcp_configuration",
+		"get_godai_settings",
+		"set_godai_settings",
 	} {
 		if _, ok := names[name]; !ok {
 			t.Errorf("tools/list is missing local tool %q", name)
@@ -76,12 +76,12 @@ func TestServerListTools(t *testing.T) {
 func TestForwardRemoteTool(t *testing.T) {
 	ensureProjectOpen(t)
 
-	// get_current_scene is read-only and succeeds even with no scene open;
+	// get_project_settings is read-only and succeeds even with no scene open;
 	// reaching it at all proves the server -> websocket -> editor round trip.
-	result := callTool(t, "get_current_scene", map[string]any{
+	result := callTool(t, "get_project_settings", map[string]any{
 		"project_path": projectPath,
 	})
 	if result.IsError {
-		t.Fatalf("forwarded get_current_scene returned an error: %s", result.Text())
+		t.Fatalf("forwarded get_project_settings returned an error: %s", result.Text())
 	}
 }

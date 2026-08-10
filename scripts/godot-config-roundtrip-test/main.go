@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gitlab.com/snopek-games/godai/mcp/godot"
+	"gitlab.com/snopek-games/godai/internal/godot"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -16,8 +16,8 @@ import (
 
 func main() {
 	cmd := cli.Command{
-		Name:  "mcp",
-		Usage: "MCP server for Godot",
+		Name:  "godot-config-roundtrip-test",
+		Usage: "check that Godot config files survive a parse/write round trip",
 		Arguments: []cli.Argument{
 			&cli.StringArg{
 				Name: "path",

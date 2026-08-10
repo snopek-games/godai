@@ -50,7 +50,7 @@
 						"default": "false"
 					}
 				},
-				"required": ["title", "description", "annotations"],
+				"required": ["title", "description", "annotations", "outputSchema"],
 				"additionalProperties": false
 			}
 		}

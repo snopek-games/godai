@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Generates the publishable npm packages into npm/dist/ from the Go binaries
-// that CI builds into dist/mcp/.
+// that CI builds into dist/cli/.
 //
 // Usage: node npm/prepare-packages.mjs <version>
 //
 // Produces:
-//   npm/dist/godai-mcp/            - the main launcher package
+//   npm/dist/godai/                - the main launcher package
 //   npm/dist/platforms/<name>/     - one package per platform binary
 //
 // The platform packages listed in npm/package.json's optionalDependencies are
@@ -18,18 +18,21 @@ import { fileURLToPath } from 'node:url';
 
 const NPM_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.dirname(NPM_DIR);
-const BUILD_DIR = path.join(ROOT_DIR, 'dist', 'mcp');
+const BUILD_DIR = path.join(ROOT_DIR, 'dist', 'cli');
 const OUT_DIR = path.join(NPM_DIR, 'dist');
 
-const APP_NAME = 'godai-mcp';
+// CI names the build directories for the release asset and the executable
+// inside them for the command; see CLI_ASSET_NAME / CLI_BIN_NAME.
+const ASSET_NAME = 'godai-cli';
+const APP_NAME = 'godai';
 
-// Maps npm package name -> the VARIANT used by the mcp-build CI job.
+// Maps npm package name -> the VARIANT used by the cli-build CI job.
 const VARIANTS = {
-  '@snopek-games/godai-mcp-linux-x64': { variant: 'linux-x86_64', ext: '' },
-  '@snopek-games/godai-mcp-linux-arm64': { variant: 'linux-arm64', ext: '' },
-  '@snopek-games/godai-mcp-darwin-arm64': { variant: 'macos-arm64', ext: '' },
-  '@snopek-games/godai-mcp-win32-x64': { variant: 'windows-x86_64', ext: '.exe' },
-  '@snopek-games/godai-mcp-win32-arm64': { variant: 'windows-arm64', ext: '.exe' },
+  '@snopek-games/godai-linux-x64': { variant: 'linux-x86_64', ext: '' },
+  '@snopek-games/godai-linux-arm64': { variant: 'linux-arm64', ext: '' },
+  '@snopek-games/godai-darwin-arm64': { variant: 'macos-arm64', ext: '' },
+  '@snopek-games/godai-win32-x64': { variant: 'windows-x86_64', ext: '.exe' },
+  '@snopek-games/godai-win32-arm64': { variant: 'windows-arm64', ext: '.exe' },
 };
 
 function fail(message) {
@@ -55,13 +58,13 @@ for (const packageName of Object.keys(basePackage.optionalDependencies)) {
     fail(`no VARIANTS entry for "${packageName}" (declared in npm/package.json optionalDependencies)`);
   }
 
-  // Package names follow the pattern <scope>/godai-mcp-<os>-<cpu>.
+  // Package names follow the pattern <scope>/godai-<os>-<cpu>.
   const [os, cpu] = packageName.slice(basePackage.name.length + 1).split('-');
 
-  const variantDir = `${APP_NAME}-${info.variant}`;
-  const binarySrc = path.join(BUILD_DIR, variantDir, `${variantDir}${info.ext}`);
+  const variantDir = `${ASSET_NAME}-${info.variant}`;
+  const binarySrc = path.join(BUILD_DIR, variantDir, `${APP_NAME}${info.ext}`);
   if (!fs.existsSync(binarySrc)) {
-    fail(`missing binary ${binarySrc} - did the mcp-build job run for all platforms?`);
+    fail(`missing binary ${binarySrc} - did the cli-build job run for all platforms?`);
   }
 
   // Directory name without the scope, to avoid a nested "@snopek-games" dir.

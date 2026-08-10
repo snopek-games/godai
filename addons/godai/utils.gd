@@ -1,10 +1,14 @@
 extends RefCounted
 
+## Hidden properties that we should report anyway.
+const HIDDEN_PROPERTIES_WORTH_REPORTING := ["name", "scene_file_path", "script"]
+
 
 ## Encodes a property value as a string in Godot variant syntax.
 ##
-## The inverse of decode_property_value(): any value this returns (other
-## than the `Object(ClassName)` summary) can be passed back in.
+## The inverse of decode_property_value(): any value this returns can be passed
+## back in, though the `Object(ClassName)` summary decodes to a brand new object
+## with every property at its default.
 static func encode_property_value(p_value: Variant) -> String:
 	match typeof(p_value):
 		TYPE_STRING, TYPE_STRING_NAME:
@@ -41,7 +45,7 @@ static func decode_property_value(p_raw: Variant, p_expected_type: int) -> Dicti
 	if p_expected_type == TYPE_STRING_NAME:
 		return { value = StringName(string_value) }
 
-	var parsed: Variant = str_to_var(string_value)
+	var parsed: Variant = str_to_var(_add_object_comma(string_value))
 	if parsed == null and not string_value.strip_edges() in ["null", "nil"]:
 		# str_to_var() returns null on parse failure.
 		if p_expected_type == TYPE_NIL:
@@ -50,6 +54,22 @@ static func decode_property_value(p_raw: Variant, p_expected_type: int) -> Dicti
 		return { error = 'Cannot parse "%s" as a Godot variant. Examples of valid values: 5, 2.5, true, Vector2(1, 2), Color(1, 0, 0, 1), Resource("res://path/to/file.tres"), Object(SphereMesh,"radius":2.0)' % string_value }
 
 	return { value = parsed }
+
+
+## Godot's variant parser wants a comma after the class name of an `Object(...)`,
+## so `Object(SphereMesh)` - which is how a resource with nothing but default
+## values reads, and what encode_property_value() returns for any embedded
+## resource - fails to parse. This adds the comma it's missing.
+static func _add_object_comma(p_value: String) -> String:
+	var trimmed := p_value.strip_edges()
+	if not trimmed.begins_with("Object(") or not trimmed.ends_with(")"):
+		return p_value
+
+	var object_class := trimmed.substr(7, trimmed.length() - 8).strip_edges()
+	if not object_class.is_valid_ascii_identifier():
+		return p_value
+
+	return "Object(%s,)" % object_class
 
 
 ## Resolves a colon-separated property path (e.g. "mesh:radius") on an object,
@@ -116,13 +136,15 @@ static func get_property_map(p_object: Object, p_modified_only: bool) -> Diction
 		var prop_name: String = prop['name']
 		var prop_usage: int = prop['usage']
 
-		if prop_name.begins_with("_") or prop_usage & PROPERTY_USAGE_INTERNAL:
+		if prop_name.begins_with("_"):
 			continue
 		if prop_usage & PROPERTY_USAGE_GROUP or prop_usage & PROPERTY_USAGE_CATEGORY or prop_usage & PROPERTY_USAGE_SUBGROUP:
 			continue
+		if ((prop_usage & PROPERTY_USAGE_INTERNAL) or not (prop_usage & (PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR))) and not prop_name in HIDDEN_PROPERTIES_WORTH_REPORTING:
+			continue
 
 		var value: Variant = p_object.get(prop_name)
-		if p_modified_only and value == get_default_property_value(p_object, prop_name):
+		if p_modified_only and value == get_default_property_value(p_object, prop_name, prop['type']):
 			continue
 
 		props[prop_name] = encode_property_value(value)
@@ -212,13 +234,44 @@ static func decode_settings(p_settings: Object, p_values: Dictionary) -> Diction
 
 
 ## Gets the default value of a property, for both native and script properties.
-static func get_default_property_value(p_object: Object, p_prop_name: String) -> Variant:
+##
+## Godot only tracks defaults for the properties it saves or shows in the
+## inspector, so for anything else we fall back to the zero value of p_type
+## (e.g. "" for a String), which is what such a property holds when nothing set
+## it.
+static func get_default_property_value(p_object: Object, p_prop_name: String, p_type := TYPE_NIL) -> Variant:
 	var script: Script = p_object.get_script()
 	if script:
 		for prop in script.get_script_property_list():
 			if prop['name'] == p_prop_name:
 				return script.get_property_default_value(p_prop_name)
-	return ClassDB.class_get_property_default_value(p_object.get_class(), p_prop_name)
+
+	var default: Variant = ClassDB.class_get_property_default_value(p_object.get_class(), p_prop_name)
+	if default == null and p_type != TYPE_NIL and p_type != TYPE_OBJECT:
+		# Godot has no API for "the zero value of this type", but resizing a
+		# typed array fills the new slots with exactly that.
+		var typed := Array([], p_type, "", null)
+		typed.resize(1)
+		return typed[0]
+
+	return default
+
+
+## Whether a value can be a node's script: it has to be a Script (or null, to
+## detach the one it has), and its base type has to be one the node actually is.
+##
+## Returns an error message, or "" when it fits.
+static func check_script_for_node(p_node: Node, p_script: Variant) -> String:
+	if p_script == null:
+		return ""
+	if not p_script is Script:
+		return "%s is not a script" % encode_property_value(p_script)
+
+	var base_type: String = p_script.get_instance_base_type()
+	if base_type != "" and not ClassDB.is_parent_class(p_node.get_class(), base_type):
+		return "Script extends '%s', which is not compatible with a node of type '%s'" % [base_type, p_node.get_class()]
+
+	return ""
 
 
 ## Normalizes a path into a `res://` path, adding the prefix if missing.

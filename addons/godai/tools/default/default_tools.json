@@ -3,14 +3,7 @@
 	"tools": {
 		"get_current_project": {
 			"title": "Get Current Project",
-			"description": [
-				"Gets information about the project that is currently opened in the Godot editor.",
-				"",
-				"Returns:",
-				" - project_path: The path to the current project",
-				" - project_name: The project's configured name",
-				" - headless: Whether the editor is running with a headless display driver"
-			],
+			"description": "Gets information about the project that is currently opened in the Godot editor.",
 			"annotations": {
 				"readOnlyHint": true,
 				"openWorldHint": false
@@ -29,9 +22,12 @@
 					"headless": {
 						"type": "boolean",
 						"description": "Whether the editor is running with a headless display driver"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["project_path", "project_name", "headless"]
+				}
 			},
 			"doNotForward": true
 		},
@@ -43,7 +39,7 @@
 				"Pass 'names' to get specific settings by name (returned regardless of whether they match their default).",
 				"Otherwise, all settings are returned, but only those whose value differs from the default; pass 'include_defaults' as true to also include settings left at their default value.",
 				"",
-				"Returns 'settings': a map of setting name to value, in Godot variant syntax."
+				"Setting values are strings in Godot variant syntax."
 			],
 			"annotations": {
 				"readOnlyHint": true,
@@ -54,7 +50,7 @@
 				"properties": {
 					"names": {
 						"type": "array",
-						"description": "Optional: specific setting names to get. If omitted, all settings are returned.",
+						"description": "Specific setting names to get. If omitted, all settings are returned.",
 						"items": {
 							"type": "string"
 						}
@@ -74,9 +70,12 @@
 						"additionalProperties": {
 							"type": "string"
 						}
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["settings"]
+				}
 			}
 		},
 		"set_project_settings": {
@@ -85,7 +84,10 @@
 				"Changes settings in the project and saves 'project.godot'.",
 				"",
 				"Pass 'settings': a map of setting name (e.g. 'display/window/size/viewport_width') to value. Values are strings in Godot variant syntax (e.g. `1280`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
-				"Settings that don't exist yet are created. Use get_project_settings to see the available setting names and their current values."
+				"",
+				"Settings that don't exist yet are created.",
+				"",
+				"Use get_project_settings to see the available setting names and their current values."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -98,6 +100,7 @@
 				"properties": {
 					"settings": {
 						"type": "object",
+						"minProperties": 1,
 						"description": "Settings to set (keys are setting names)",
 						"additionalProperties": {
 							"type": "string",
@@ -113,22 +116,17 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the settings were changed and the project was saved"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"get_current_scene": {
 			"title": "Get Current Scene",
-			"description": [
-				"Gets information about the scene that is currently opened in the Godot editor.",
-				"",
-				"Returns:",
-				" - scene_path: The path to the scene file",
-				" - root_node_type: The class of the root Node of the scene",
-				" - root_node_name: The name of the root Node of the scene",
-				"If no scene is currently open, it'll return an empty string for all of the above."
-			],
+			"description": "Gets information about the scene that is currently opened in the Godot editor.",
 			"annotations": {
 				"readOnlyHint": true,
 				"openWorldHint": false
@@ -138,40 +136,33 @@
 				"properties": {
 					"scene_path": {
 						"type": "string",
-						"description": "The path to the scene file, '[unsaved]' for a never-saved scene, or empty if no scene is open"
+						"description": "The path to the scene file, or '[unsaved]' for a never-saved scene"
 					},
 					"root_node_type": {
 						"type": "string",
-						"description": "The class of the root Node, or empty if no scene is open"
+						"description": "The class of the root Node"
 					},
 					"root_node_name": {
 						"type": "string",
-						"description": "The name of the root Node, or empty if no scene is open"
+						"description": "The name of the root Node"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["scene_path", "root_node_type", "root_node_name"]
+				}
 			}
 		},
 		"get_current_scene_tree": {
 			"title": "Get Scene Tree",
-			"description": [
-				"Gets the tree for the scene that is currently opened in the Godot editor.",
-				"",
-				"Returns a tree of objects representing the nodes in the scene with the following keys",
-				" - name: The Node name",
-				" - type: The class of the Node",
-				" - path: The path of the node within the scene, relative to the scene root",
-				" - script: The path to the script file, if this node has a script attached; otherwise, it'll be omitted",
-				" - children: An array of objects with the same structure, representing the child nodes; will be omitted if node has no children",
-				"If no scene is currently open, it'll return an empty object."
-			],
+			"description": "Gets the tree for the scene that is currently opened in the Godot editor.",
 			"annotations": {
 				"readOnlyHint": true,
 				"openWorldHint": false
 			},
 			"outputSchema": {
 				"type": "object",
-				"description": "A node in the scene tree, or an empty object if no scene is open. Children share this same structure.",
+				"description": "A node in the scene tree. Children share this same structure.",
 				"properties": {
 					"name": {
 						"type": "string",
@@ -195,25 +186,32 @@
 						"items": {
 							"$ref": "#"
 						}
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
 				}
 			}
 		},
 		"create_scene": {
 			"title": "Create Scene",
-			"description": "Creates a new scene and opens it in the editor",
+			"description": "Creates a new scene and opens it in the editor.",
 			"inputSchema": {
 				"type": "object",
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .tscn file to create, relative to the project root"
 					},
 					"root_node_type": {
 						"type": "string",
+						"minLength": 1,
 						"description": "The node type of the scene's root node"
 					}
-				}
+				},
+				"required": ["file_path", "root_node_type"]
 			},
 			"annotations": {
 				"readOnlyHint": false,
@@ -227,14 +225,17 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the scene was created and opened"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"open_scene": {
 			"title": "Open Scene",
-			"description": "Opens a scene in the editor",
+			"description": "Opens a scene in the editor.",
 			"annotations": {
 				"readOnlyHint": true,
 				"openWorldHint": false
@@ -244,9 +245,11 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .tscn file to open, relative to the project root"
 					}
-				}
+				},
+				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -254,9 +257,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the scene was opened"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"get_node_properties": {
@@ -264,14 +270,19 @@
 			"description": [
 				"Gets the values of properties on specific nodes in the current scene.",
 				"",
-				"Returns an object with a key for each requested node path, containing an object that maps property names to values.",
+				"Only properties whose value differs from the node's default are returned; pass 'include_defaults' as true to also include properties left at their default value.",
+				"",
+				"Properties that Godot neither saves nor shows in the inspector are left out, since they're derived from other properties (e.g. `global_position` comes from `transform`) or inactive given the node's other properties; ask for one by name (e.g. `MyNode:global_position`) to read it anyway.",
+				"",
 				"Property values are strings in Godot variant syntax:",
-				" - String properties are returned raw, without quotes",
-				" - Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
-				" - A property referencing a saved resource is returned as `Resource(\"res://path/to/file.tres\")`",
-				" - A property holding an embedded resource is summarized as `Object(ClassName)`, e.g. `Object(SphereMesh)`",
+				"- String properties are returned raw, without quotes",
+				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
+				"- A property referencing a saved resource is returned as `Resource(\"res://path/to/file.tres\")`",
+				"- A property holding an embedded resource is summarized as `Object(ClassName)`, e.g. `Object(SphereMesh)`",
+				"",
 				"To inspect the properties of an embedded resource, append a colon-separated property path to the node path: `MyMesh:mesh` returns the properties of the mesh resource, and `MyMesh:mesh:radius` returns just that value.",
-				"If a node isn't found, its value will be an empty object. If a property path can't be resolved, its value will be an object with an `error` key."
+				"",
+				"If any of the node paths can't be found, an error is returned and no properties are read. If a property path can't be resolved, its value will be an object with an `error` key."
 			],
 			"annotations": {
 				"readOnlyHint": true,
@@ -282,25 +293,34 @@
 				"properties": {
 					"node_paths": {
 						"type": "array",
+						"minItems": 1,
+						"description": "The nodes to get properties from",
 						"items": {
 							"type": "string",
 							"description": "The path to the node within the scene, relative to the scene root. May include a colon-separated property path (e.g. `MyMesh:mesh`) to inspect a resource or other sub-object."
 						}
 					},
-					"modified_only": {
+					"include_defaults": {
 						"type": "boolean",
-						"description": "If true, only return properties that differ from their default value. Recommended, to keep the result small."
+						"description": "Also include properties left at their default value (default: false)"
 					}
-				}
+				},
+				"required": ["node_paths"]
 			},
 			"outputSchema": {
 				"type": "object",
-				"description": "Maps each requested node path to its result. Empty object if no scene is open.",
+				"description": "Maps each requested node path to its result.",
+				"properties": {
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
+					}
+				},
 				"additionalProperties": {
 					"oneOf": [
 						{
 							"type": "object",
-							"description": "A map of property names to values (in Godot variant syntax), an empty object if the node wasn't found, or an object with an 'error' key if a property path couldn't be resolved.",
+							"description": "A map of property names to values (in Godot variant syntax), or an object with an 'error' key if a property path couldn't be resolved.",
 							"additionalProperties": {
 								"type": "string"
 							}
@@ -318,18 +338,24 @@
 			"description": [
 				"Sets the values of properties on specific nodes in the current scene.",
 				"",
-				"Only pass in the properties you actually wish to change.",
-				"EXAMPLE: {\"action\": \"Move node\", \"nodes\": [{\"node_path\": \"path/to/node\", \"properties\": {\"position\": \"Vector2(1, 2)\"}}]}",
+				"Only pass the properties you wish to change.",
+				"EXAMPLE: {\"action\": \"Move node\", \"nodes\": {\"path/to/node\": {\"position\": \"Vector2(1, 2)\"}}}",
+				"",
 				"Property values are strings in Godot variant syntax:",
-				" - String properties take the raw string, with NO extra quotes (e.g. \"text\": \"Hello\")",
-				" - Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`, `NodePath(\"../Other\")`",
-				" - To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
-				" - To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
+				"- String properties take the raw string, with NO extra quotes (e.g. \"text\": \"Hello\")",
+				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`, `NodePath(\"../Other\")`",
+				"- To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
+				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`, or `Object(SphereMesh)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
+				"- Careful: `Object(ClassName)` is also how an existing embedded resource reads back, so passing that in replaces it with a new one, losing whatever it held.",
+				"",
 				"Property names may use colon-separated sub-paths to set properties nested inside resources or other properties, e.g. `mesh:radius`, `material:albedo_color`, `position:x`.",
+				"",
 				"Note: changing a sub-property of a saved resource (`Resource(\"res://...\")`) affects every scene using that resource.",
+				"",
 				"This uses the Godot editor's undo/redo system to set the properties, so as many set operations as possible should be done in a single call, so they can all be undone at once.",
-				"If any property name or value is invalid, an error is returned and NO properties are changed.",
-				"Otherwise, returns an object with a key for each node path, containing true if we were able to find the node; otherwise, false.",
+				"",
+				"On error, nothing is changed.",
+				"",
 				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
 			],
 			"annotations": {
@@ -343,35 +369,36 @@
 				"properties": {
 					"action": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Human-readable description of the action that will be shown in Godot's undo/redo history"
 					},
 					"nodes": {
-						"type": "array",
-						"items": {
+						"type": "object",
+						"minProperties": 1,
+						"description": "Keys are the paths of the nodes to change, within the scene and relative to its root. A key may include a colon-separated property path (e.g. `MyMesh:mesh`) to address a resource or other sub-object.",
+						"additionalProperties": {
 							"type": "object",
-							"properties": {
-								"node_path": {
-									"type": "string",
-									"description": "The path to the node within the scene, relative to the scene root. May include a colon-separated property path (e.g. `MyMesh:mesh`) to address a resource or other sub-object."
-								},
-								"properties": {
-									"type": "object",
-									"description": "Keys are the Godot property names to set (colon-separated sub-paths allowed, e.g. `mesh:radius`)",
-									"additionalProperties": {
-										"type": "string",
-										"description": "The property value as a string, in Godot variant syntax (see the tool description)"
-									}
-								}
+							"description": "Keys are the Godot property names to set (colon-separated sub-paths allowed, e.g. `mesh:radius`)",
+							"additionalProperties": {
+								"type": "string",
+								"description": "The property value as a string, in Godot variant syntax (see the tool description)"
 							}
 						}
 					}
-				}
+				},
+				"required": ["action", "nodes"]
 			},
 			"outputSchema": {
 				"type": "object",
-				"description": "Maps each node path to whether the node was found. Empty object if no scene is open. Note: a true value doesn't guarantee every property was set to the requested value.",
-				"additionalProperties": {
-					"type": "boolean"
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "True if the properties were set. Note: this doesn't guarantee every property took the requested value."
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
+					}
 				}
 			}
 		},
@@ -381,12 +408,11 @@
 				"Creates a new node in the current scene, with the given properties set.",
 				"",
 				"Property values are strings in Godot variant syntax:",
-				" - String properties take the raw string, with NO extra quotes (e.g. \"name\": \"MyNode\")",
-				" - Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`, `NodePath(\"../Other\")`",
-				" - To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
-				" - To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
-				"If any property name or value is invalid, an error is returned and the node is NOT created.",
-				"Otherwise, returns true and the path of the new node.",
+				"- String properties take the raw string, with NO extra quotes (e.g. \"name\": \"MyNode\")",
+				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`, `NodePath(\"../Other\")`",
+				"- To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
+				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`, or `Object(SphereMesh)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
+				"",
 				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
 			],
 			"annotations": {
@@ -400,10 +426,12 @@
 				"properties": {
 					"parent_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the parent node, relative the scene root"
 					},
 					"node_type": {
 						"type": "string",
+						"minLength": 1,
 						"description": "The name of the node class to create"
 					},
 					"properties": {
@@ -414,7 +442,8 @@
 							"description": "The property value as a string, in Godot variant syntax (see the tool description)"
 						}
 					}
-				}
+				},
+				"required": ["parent_path", "node_type"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -426,14 +455,17 @@
 					"node_path": {
 						"type": "string",
 						"description": "The path of the new node, relative to the scene root"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success", "node_path"]
+				}
 			}
 		},
 		"remove_node": {
 			"title": "Remove Node",
-			"description": "Removes the given node (and all its children) from the current scene",
+			"description": "Removes the given node (and all its children) from the current scene.",
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -445,9 +477,11 @@
 				"properties": {
 					"node_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the node, relative to the scene root"
 					}
-				}
+				},
+				"required": ["node_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -455,22 +489,26 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the node was removed"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"create_resource": {
 			"title": "Create Resource",
 			"description": [
-				"Creates a new resource. Does NOT open it automatically.",
+				"Creates a new resource.",
+				"",
+				"Does NOT open it automatically.",
 				"",
 				"Property values are strings in Godot variant syntax:",
-				" - String properties take the raw string, with NO extra quotes (e.g. \"resource_name\": \"My Resource\")",
-				" - Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
-				" - To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
-				" - To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
-				"If any property name or value is invalid, an error is returned and the resource is NOT created."
+				"- String properties take the raw string, with NO extra quotes (e.g. \"resource_name\": \"My Resource\")",
+				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
+				"- To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
+				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`, or `Object(SphereMesh)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -483,10 +521,12 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .tres file to create, relative to the project root"
 					},
 					"resource_type": {
 						"type": "string",
+						"minLength": 1,
 						"description": "The resource type"
 					},
 					"properties": {
@@ -497,7 +537,8 @@
 							"description": "The property value as a string, in Godot variant syntax (see the tool description)"
 						}
 					}
-				}
+				},
+				"required": ["file_path", "resource_type"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -505,9 +546,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the resource was created and saved"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"open_resource": {
@@ -522,9 +566,11 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .tres file to open, relative to the project root"
 					}
-				}
+				},
+				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -532,9 +578,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the resource was opened in the inspector"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"get_resource_properties": {
@@ -542,14 +591,18 @@
 			"description": [
 				"Gets the values of properties on a saved resource file (e.g. a .tres file).",
 				"",
-				"If 'properties' is omitted, returns an object that maps all of the resource's property names to values.",
-				"If 'properties' is given, returns an object with a key for each requested property.",
+				"Only properties whose value differs from the resource's default are returned; pass 'include_defaults' as true to also include properties left at their default value.",
+				"",
+				"Properties that Godot neither saves nor shows in the inspector are left out, since they're inactive given the resource's other properties (e.g. `alpha_scissor_threshold` on a material that isn't using alpha scissor); name one in 'properties' to read it anyway.",
+				"",
 				"Property values are strings in Godot variant syntax:",
-				" - String properties are returned raw, without quotes",
-				" - Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
-				" - A property referencing another saved resource is returned as `Resource(\"res://path/to/file.tres\")`",
-				" - A property holding an embedded resource is summarized as `Object(ClassName)`, e.g. `Object(FastNoiseLite)`",
+				"- String properties are returned raw, without quotes",
+				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
+				"- A property referencing another saved resource is returned as `Resource(\"res://path/to/file.tres\")`",
+				"- A property holding an embedded resource is summarized as `Object(ClassName)`, e.g. `Object(FastNoiseLite)`",
+				"",
 				"Requested properties may use colon-separated sub-paths to address properties nested inside embedded resources or other properties, e.g. `noise:frequency` or `albedo_color:r`.",
+				"",
 				"If a requested property holds an embedded resource (e.g. `noise`), all of that resource's properties are returned for it, instead of just a summary.",
 				"If a requested property can't be resolved, its value will be an object with an `error` key."
 			],
@@ -562,6 +615,7 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the resource file, relative to the project root"
 					},
 					"properties": {
@@ -572,15 +626,22 @@
 						},
 						"description": "The properties to get. If omitted, all of the resource's properties are returned."
 					},
-					"modified_only": {
+					"include_defaults": {
 						"type": "boolean",
-						"description": "If true, only return properties that differ from their default value. Recommended when getting all properties, to keep the result small."
+						"description": "Also include properties left at their default value (default: false)"
 					}
-				}
+				},
+				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
 				"description": "If 'properties' was omitted, a map of all the resource's property names to values. If 'properties' was given, a map of each requested property path to its result.",
+				"properties": {
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
+					}
+				},
 				"additionalProperties": {
 					"oneOf": [
 						{
@@ -603,17 +664,24 @@
 			"description": [
 				"Sets the values of properties on a saved resource file (.tres or .res), and saves the changes to the file.",
 				"",
-				"Only pass in the properties you actually wish to change.",
+				"Only pass the properties you wish to change.",
 				"EXAMPLE: {\"action\": \"Change color\", \"file_path\": \"res://thing.tres\", \"properties\": {\"albedo_color\": \"Color(1, 0, 0, 1)\"}}",
+				"",
 				"Property values are strings in Godot variant syntax:",
-				" - String properties take the raw string, with NO extra quotes (e.g. \"resource_name\": \"My Resource\")",
-				" - Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
-				" - To reference another saved resource: `Resource(\"res://path/to/file.tres\")`",
-				" - To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(FastNoiseLite,\"frequency\":0.1)`. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
+				"- String properties take the raw string, with NO extra quotes (e.g. \"resource_name\": \"My Resource\")",
+				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
+				"- To reference another saved resource: `Resource(\"res://path/to/file.tres\")`",
+				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(FastNoiseLite,\"frequency\":0.1)`, or `Object(FastNoiseLite)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
+				"- Careful: `Object(ClassName)` is also how an existing embedded resource reads back, so passing that in replaces it with a new one, losing whatever it held.",
+				"",
 				"Property names may use colon-separated sub-paths to set properties nested inside embedded resources or other properties, e.g. `noise:frequency`, `albedo_color:r`.",
+				"",
 				"Note: the changes are saved to the file immediately, and affect every scene using the resource.",
+				"",
 				"This uses the Godot editor's undo/redo system to set the properties, so as many set operations as possible should be done in a single call, so they can all be undone at once (undo also re-saves the file).",
-				"If any property name or value is invalid, an error is returned and NO properties are changed.",
+				"",
+				"On error, nothing is changed.",
+				"",
 				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
 			],
 			"annotations": {
@@ -627,10 +695,12 @@
 				"properties": {
 					"action": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Human-readable description of the action that will be shown in Godot's undo/redo history"
 					},
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .tres or .res file, relative to the project root"
 					},
 					"properties": {
@@ -641,7 +711,8 @@
 							"description": "The property value as a string, in Godot variant syntax (see the tool description)"
 						}
 					}
-				}
+				},
+				"required": ["action", "file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -649,9 +720,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the properties were set and the file was saved. Note: this doesn't guarantee every property was set to the requested value."
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"get_selected_nodes": {
@@ -659,8 +733,7 @@
 			"description": [
 				"Gets the nodes currently selected in the editor for the current scene.",
 				"",
-				"Returns an object with a 'node_paths' key: an array of node paths (relative to the scene root) for the selected nodes.",
-				"If no scene is open or nothing is selected, 'node_paths' is an empty array."
+				"If nothing is selected, 'node_paths' is an empty array."
 			],
 			"annotations": {
 				"readOnlyHint": true,
@@ -675,19 +748,17 @@
 						"items": {
 							"type": "string"
 						}
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["node_paths"]
+				}
 			}
 		},
 		"instantiate_scene": {
 			"title": "Instantiate Scene",
-			"description": [
-				"Instantiates a saved scene (.tscn/.scn) as a child node in the current scene, like adding an instanced scene in the editor.",
-				"",
-				"Returns true and the path of the new instance node.",
-				"This uses the Godot editor's undo/redo system."
-			],
+			"description": "Instantiates a saved scene (.tscn/.scn) as a child node in the current scene, like adding an instanced scene in the editor.",
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": false,
@@ -699,17 +770,20 @@
 				"properties": {
 					"parent_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the parent node, relative to the scene root"
 					},
 					"scene_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the scene file to instantiate, relative to the project root"
 					},
 					"name": {
 						"type": "string",
-						"description": "Optional name for the new instance node"
+						"description": "Name for the new instance node"
 					}
-				}
+				},
+				"required": ["parent_path", "scene_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -721,14 +795,21 @@
 					"node_path": {
 						"type": "string",
 						"description": "The path of the new instance node, relative to the scene root"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success", "node_path"]
+				}
 			}
 		},
 		"save_scene": {
 			"title": "Save Scene",
-			"description": "Saves the scene currently open in the editor to its file. Fails if no scene is open, or if the current scene has never been saved (has no file path).",
+			"description": [
+				"Saves the scene currently open in the editor to its file.",
+				"",
+				"If the scene has never been saved, use save_scene_as instead."
+			],
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -745,14 +826,17 @@
 					"scene_path": {
 						"type": "string",
 						"description": "The path the scene was saved to"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success", "scene_path"]
+				}
 			}
 		},
 		"save_scene_as": {
 			"title": "Save Scene As",
-			"description": "Saves the scene currently open in the editor to the given path, changing the path of the current scene, such that subsequent save_scene calls would save to the new path. Fails if no scene is open.",
+			"description": "Saves the scene currently open in the editor to the given path, changing the path of the current scene, such that subsequent save_scene calls would save to the new path.",
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": false,
@@ -764,9 +848,11 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .tscn file to save to, relative to the project root"
 					}
-				}
+				},
+				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -778,18 +864,17 @@
 					"scene_path": {
 						"type": "string",
 						"description": "The path the scene was saved to"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success", "scene_path"]
+				}
 			}
 		},
 		"add_to_group": {
 			"title": "Add Node to Groups",
-			"description": [
-				"Adds a node in the current scene to one or more groups, persistently (so they're saved with the scene).",
-				"",
-				"This uses the Godot editor's undo/redo system."
-			],
+			"description": "Adds a node in the current scene to one or more groups.",
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -801,17 +886,20 @@
 				"properties": {
 					"node_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the node, relative to the scene root"
 					},
 					"groups": {
 						"type": "array",
+						"minItems": 1,
 						"items": {
 							"type": "string",
 							"description": "A group name"
 						},
 						"description": "The groups to add the node to"
 					}
-				}
+				},
+				"required": ["node_path", "groups"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -819,18 +907,17 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the node was added to the groups"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"remove_from_group": {
 			"title": "Remove Node from Groups",
-			"description": [
-				"Removes a node in the current scene from one or more groups.",
-				"",
-				"This uses the Godot editor's undo/redo system."
-			],
+			"description": "Removes a node in the current scene from one or more groups.",
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -842,17 +929,20 @@
 				"properties": {
 					"node_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the node, relative to the scene root"
 					},
 					"groups": {
 						"type": "array",
+						"minItems": 1,
 						"items": {
 							"type": "string",
 							"description": "A group name"
 						},
 						"description": "The groups to remove the node from"
 					}
-				}
+				},
+				"required": ["node_path", "groups"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -860,18 +950,17 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the node was removed from the groups"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"get_node_groups": {
 			"title": "Get Node Groups",
-			"description": [
-				"Gets the groups that nodes in the current scene belong to.",
-				"",
-				"Returns an object with a key for each requested node path, containing an array of group names. Internal engine groups are omitted. If a node isn't found, its value is an empty array."
-			],
+			"description": "Gets the groups that nodes in the current scene belong to.",
 			"annotations": {
 				"readOnlyHint": true,
 				"openWorldHint": false
@@ -881,16 +970,25 @@
 				"properties": {
 					"node_paths": {
 						"type": "array",
+						"minItems": 1,
+						"description": "The nodes to get the groups of",
 						"items": {
 							"type": "string",
 							"description": "Path to a node, relative to the scene root"
 						}
 					}
-				}
+				},
+				"required": ["node_paths"]
 			},
 			"outputSchema": {
 				"type": "object",
-				"description": "Maps each requested node path to an array of its group names (internal engine groups omitted). An empty array if the node wasn't found. Empty object if no scene is open.",
+				"description": "Maps each requested node path to an array of its group names (internal engine groups omitted).",
+				"properties": {
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
+					}
+				},
 				"additionalProperties": {
 					"type": "array",
 					"items": {
@@ -902,10 +1000,9 @@
 		"connect_signal": {
 			"title": "Connect Signal",
 			"description": [
-				"Connects a signal on one node to a method on another node, in the current scene. The connection is persistent (saved with the scene).",
+				"Connects a signal on one node to a method on another node, in the current scene.",
 				"",
-				"Both nodes must be in the current scene. The signal must exist on the 'from' node, and the method on the 'to' node.",
-				"This uses the Godot editor's undo/redo system."
+				"Both nodes must be in the current scene. The signal must exist on 'from_node', and the method on 'to_node'."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -918,21 +1015,26 @@
 				"properties": {
 					"from_node": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the node emitting the signal, relative to the scene root"
 					},
 					"signal": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Name of the signal to connect"
 					},
 					"to_node": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the node receiving the signal, relative to the scene root"
 					},
 					"method": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Name of the method to call on the receiving node"
 					}
-				}
+				},
+				"required": ["from_node", "signal", "to_node", "method"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -940,18 +1042,17 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the signal was connected"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"disconnect_signal": {
 			"title": "Disconnect Signal",
-			"description": [
-				"Disconnects a previously-connected signal between two nodes in the current scene.",
-				"",
-				"This uses the Godot editor's undo/redo system."
-			],
+			"description": "Disconnects a previously-connected signal between two nodes in the current scene.",
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -963,21 +1064,26 @@
 				"properties": {
 					"from_node": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the node emitting the signal, relative to the scene root"
 					},
 					"signal": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Name of the signal to disconnect"
 					},
 					"to_node": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the node receiving the signal, relative to the scene root"
 					},
 					"method": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Name of the connected method on the receiving node"
 					}
-				}
+				},
+				"required": ["from_node", "signal", "to_node", "method"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -985,9 +1091,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the signal was disconnected"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"attach_script": {
@@ -995,8 +1104,9 @@
 			"description": [
 				"Attaches an existing script file to a node in the current scene.",
 				"",
-				"The script's base type must be compatible with the node's type. Use create_script first if the script doesn't exist yet.",
-				"This uses the Godot editor's undo/redo system."
+				"The script's base type must be compatible with the node's type.",
+				"",
+				"Use create_script first if the script doesn't exist yet."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -1009,13 +1119,16 @@
 				"properties": {
 					"node_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the node, relative to the scene root"
 					},
 					"script_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the script file, relative to the project root"
 					}
-				}
+				},
+				"required": ["node_path", "script_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1023,14 +1136,17 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the script was attached"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"detach_script": {
 			"title": "Detach Script",
-			"description": "Removes the script attached to a node in the current scene. This uses the Godot editor's undo/redo system.",
+			"description": "Removes the script attached to a node in the current scene.",
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -1042,9 +1158,11 @@
 				"properties": {
 					"node_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the node, relative to the scene root"
 					}
-				}
+				},
+				"required": ["node_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1052,15 +1170,20 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the script was detached"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"create_script": {
 			"title": "Create Script",
 			"description": [
-				"Creates a new GDScript file. Does NOT open or attach it.",
+				"Creates a new GDScript file.",
+				"",
+				"Does NOT open or attach it.",
 				"",
 				"If 'content' is given, it is used as the file's contents. Otherwise, a minimal script extending 'base_class' is generated."
 			],
@@ -1075,6 +1198,7 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .gd file to create, relative to the project root"
 					},
 					"base_class": {
@@ -1085,7 +1209,8 @@
 						"type": "string",
 						"description": "Full contents of the script file. If omitted, a minimal template is generated."
 					}
-				}
+				},
+				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1093,9 +1218,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the script file was created"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"open_script": {
@@ -1110,9 +1238,11 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .gd file to open, relative to the project root"
 					}
-				}
+				},
+				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1120,9 +1250,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the script was opened in the script editor"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"save_script": {
@@ -1143,9 +1276,11 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .gd file, relative to the project root"
 					}
-				}
+				},
+				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1157,9 +1292,12 @@
 					"saved": {
 						"type": "boolean",
 						"description": "True if the script was open and its contents were written to disk; false if it wasn't open (nothing to save)"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success", "saved"]
+				}
 			}
 		},
 		"read_script": {
@@ -1167,8 +1305,7 @@
 			"description": [
 				"Reads the contents of a script file.",
 				"",
-				"If the script is currently open in the editor, its live (possibly unsaved) buffer is returned and 'open_in_editor' is true. Otherwise the contents are read from disk.",
-				"Returns 'content' and 'open_in_editor'."
+				"If the script is currently open in the editor, its live (possibly unsaved) buffer is returned and 'open_in_editor' is true. Otherwise the contents are read from disk."
 			],
 			"annotations": {
 				"readOnlyHint": true,
@@ -1179,9 +1316,11 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .gd file, relative to the project root"
 					}
-				}
+				},
+				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1193,9 +1332,12 @@
 					"open_in_editor": {
 						"type": "boolean",
 						"description": "True if the script is currently open in the editor (so 'content' is the live buffer)"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["content", "open_in_editor"]
+				}
 			}
 		},
 		"write_script": {
@@ -1204,7 +1346,9 @@
 				"Replaces the entire contents of an existing script file.",
 				"",
 				"You must read the script with read_script first: this fails if the script has changed since you last read it (or created/wrote it), so you don't overwrite edits you haven't seen. If it fails for that reason, read the script again and reapply your change.",
+				"",
 				"If the script is open in the editor, its editor buffer is updated instead of the file on disk (so unsaved edits aren't silently clobbered); 'saved' will be false, and you can call save_script to write it to disk. If it isn't open, the file is written directly and 'saved' is true.",
+				"",
 				"Use create_script to make a new script."
 			],
 			"annotations": {
@@ -1218,13 +1362,15 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the .gd file, relative to the project root"
 					},
 					"content": {
 						"type": "string",
-						"description": "The full new contents of the script"
+						"description": "The full new contents of the script, which may be empty to blank the script out"
 					}
-				}
+				},
+				"required": ["file_path", "content"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1240,9 +1386,12 @@
 					"saved": {
 						"type": "boolean",
 						"description": "True if the new contents were written to disk; false if only the editor buffer was updated (call save_script to flush it)"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success", "open_in_editor", "saved"]
+				}
 			}
 		},
 		"run_project": {
@@ -1273,9 +1422,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the project started running"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"stop_project": {
@@ -1293,9 +1445,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True (the running project, if any, was stopped)"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"reimport": {
@@ -1303,7 +1458,9 @@
 			"description": [
 				"Reimports one or more asset files (e.g. after changing the source file or its import settings).",
 				"",
-				"Each path must be an imported asset (i.e. have a .import file). If any path is invalid, nothing is reimported."
+				"Each path must be an imported asset (i.e. have a .import file).",
+				"",
+				"On error, nothing is reimported."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -1316,12 +1473,15 @@
 				"properties": {
 					"file_paths": {
 						"type": "array",
+						"minItems": 1,
+						"description": "The assets to reimport",
 						"items": {
 							"type": "string",
 							"description": "Path to an imported asset, relative to the project root"
 						}
 					}
-				}
+				},
+				"required": ["file_paths"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1329,9 +1489,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the assets were reimported"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"get_import_settings": {
@@ -1339,7 +1502,7 @@
 			"description": [
 				"Gets the import settings for an imported asset (e.g. a texture or audio file).",
 				"",
-				"Returns 'importer' (the name of the importer used) and 'options' (a map of import option names to values, in Godot variant syntax)."
+				"Option values are strings in Godot variant syntax."
 			],
 			"annotations": {
 				"readOnlyHint": true,
@@ -1350,9 +1513,11 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the imported asset, relative to the project root"
 					}
-				}
+				},
+				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1367,9 +1532,12 @@
 						"additionalProperties": {
 							"type": "string"
 						}
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["importer", "options"]
+				}
 			}
 		},
 		"set_import_settings": {
@@ -1377,7 +1545,10 @@
 			"description": [
 				"Changes the import settings for an imported asset, and reimports it.",
 				"",
-				"Only pass the options you wish to change. Option values are strings in Godot variant syntax (e.g. `2`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
+				"Only pass the options you wish to change.",
+				"",
+				"Option values are strings in Godot variant syntax (e.g. `2`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
+				"",
 				"Use get_import_settings to see the available option names and the current importer."
 			],
 			"annotations": {
@@ -1391,11 +1562,12 @@
 				"properties": {
 					"file_path": {
 						"type": "string",
+						"minLength": 1,
 						"description": "Path to the imported asset, relative to the project root"
 					},
 					"importer": {
 						"type": "string",
-						"description": "Optional: change the importer used for this asset"
+						"description": "Change the importer used for this asset"
 					},
 					"options": {
 						"type": "object",
@@ -1405,7 +1577,8 @@
 							"description": "The option value, as a string in Godot variant syntax"
 						}
 					}
-				}
+				},
+				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1413,9 +1586,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the import settings were changed and the asset was reimported"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"get_editor_settings": {
@@ -1426,7 +1602,7 @@
 				"Pass 'names' to get specific settings by name (returned regardless of whether they match their default).",
 				"Otherwise, all settings are returned, but only those whose value differs from the default; pass 'include_defaults' as true to also include settings left at their default value.",
 				"",
-				"Returns 'settings': a map of setting name to value, in Godot variant syntax.",
+				"Setting values are strings in Godot variant syntax.",
 				"",
 				"Settings under 'godai/' are Godai's own configuration and are never returned; only the user can see them, via Editor Settings."
 			],
@@ -1439,7 +1615,7 @@
 				"properties": {
 					"names": {
 						"type": "array",
-						"description": "Optional: specific setting names to get. If omitted, all settings are returned.",
+						"description": "Specific setting names to get. If omitted, all settings are returned.",
 						"items": {
 							"type": "string"
 						}
@@ -1459,17 +1635,21 @@
 						"additionalProperties": {
 							"type": "string"
 						}
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["settings"]
+				}
 			}
 		},
 		"set_editor_settings": {
 			"title": "Set Editor Settings",
 			"description": [
-				"Changes settings in the Godot editor itself (editor-wide preferences, not project settings). Changes take effect immediately and are persisted by the editor.",
+				"Changes settings in the Godot editor itself (editor-wide preferences, not project settings).",
 				"",
 				"Pass 'settings': a map of setting name (e.g. 'interface/editor/code_font_size') to value. Values are strings in Godot variant syntax (e.g. `16`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
+				"",
 				"Use get_editor_settings to see the available setting names and their current values.",
 				"",
 				"Settings under 'godai/' are Godai's own configuration and can't be changed; only the user can, via Editor Settings."
@@ -1485,6 +1665,7 @@
 				"properties": {
 					"settings": {
 						"type": "object",
+						"minProperties": 1,
 						"description": "Settings to set (keys are setting names)",
 						"additionalProperties": {
 							"type": "string",
@@ -1500,9 +1681,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the settings were changed"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"get_log_messages": {
@@ -1510,7 +1694,8 @@
 			"description": [
 				"Gets recent log output from the editor (print() output, warnings, and errors) captured since the editor started.",
 				"",
-				"Returns a 'messages' array of the most recent log lines (oldest first).",
+				"Messages are sorted oldest first.",
+				"",
 				"Note: Only includes messages from code run in the editor, not from running the project."
 			],
 			"annotations": {
@@ -1522,7 +1707,7 @@
 				"properties": {
 					"count": {
 						"type": "integer",
-						"description": "Maximum number of recent messages to return (default 100). Use 0 for all retained messages."
+						"description": "Maximum number of recent messages to return (default: 100). Use 0 for all retained messages."
 					}
 				}
 			},
@@ -1535,9 +1720,12 @@
 						"items": {
 							"type": "string"
 						}
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["messages"]
+				}
 			}
 		},
 		"execute_editor_script": {
@@ -1546,12 +1734,17 @@
 				"Executes the given GDScript code in the editor, in the context of a Node that is a child of the scene currently being edited.",
 				"",
 				"For modifying the current scene, use the other tools when possible.",
-				"However, if you do use a script to modify the current scene, you MUST use `EditorUndoRedoManager` from `EditorInterface.get_editor_undo_redo()`, and the action name MUST end with \"(AI)\".",
+				"",
+				"However, if you do use a script to modify the current scene, you MUST use `EditorUndoRedoManager` from `EditorInterface.get_editor_undo_redo()`, and the action name MUST end with \"(Godai)\".",
+				"",
 				"You can find nodes relative to the scene root using `EditorInterface.get_edited_scene_root().get_node_or_null(node_path)`.",
+				"",
 				"Two helper methods have been provided:",
-				" - `func editor_undo_redo_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`",
-				" - `func editor_undo_redo_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`",
+				"- `func editor_undo_redo_create_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`",
+				"- `func editor_undo_redo_remove_node(p_undo_redo: EditorUndoRedoManager, p_parent: Node, p_child: Node) -> void`",
+				"",
 				"If you are using `EditorUndoRedoManager` to add or remove a node, you MUST call one of those helper methods before calling `commit_action()`. This will add some `add_do_method()` and `add_undo_method()` calls to ensure the changes are synchronized to the live game if the game is running.",
+				"",
 				"If the script successfully runs, the output from `print()` will be returned."
 			],
 			"annotations": {
@@ -1565,9 +1758,11 @@
 				"properties": {
 					"code": {
 						"type": "string",
+						"minLength": 1,
 						"description": "A snippet of GDScript code. It should use tabs rather than spaces for indentation. Don't wrap the code in a `_ready()` function."
 					}
-				}
+				},
+				"required": ["code"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1582,9 +1777,12 @@
 						"items": {
 							"type": "string"
 						}
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success", "output"]
+				}
 			}
 		},
 		"restart_editor": {
@@ -1594,8 +1792,7 @@
 				"",
 				"The editor first prompts the user to save their work, and only restarts once they confirm.",
 				"",
-				"By default, unsaved changes are saved before restarting; pass 'skip_save' as true to discard them instead.",
-				"If the user declines the prompt, the editor is not restarted and this returns an error."
+				"By default, unsaved changes are saved before restarting; pass 'skip_save' as true to discard them instead."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -1618,9 +1815,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True once the editor has restarted and reconnected"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		},
 		"close_editor": {
@@ -1630,8 +1830,7 @@
 				"",
 				"The editor first prompts the user to save their work, and only closes once they confirm.",
 				"",
-				"By default, unsaved changes are saved before closing; pass 'skip_save' as true to discard them instead.",
-				"If the user declines the prompt, the editor is not closed and this returns an error."
+				"By default, unsaved changes are saved before closing; pass 'skip_save' as true to discard them instead."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -1654,9 +1853,12 @@
 					"success": {
 						"type": "boolean",
 						"description": "True once the user has accepted and the editor is closing"
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		}
 	}

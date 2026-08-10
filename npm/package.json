@@ -1,7 +1,7 @@
 {
-  "name": "@snopek-games/godai-mcp",
+  "name": "@snopek-games/godai",
   "version": "0.0.0-dev",
-  "description": "MCP server for integrating AI assistants with the Godot Engine",
+  "description": "Godot automation CLI, with an MCP server for AI assistants",
   "license": "MIT",
   "homepage": "https://gitlab.com/snopek-games/godai",
   "repository": {
@@ -10,24 +10,25 @@
   },
   "keywords": [
     "godot",
+    "cli",
     "mcp",
     "gamedev",
     "game development"
   ],
   "bin": {
-    "godai-mcp": "godai-mcp.js"
+    "godai": "godai.js"
   },
   "files": [
-    "godai-mcp.js"
+    "godai.js"
   ],
   "engines": {
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@snopek-games/godai-mcp-linux-x64": "0.0.0-dev",
-    "@snopek-games/godai-mcp-linux-arm64": "0.0.0-dev",
-    "@snopek-games/godai-mcp-darwin-arm64": "0.0.0-dev",
-    "@snopek-games/godai-mcp-win32-x64": "0.0.0-dev",
-    "@snopek-games/godai-mcp-win32-arm64": "0.0.0-dev"
+    "@snopek-games/godai-linux-x64": "0.0.0-dev",
+    "@snopek-games/godai-linux-arm64": "0.0.0-dev",
+    "@snopek-games/godai-darwin-arm64": "0.0.0-dev",
+    "@snopek-games/godai-win32-x64": "0.0.0-dev",
+    "@snopek-games/godai-win32-arm64": "0.0.0-dev"
   }
 }

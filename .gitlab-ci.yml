@@ -10,8 +10,10 @@ default:
     - linux
 
 variables:
-  MCP_MAIN_PKG: "./cmd/godai-mcp/"
-  MCP_APP_NAME: "godai-mcp"
+  CLI_MAIN_PKG: "./cmd/godai/"
+  CLI_ASSET_NAME: "godai-cli"
+  CLI_BIN_NAME: "godai"
+  MCPB_NAME: "godai-mcp"
   GO_VERSION: "1.25.12"
   GOPATH: "$CI_PROJECT_DIR/.go"
   GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
@@ -23,7 +25,7 @@ cache:
     - .go/pkg/mod/
     - .cache/go-build/
 
-mcp-test:
+go-test:
   stage: test
   image: golang:${GO_VERSION}
   script:
@@ -72,7 +74,7 @@ version-check:
         exit 1
       fi
 
-mcp-build:
+cli-build:
   stage: build
   image: golang:${GO_VERSION}
   parallel:
@@ -98,19 +100,18 @@ mcp-build:
         GOARCH: "arm64"
         EXT: ""
   script:
-    - mkdir -p dist/mcp/${MCP_APP_NAME}-${VARIANT}
+    - mkdir -p dist/cli/${CLI_ASSET_NAME}-${VARIANT}
 
     - echo "Building for GOOS=$GOOS GOARCH=$GOARCH"
-    - GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags="-s -w" -o "dist/mcp/${MCP_APP_NAME}-${VARIANT}/${MCP_APP_NAME}-${VARIANT}${EXT}" "$MCP_MAIN_PKG"
-    # @todo Have MCP-specific README?
-    - cp README.md LICENSE.txt dist/mcp/${MCP_APP_NAME}-${VARIANT}
+    - GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags="-s -w" -o "dist/cli/${CLI_ASSET_NAME}-${VARIANT}/${CLI_BIN_NAME}${EXT}" "$CLI_MAIN_PKG"
+    - cp README.md LICENSE.txt dist/cli/${CLI_ASSET_NAME}-${VARIANT}
   artifacts:
     when: always
     expire_in: 1 week
     paths:
-      - dist/mcp/
+      - dist/cli/
 
-mcp-package-bundle:
+package-mcpb:
   stage: package
   image: node:current
   before_script:
@@ -120,9 +121,9 @@ mcp-package-bundle:
     - mkdir -p dist/mcpb
 
     # Only the binaries referenced by bundle/manifest.json.
-    - cp dist/mcp/${MCP_APP_NAME}-linux-x86_64/${MCP_APP_NAME}-linux-x86_64 bundle/server/
-    - cp dist/mcp/${MCP_APP_NAME}-windows-x86_64/${MCP_APP_NAME}-windows-x86_64.exe bundle/server/
-    - cp dist/mcp/${MCP_APP_NAME}-macos-arm64/${MCP_APP_NAME}-macos-arm64 bundle/server/
+    - cp dist/cli/${CLI_ASSET_NAME}-linux-x86_64/${CLI_BIN_NAME} bundle/server/${CLI_BIN_NAME}-linux-x86_64
+    - cp dist/cli/${CLI_ASSET_NAME}-windows-x86_64/${CLI_BIN_NAME}.exe bundle/server/${CLI_BIN_NAME}-windows-x86_64.exe
+    - cp dist/cli/${CLI_ASSET_NAME}-macos-arm64/${CLI_BIN_NAME} bundle/server/${CLI_BIN_NAME}-macos-arm64
 
     # manifest.json is committed with a placeholder version.
     - |
@@ -135,7 +136,7 @@ mcp-package-bundle:
 
     - (cd bundle && mcpb pack)
 
-    - cp bundle/bundle.mcpb dist/mcpb/godai-mcp.mcpb
+    - cp bundle/bundle.mcpb dist/mcpb/${MCPB_NAME}.mcpb
   artifacts:
     when: always
     expire_in: 1 week
@@ -143,13 +144,13 @@ mcp-package-bundle:
       - dist/mcpb/
 
 # Catches packaging breakage before release time.
-mcp-package-npm:
+package-npm:
   stage: package
   image: node:current
   script:
     - node npm/prepare-packages.mjs "0.0.0-dev.${CI_COMMIT_SHORT_SHA}"
     - |
-      for dir in npm/dist/platforms/*/ npm/dist/godai-mcp/; do
+      for dir in npm/dist/platforms/*/ npm/dist/godai/; do
         (cd "$dir" && npm pack --dry-run)
       done
   artifacts:
@@ -172,13 +173,11 @@ npm-publish:
       aud: "sigstore"
   script:
     - node npm/prepare-packages.mjs "${CI_COMMIT_TAG#v}"
-    # Platform packages first, so the main package's optionalDependencies
-    # always resolve.
     - |
       for dir in npm/dist/platforms/*/; do
         (cd "$dir" && npm publish --access public)
       done
-    - (cd npm/dist/godai-mcp && npm publish --access public)
+    - (cd npm/dist/godai && npm publish --access public)
 
 release:
   stage: release
@@ -196,7 +195,7 @@ release:
     - zip -r dist/release/godai-addon-${CI_COMMIT_TAG}.zip addons/godai/
 
     - |
-      cd dist/mcp
+      cd dist/cli
       for d in *; do
         PKG_DIR=$d-${CI_COMMIT_TAG}
         mv $d $PKG_DIR
@@ -204,9 +203,9 @@ release:
       done
       cd ../..
 
-    - cp dist/mcpb/godai-mcp.mcpb dist/release/godai-mcp-${CI_COMMIT_TAG}.mcpb
+    - cp dist/mcpb/${MCPB_NAME}.mcpb dist/release/${MCPB_NAME}-${CI_COMMIT_TAG}.mcpb
 
-    # `godai-mcp self-update` won't install a release without this file.
+    # `godai self-update` won't install a release without this file.
     - |
       cd dist/release
       sha256sum * > ../checksums.txt
@@ -226,20 +225,20 @@ release:
     description: "Release $CI_COMMIT_TAG"
     assets:
       links:
-        - name: "${MCP_APP_NAME}-windows-x86_64-${CI_COMMIT_TAG}.zip"
-          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-windows-x86_64-${CI_COMMIT_TAG}.zip"
-        - name: "${MCP_APP_NAME}-windows-arm64-${CI_COMMIT_TAG}.zip"
-          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-windows-arm64-${CI_COMMIT_TAG}.zip"
-        - name: "${MCP_APP_NAME}-linux-x86_64-${CI_COMMIT_TAG}.zip"
-          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-linux-x86_64-${CI_COMMIT_TAG}.zip"
-        - name: "${MCP_APP_NAME}-linux-arm64-${CI_COMMIT_TAG}.zip"
-          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-linux-arm64-${CI_COMMIT_TAG}.zip"
-        - name: "${MCP_APP_NAME}-macos-arm64-${CI_COMMIT_TAG}.zip"
-          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-macos-arm64-${CI_COMMIT_TAG}.zip"
-        - name: "npm: @snopek-games/godai-mcp ${CI_COMMIT_TAG}"
-          url: "https://www.npmjs.com/package/@snopek-games/godai-mcp"
-        - name: "${MCP_APP_NAME}-${CI_COMMIT_TAG}.mcpb"
-          url: "${PACKAGE_REGISTRY_URL}/${MCP_APP_NAME}-${CI_COMMIT_TAG}.mcpb"
+        - name: "${CLI_ASSET_NAME}-windows-x86_64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${CLI_ASSET_NAME}-windows-x86_64-${CI_COMMIT_TAG}.zip"
+        - name: "${CLI_ASSET_NAME}-windows-arm64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${CLI_ASSET_NAME}-windows-arm64-${CI_COMMIT_TAG}.zip"
+        - name: "${CLI_ASSET_NAME}-linux-x86_64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${CLI_ASSET_NAME}-linux-x86_64-${CI_COMMIT_TAG}.zip"
+        - name: "${CLI_ASSET_NAME}-linux-arm64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${CLI_ASSET_NAME}-linux-arm64-${CI_COMMIT_TAG}.zip"
+        - name: "${CLI_ASSET_NAME}-macos-arm64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${CLI_ASSET_NAME}-macos-arm64-${CI_COMMIT_TAG}.zip"
+        - name: "npm: @snopek-games/godai ${CI_COMMIT_TAG}"
+          url: "https://www.npmjs.com/package/@snopek-games/godai"
+        - name: "${MCPB_NAME}-${CI_COMMIT_TAG}.mcpb"
+          url: "${PACKAGE_REGISTRY_URL}/${MCPB_NAME}-${CI_COMMIT_TAG}.mcpb"
         - name: "godai-addon.zip"
           url: "${PACKAGE_REGISTRY_URL}/godai-addon-${CI_COMMIT_TAG}.zip"
         - name: "checksums-${CI_COMMIT_TAG}.txt"

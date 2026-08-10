@@ -1,7 +1,7 @@
 // Package harness holds helpers shared by the functional test suites under
 // tests/functional. It knows how to find a Godot binary, create a throwaway
 // Godot project, launch a headless editor against it, and speak MCP to either
-// the editor (HTTP transport) or the Go MCP server (stdio transport).
+// the editor (HTTP transport) or the CLI's MCP server (stdio transport).
 package harness
 
 import (
@@ -168,7 +168,7 @@ func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, s
 
 	// Point Godot's config/data/cache at temporary XDG dirs so the tests get a
 	// deterministic default and don't touch the user's real editor settings or
-	// ~/.cache/godai-mcp/instances.
+	// ~/.cache/godai/instances.
 	xdgBase := opts.XDGBase
 	if xdgBase == "" {
 		xdgBase = projectDir

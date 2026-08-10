@@ -96,8 +96,6 @@ func TestAddNode(t *testing.T) {
 	})
 
 	t.Run("invalid_property_value", func(t *testing.T) {
-		is := is.New(t)
-
 		callToolErr(t, "add_node", map[string]any{
 			"parent_path": ".",
 			"node_type":   "Node2D",
@@ -107,11 +105,9 @@ func TestAddNode(t *testing.T) {
 			},
 		}, "Cannot parse")
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		callToolErr(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"NotCreated"},
-		})
-		nodeProps, _ := props["NotCreated"].(map[string]any)
-		is.Equal(len(nodeProps), 0)
+		}, "Cannot find node(s) in 'node_paths'")
 	})
 }
 
@@ -120,8 +116,36 @@ func TestNodeProperties(t *testing.T) {
 
 	t.Run("set_missing_action", func(t *testing.T) {
 		callToolErr(t, "set_node_properties", map[string]any{
-			"nodes": []any{},
+			"nodes": map[string]any{},
 		}, "'action' is required")
+	})
+
+	t.Run("set_missing_nodes", func(t *testing.T) {
+		callToolErr(t, "set_node_properties", map[string]any{
+			"action": "Move node",
+		}, "'nodes' is required")
+	})
+
+	t.Run("set_node_entry_not_an_object", func(t *testing.T) {
+		callToolErr(t, "set_node_properties", map[string]any{
+			"action": "Move node",
+			"nodes": map[string]any{
+				"MyChild": "position",
+			},
+		}, "MyChild: must map property names to values")
+	})
+
+	t.Run("set_nodes_wrong_type", func(t *testing.T) {
+		callToolErr(t, "set_node_properties", map[string]any{
+			"action": "Move node",
+			"nodes": []any{
+				map[string]any{"node_path": "MyChild"},
+			},
+		}, "'nodes' must be an object, but got an array")
+	})
+
+	t.Run("get_missing_node_paths", func(t *testing.T) {
+		callToolErr(t, "get_node_properties", map[string]any{}, "'node_paths' is required")
 	})
 
 	t.Run("set_and_get", func(t *testing.T) {
@@ -129,16 +153,13 @@ func TestNodeProperties(t *testing.T) {
 
 		structured := callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Move node",
-			"nodes": []any{
-				map[string]any{
-					"node_path": "MyChild",
-					"properties": map[string]any{
-						"position": "Vector2(42, 24)",
-					},
+			"nodes": map[string]any{
+				"MyChild": map[string]any{
+					"position": "Vector2(42, 24)",
 				},
 			},
 		})
-		is.Equal(structured["MyChild"], true)
+		is.Equal(structured["success"], true)
 
 		props := callToolOK(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyChild"},
@@ -148,31 +169,44 @@ func TestNodeProperties(t *testing.T) {
 	})
 
 	t.Run("set_nonexistent_node", func(t *testing.T) {
-		is := is.New(t)
-
-		structured := callToolOK(t, "set_node_properties", map[string]any{
+		callToolErr(t, "set_node_properties", map[string]any{
 			"action": "Set on missing node",
-			"nodes": []any{
-				map[string]any{
-					"node_path": "NoSuchNode",
-					"properties": map[string]any{
-						"position": "Vector2(1, 1)",
-					},
+			"nodes": map[string]any{
+				"NoSuchNode": map[string]any{
+					"position": "Vector2(1, 1)",
 				},
 			},
+		}, "NoSuchNode: cannot find node")
+	})
+
+	t.Run("set_one_nonexistent_node_changes_nothing", func(t *testing.T) {
+		is := is.New(t)
+
+		callToolErr(t, "set_node_properties", map[string]any{
+			"action": "Move nodes",
+			"nodes": map[string]any{
+				"MyChild":    map[string]any{"position": "Vector2(99, 99)"},
+				"NoSuchNode": map[string]any{"position": "Vector2(1, 1)"},
+			},
+		}, "NoSuchNode: cannot find node")
+
+		props := callToolOK(t, "get_node_properties", map[string]any{
+			"node_paths": []string{"MyChild"},
 		})
-		is.Equal(structured["NoSuchNode"], false)
+		nodeProps, _ := props["MyChild"].(map[string]any)
+		is.Equal(nodeProps["position"], "Vector2(42, 24)")
 	})
 
 	t.Run("get_nonexistent_node", func(t *testing.T) {
-		is := is.New(t)
-
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		callToolErr(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"NoSuchNode"},
-		})
-		nodeProps, ok := props["NoSuchNode"].(map[string]any)
-		is.True(ok) // a missing node gets a present-but-empty entry, not an error
-		is.Equal(len(nodeProps), 0)
+		}, "Cannot find node(s) in 'node_paths'")
+	})
+
+	t.Run("get_one_nonexistent_node", func(t *testing.T) {
+		callToolErr(t, "get_node_properties", map[string]any{
+			"node_paths": []string{"MyChild", "NoSuchNode"},
+		}, "Cannot find node(s) in 'node_paths'")
 	})
 
 	t.Run("get_multiple_nodes", func(t *testing.T) {
@@ -234,30 +268,50 @@ func TestNodeProperties(t *testing.T) {
 		is.Equal(props["MyMesh:mesh:radius"], "2.0")
 	})
 
+	t.Run("embedded_resource_without_properties", func(t *testing.T) {
+		is := is.New(t)
+
+		callToolOK(t, "add_node", map[string]any{
+			"parent_path": ".",
+			"node_type":   "MeshInstance3D",
+			"properties": map[string]any{
+				"name": "MyBoxMesh",
+				"mesh": "Object(BoxMesh)",
+			},
+		})
+
+		props := callToolOK(t, "get_node_properties", map[string]any{
+			"node_paths": []string{"MyBoxMesh"},
+		})
+		nodeProps, _ := props["MyBoxMesh"].(map[string]any)
+		is.Equal(nodeProps["mesh"], "Object(BoxMesh)")
+
+		// Everything at its default, so nothing to report.
+		props = callToolOK(t, "get_node_properties", map[string]any{
+			"node_paths": []string{"MyBoxMesh:mesh"},
+		})
+		meshProps, _ := props["MyBoxMesh:mesh"].(map[string]any)
+		is.Equal(len(meshProps), 0)
+	})
+
 	t.Run("set_sub_property", func(t *testing.T) {
 		is := is.New(t)
 
 		structured := callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Resize sphere",
-			"nodes": []any{
-				map[string]any{
-					"node_path": "MyMesh",
-					"properties": map[string]any{
-						"mesh:radius": "3.5",
-					},
+			"nodes": map[string]any{
+				"MyMesh": map[string]any{
+					"mesh:radius": "3.5",
 				},
 			},
 		})
-		is.Equal(structured["MyMesh"], true)
+		is.Equal(structured["success"], true)
 
 		callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Resize sphere",
-			"nodes": []any{
-				map[string]any{
-					"node_path": "MyMesh:mesh",
-					"properties": map[string]any{
-						"height": "4.0",
-					},
+			"nodes": map[string]any{
+				"MyMesh:mesh": map[string]any{
+					"height": "4.0",
 				},
 			},
 		})
@@ -274,12 +328,9 @@ func TestNodeProperties(t *testing.T) {
 
 		callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Move node",
-			"nodes": []any{
-				map[string]any{
-					"node_path": "MyChild",
-					"properties": map[string]any{
-						"position:x": "7.0",
-					},
+			"nodes": map[string]any{
+				"MyChild": map[string]any{
+					"position:x": "7.0",
 				},
 			},
 		})
@@ -303,12 +354,9 @@ func TestNodeProperties(t *testing.T) {
 
 		callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Assign label settings",
-			"nodes": []any{
-				map[string]any{
-					"node_path": "MyLabel",
-					"properties": map[string]any{
-						"label_settings": `Resource("res://resources/np_label_settings.tres")`,
-					},
+			"nodes": map[string]any{
+				"MyLabel": map[string]any{
+					"label_settings": `Resource("res://resources/np_label_settings.tres")`,
 				},
 			},
 		})
@@ -326,24 +374,18 @@ func TestNodeProperties(t *testing.T) {
 
 		callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Move node",
-			"nodes": []any{
-				map[string]any{
-					"node_path":  "MyChild",
-					"properties": map[string]any{"position": "Vector2(5, 5)"},
-				},
+			"nodes": map[string]any{
+				"MyChild": map[string]any{"position": "Vector2(5, 5)"},
 			},
 		})
 
 		// One invalid value rejects the whole call; the valid one must NOT be applied.
 		callToolErr(t, "set_node_properties", map[string]any{
 			"action": "Move node",
-			"nodes": []any{
-				map[string]any{
-					"node_path": "MyChild",
-					"properties": map[string]any{
-						"position": "Vector2(9, 9)",
-						"rotation": "garbage(",
-					},
+			"nodes": map[string]any{
+				"MyChild": map[string]any{
+					"position": "Vector2(9, 9)",
+					"rotation": "garbage(",
 				},
 			},
 		}, "Cannot parse")
@@ -358,11 +400,8 @@ func TestNodeProperties(t *testing.T) {
 	t.Run("unknown_property", func(t *testing.T) {
 		callToolErr(t, "set_node_properties", map[string]any{
 			"action": "Set unknown property",
-			"nodes": []any{
-				map[string]any{
-					"node_path":  "MyChild",
-					"properties": map[string]any{"no_such_prop": "1"},
-				},
+			"nodes": map[string]any{
+				"MyChild": map[string]any{"no_such_prop": "1"},
 			},
 		}, "has no property named 'no_such_prop'")
 	})
@@ -378,12 +417,11 @@ func TestNodeProperties(t *testing.T) {
 		is.True(strings.Contains(errMsg, "no property named 'no_such_prop'"))
 	})
 
-	t.Run("modified_only", func(t *testing.T) {
+	t.Run("modified_only_by_default", func(t *testing.T) {
 		is := is.New(t)
 
 		props := callToolOK(t, "get_node_properties", map[string]any{
-			"node_paths":    []string{"MyChild"},
-			"modified_only": true,
+			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
 
@@ -392,6 +430,66 @@ func TestNodeProperties(t *testing.T) {
 		is.True(hasPosition)
 		_, hasRotation := nodeProps["rotation"]
 		is.True(!hasRotation)
+	})
+
+	t.Run("include_defaults", func(t *testing.T) {
+		is := is.New(t)
+
+		props := callToolOK(t, "get_node_properties", map[string]any{
+			"node_paths":       []string{"MyChild"},
+			"include_defaults": true,
+		})
+		nodeProps, _ := props["MyChild"].(map[string]any)
+
+		_, hasRotation := nodeProps["rotation"]
+		is.True(hasRotation)
+	})
+
+	// Neither saved nor shown in the inspector: derived from "transform"
+	// ("global_position", "rotation_degrees"), or unrelated to the node's state
+	// ("multiplayer", "owner").
+	hiddenProps := []string{"global_position", "global_transform", "rotation_degrees", "multiplayer", "owner"}
+
+	t.Run("hidden_properties_omitted", func(t *testing.T) {
+		is := is.New(t)
+
+		for _, includeDefaults := range []bool{false, true} {
+			props := callToolOK(t, "get_node_properties", map[string]any{
+				"node_paths":       []string{"MyChild"},
+				"include_defaults": includeDefaults,
+			})
+			nodeProps, _ := props["MyChild"].(map[string]any)
+			for _, name := range hiddenProps {
+				_, has := nodeProps[name]
+				is.True(!has)
+			}
+		}
+	})
+
+	t.Run("hidden_property_by_name", func(t *testing.T) {
+		is := is.New(t)
+
+		// The scene root sits at the origin, so MyChild's global position is
+		// just its position.
+		props := callToolOK(t, "get_node_properties", map[string]any{
+			"node_paths": []string{"MyChild:position", "MyChild:global_position"},
+		})
+		is.Equal(props["MyChild:global_position"], props["MyChild:position"])
+	})
+
+	t.Run("unset_string_property_omitted", func(t *testing.T) {
+		is := is.New(t)
+
+		props := callToolOK(t, "get_node_properties", map[string]any{
+			"node_paths": []string{"MyChild"},
+		})
+		nodeProps, _ := props["MyChild"].(map[string]any)
+
+		// Godot tracks no default for these, but an empty one still isn't worth
+		// reporting; the node's name always is.
+		_, hasSceneFilePath := nodeProps["scene_file_path"]
+		is.True(!hasSceneFilePath)
+		is.Equal(nodeProps["name"], "MyChild")
 	})
 }
 
@@ -422,11 +520,9 @@ func TestRemoveNode(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		callToolErr(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyChild"},
-		})
-		nodeProps, _ := props["MyChild"].(map[string]any)
-		is.Equal(len(nodeProps), 0)
+		}, "Cannot find node(s) in 'node_paths'")
 	})
 }
 
@@ -483,13 +579,19 @@ func TestNodeGroups(t *testing.T) {
 	})
 
 	t.Run("get_missing_node", func(t *testing.T) {
-		is := is.New(t)
-		groups := callToolOK(t, "get_node_groups", map[string]any{
+		callToolErr(t, "get_node_groups", map[string]any{
 			"node_paths": []string{"NoSuchNode"},
-		})
-		got, ok := groups["NoSuchNode"].([]any)
-		is.True(ok)
-		is.Equal(len(got), 0)
+		}, "Cannot find node(s) in 'node_paths'")
+	})
+
+	t.Run("get_one_missing_node", func(t *testing.T) {
+		callToolErr(t, "get_node_groups", map[string]any{
+			"node_paths": []string{"MyChild", "NoSuchNode"},
+		}, "Cannot find node(s) in 'node_paths'")
+	})
+
+	t.Run("get_missing_node_paths", func(t *testing.T) {
+		callToolErr(t, "get_node_groups", map[string]any{}, "'node_paths' is required")
 	})
 
 	t.Run("add_missing_node", func(t *testing.T) {
@@ -668,6 +770,59 @@ func TestNodeScript(t *testing.T) {
 			"node_path":   "ScriptHost",
 			"script_path": "res://scripts/ns_incompatible.gd",
 		}, "not compatible")
+	})
+
+	t.Run("attach_incompatible_via_set_node_properties", func(t *testing.T) {
+		is := is.New(t)
+
+		// Setting 'script' attaches one too, so it gets the same check.
+		callToolErr(t, "set_node_properties", map[string]any{
+			"action": "Attach a script by property",
+			"nodes": map[string]any{
+				"ScriptHost": map[string]any{
+					"script": `Resource("res://scripts/ns_incompatible.gd")`,
+				},
+			},
+		}, "not compatible")
+
+		props := callToolOK(t, "get_node_properties", map[string]any{
+			"node_paths": []string{"ScriptHost"},
+		})
+		nodeProps, _ := props["ScriptHost"].(map[string]any)
+		is.Equal(nodeProps["script"], `Resource("res://scripts/ns_compatible.gd")`)
+	})
+
+	t.Run("attach_and_detach_via_set_node_properties", func(t *testing.T) {
+		is := is.New(t)
+
+		callToolOK(t, "set_node_properties", map[string]any{
+			"action": "Detach a script by property",
+			"nodes": map[string]any{
+				"ScriptHost": map[string]any{"script": "null"},
+			},
+		})
+
+		props := callToolOK(t, "get_node_properties", map[string]any{
+			"node_paths": []string{"ScriptHost"},
+		})
+		nodeProps, _ := props["ScriptHost"].(map[string]any)
+		_, hasScript := nodeProps["script"]
+		is.True(!hasScript)
+
+		callToolOK(t, "set_node_properties", map[string]any{
+			"action": "Attach a script by property",
+			"nodes": map[string]any{
+				"ScriptHost": map[string]any{
+					"script": `Resource("res://scripts/ns_compatible.gd")`,
+				},
+			},
+		})
+
+		props = callToolOK(t, "get_node_properties", map[string]any{
+			"node_paths": []string{"ScriptHost"},
+		})
+		nodeProps, _ = props["ScriptHost"].(map[string]any)
+		is.Equal(nodeProps["script"], `Resource("res://scripts/ns_compatible.gd")`)
 	})
 
 	t.Run("attach_nonexistent_script", func(t *testing.T) {

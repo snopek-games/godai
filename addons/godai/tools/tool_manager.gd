@@ -72,6 +72,15 @@ class ToolAnnotations extends RefCounted:
 
 @abstract
 class Tool extends RefCounted:
+	const JSON_TYPE_NAMES := {
+		object = "an object",
+		array = "an array",
+		string = "a string",
+		boolean = "a boolean",
+		integer = "a number",
+		number = "a number",
+	}
+
 	var name: String
 	var title: String
 	var description: String
@@ -81,6 +90,85 @@ class Tool extends RefCounted:
 
 	@abstract
 	func execute(p_input) -> ToolResult
+
+	## Checks the input against the top level of the tool's own schema: that
+	## everything in 'required' is there, that it isn't empty when the schema
+	## sets a minimum size, and that whatever is there has the declared type.
+	## Anything deeper is left to the tool itself, where the error message can
+	## say something more useful than a schema path.
+	##
+	## Returns an error message, or "" when the input is usable.
+	func check_input(p_input) -> String:
+		if not p_input is Dictionary:
+			return "Input must be %s, but got %s" % [JSON_TYPE_NAMES['object'], _json_type_name(p_input)]
+
+		var properties: Dictionary = input_schema.get('properties', {})
+
+		# An empty path, name or list of things to act on is no more of an
+		# argument than a missing one, so both get the same message.
+		for required_name in input_schema.get('required', []):
+			if not p_input.has(required_name):
+				return "'%s' is required" % required_name
+			if _is_empty(p_input[required_name]) and _get_schema_minimum_size(properties.get(required_name, {})) > 0:
+				return "'%s' is required" % required_name
+
+		for input_name in p_input:
+			if not properties.has(input_name):
+				continue
+
+			var expected_type: String = properties[input_name].get('type', '')
+			if not JSON_TYPE_NAMES.has(expected_type):
+				continue
+			if _matches_json_type(p_input[input_name], expected_type):
+				continue
+
+			return "'%s' must be %s, but got %s" % [
+				input_name,
+				JSON_TYPE_NAMES[expected_type],
+				_json_type_name(p_input[input_name]),
+			]
+
+		return ""
+
+	## The smallest a property's schema lets its value be. Each JSON type spells
+	## that its own way, and leaving it out means zero.
+	func _get_schema_minimum_size(p_property: Dictionary) -> int:
+		match p_property.get('type', ''):
+			"string":
+				return p_property.get('minLength', 0)
+			"array":
+				return p_property.get('minItems', 0)
+			"object":
+				return p_property.get('minProperties', 0)
+		return 0
+
+	func _is_empty(p_value) -> bool:
+		match typeof(p_value):
+			TYPE_NIL:
+				return true
+			TYPE_STRING, TYPE_STRING_NAME, TYPE_ARRAY, TYPE_DICTIONARY:
+				return p_value.is_empty()
+		return false
+
+	func _matches_json_type(p_value, p_type: String) -> bool:
+		match p_type:
+			"object":
+				return p_value is Dictionary
+			"array":
+				return p_value is Array
+			"string":
+				return p_value is String or p_value is StringName
+			"boolean":
+				return p_value is bool
+			"integer", "number":
+				return p_value is int or p_value is float
+		return true
+
+	func _json_type_name(p_value) -> String:
+		for type_name in JSON_TYPE_NAMES:
+			if _matches_json_type(p_value, type_name):
+				return JSON_TYPE_NAMES[type_name]
+		return "null" if p_value == null else "a %s" % type_string(typeof(p_value))
 
 	func is_read_only() -> bool:
 		return annotations and annotations.read_only_hint
@@ -190,6 +278,10 @@ func execute_tool(p_name: String, p_input) -> ToolResult:
 		return null
 
 	var tool_obj: Tool = tools[p_name]
+
+	var input_error := tool_obj.check_input(p_input)
+	if not input_error.is_empty():
+		return ToolResult.rejected({error = input_error})
 
 	if not _current:
 		var result: ToolResult = tool_obj.execute(p_input)

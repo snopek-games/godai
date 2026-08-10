@@ -48,8 +48,8 @@ var _mcp_transport: MCPServer.Transport = GodaiEditorSettings.MCP_TRANSPORT_DEFA
 var _mcp_base_port: int = GodaiEditorSettings.MCP_BASE_PORT_DEFAULT
 var _mcp_port_count: int = GodaiEditorSettings.MCP_PORT_COUNT_DEFAULT
 
-const MCP_INSTANCE_USER_PATH := "godai-mcp/instances"
-const MCP_INSTANCE_PROJECT_FILE := ".godot/godai-mcp-instance.json"
+const MCP_INSTANCE_USER_PATH := "godai/instances"
+const MCP_INSTANCE_PROJECT_FILE := ".godot/godai-instance.json"
 
 
 func _ready() -> void:
@@ -194,8 +194,8 @@ func _update_mcp_status_bar() -> void:
 
 			var update_available := mcp_server.get_update_available()
 			if update_available.size() > 0:
-				status += " (godai-mcp %s is available)" % update_available['latest_version']
-				tooltip = "Run 'godai-mcp self-update' in a terminal to install godai-mcp %s." % update_available['latest_version']
+				status += " (godai %s is available)" % update_available['latest_version']
+				tooltip = "Run 'godai self-update' in a terminal to install godai %s." % update_available['latest_version']
 
 		mcp_status_label.text = status
 

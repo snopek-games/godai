@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
-	"gitlab.com/snopek-games/godai/mcp/server"
+	"gitlab.com/snopek-games/godai/internal/jsonrpc"
+	"gitlab.com/snopek-games/godai/internal/mcp"
 
 	"github.com/matryer/is"
 )
@@ -19,10 +19,10 @@ func TestInitialize(t *testing.T) {
 
 	result, err := client.Initialize(testContext(t))
 	is.NoErr(err)
-	is.Equal(result.ServerInfo.Name, server.GodaiMcpName)
-	is.Equal(result.ServerInfo.Title, server.GodaiMcpTitle)
+	is.Equal(result.ServerInfo.Name, mcp.GodaiMcpName)
+	is.Equal(result.ServerInfo.Title, mcp.GodaiMcpTitle)
 	is.True(result.ServerInfo.Version != "" && result.ServerInfo.Version != "unknown")
-	is.Equal(result.ProtocolVersion, server.ProtocolVersion)
+	is.Equal(result.ProtocolVersion, mcp.ProtocolVersion)
 	_, ok := result.Capabilities["tools"]
 	is.True(ok)
 }
@@ -39,7 +39,7 @@ func TestInitializeVersionNegotiation(t *testing.T) {
 		is := is.New(t)
 		result, err := client.InitializeWithVersion(testContext(t), "1999-01-01")
 		is.NoErr(err)
-		is.Equal(result.ProtocolVersion, server.ProtocolVersion)
+		is.Equal(result.ProtocolVersion, mcp.ProtocolVersion)
 	})
 }
 
@@ -229,8 +229,8 @@ func TestExecuteEditorScript(t *testing.T) {
 		structured := callToolErr(t, "execute_editor_script", map[string]any{
 			"code": "this is not valid gdscript ((",
 		}, "Script failed to parse")
-		_, hasLog := structured["log"]
-		is.True(hasLog)
+		_, hasOutput := structured["output"]
+		is.True(hasOutput)
 	})
 
 	t.Run("success_with_print", func(t *testing.T) {

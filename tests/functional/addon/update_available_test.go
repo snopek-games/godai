@@ -103,5 +103,5 @@ func TestUpdateAvailableShowsInTheStatusBar(t *testing.T) {
 		return strings.Contains(s, "9.9.9")
 	})
 
-	is.True(strings.Contains(status, "godai-mcp 9.9.9 is available"))
+	is.True(strings.Contains(status, "godai 9.9.9 is available"))
 }

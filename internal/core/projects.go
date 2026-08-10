@@ -1,0 +1,484 @@
+package core
+
+import (
+	"context"
+	"fmt"
+	"io/fs"
+	"log/slog"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+
+	"gitlab.com/snopek-games/godai/internal/godot"
+)
+
+type ProjectInfo struct {
+	ProjectPath string `json:"project_path"`
+	ProjectName string `json:"project_name,omitempty"`
+}
+
+const maxProjectScanDepth = 8
+
+// Known problematic directories to skip when scanning for project directories.
+var skipProjectScanDirs = map[string]bool{
+	"node_modules": true,
+	"__pycache__":  true,
+	"vendor":       true,
+}
+
+func (s *Session) ListProjects(ctx context.Context) ([]ProjectInfo, error) {
+	pathSet := map[string]struct{}{}
+
+	if s.Global() {
+		projectBasePath, _ := s.ensureProjectBasePath(ctx)
+
+		if projectBasePath != "" {
+			entries, err := os.ReadDir(projectBasePath)
+			if err != nil {
+				return nil, NewUserError(fmt.Sprintf("unable to read project path: %s", projectBasePath), err, []string{
+					"Check the base path: `godai config` (MCP: the `get_godai_settings` tool)",
+					"Set a different one: `godai config --set project_base_path=<PATH>`",
+				})
+			}
+
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					continue
+				}
+				if realPath, err := CanonicalPath(filepath.Join(projectBasePath, entry.Name())); err == nil {
+					pathSet[realPath] = struct{}{}
+				}
+			}
+		}
+
+		pml, err := godot.GetProjectManagerEntries()
+		if err == nil {
+			for _, e := range pml {
+				if realPath, err := CanonicalPath(e.ProjectPath); err == nil {
+					pathSet[realPath] = struct{}{}
+				}
+			}
+		} else {
+			slog.Error("error getting the project manager entries", "error", err)
+		}
+	} else {
+		for _, rootPath := range s.RootPaths() {
+			scanRootForProjects(rootPath, pathSet)
+		}
+	}
+
+	list := make([]ProjectInfo, 0, len(pathSet))
+	for projectPath := range pathSet {
+		project, err := godot.ProjectFromPath(projectPath)
+		if err != nil {
+			continue
+		}
+
+		info := ProjectInfo{ProjectPath: projectPath}
+
+		cf, err := project.GetConfigFile()
+		if err != nil {
+			slog.Error("unable to parse Godot project config", "projectPath", projectPath, "error", err)
+		} else if projectName, ok := cf.GetString("application", "config/name"); ok {
+			info.ProjectName = projectName
+		}
+
+		list = append(list, info)
+	}
+
+	sortProjects(list)
+
+	return list, nil
+}
+
+func scanRootForProjects(rootPath string, pathSet map[string]struct{}) {
+	err := filepath.WalkDir(rootPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			slog.Debug("error walking for projects, skipping entry", "path", path, "error", err)
+			return nil
+		}
+
+		if d.IsDir() && path != rootPath {
+			// Skip hidden directories or known problematic ones.
+			if strings.HasPrefix(d.Name(), ".") || skipProjectScanDirs[d.Name()] {
+				return filepath.SkipDir
+			}
+
+			// Don't descend past the depth limit.
+			if rel, err := filepath.Rel(rootPath, path); err == nil &&
+				strings.Count(rel, string(filepath.Separator))+1 >= maxProjectScanDepth {
+				return filepath.SkipDir
+			}
+		}
+
+		// Consider a directory with a "project.godot" to be a Godot project.
+		if !d.IsDir() && d.Name() == "project.godot" {
+			realProjectPath, err := CanonicalPath(filepath.Dir(path))
+			if err != nil {
+				// Skip this one, but keep scanning for others.
+				slog.Error("unable to canonicalize project path, skipping", "path", path, "error", err)
+				return filepath.SkipDir
+			}
+			pathSet[realProjectPath] = struct{}{}
+			return filepath.SkipDir
+		}
+
+		return nil
+	})
+	if err != nil {
+		slog.Error("error looking for projects in root", "path", rootPath, "error", err)
+	}
+}
+
+func sortProjects(list []ProjectInfo) {
+	sort.Slice(list, func(i, j int) bool { return list[i].ProjectPath < list[j].ProjectPath })
+}
+
+func (s *Session) ListOpenProjects(ctx context.Context) ([]ProjectInfo, error) {
+	if err := s.ensureStarted(ctx); err != nil {
+		return nil, err
+	}
+	s.ScanNow()
+
+	seen := map[string]struct{}{}
+	list := []ProjectInfo{}
+	for _, e := range s.Editors() {
+		if _, ok := seen[e.ProjectPath]; ok {
+			continue
+		}
+		seen[e.ProjectPath] = struct{}{}
+		list = append(list, ProjectInfo{
+			ProjectPath: e.ProjectPath,
+			ProjectName: e.ProjectName,
+		})
+	}
+
+	sortProjects(list)
+
+	return list, nil
+}
+
+const autoApproveToolsEnv = "GODAI_AUTO_APPROVE_TOOLS"
+
+type OpenProjectOptions struct {
+	Headless    bool
+	AutoApprove bool
+	Wait        time.Duration
+}
+
+type OpenProjectResult struct {
+	ProjectPath string `json:"project_path"`
+	AlreadyOpen bool   `json:"already_open"`
+	Headless    bool   `json:"headless"`
+}
+
+func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProjectOptions) (*OpenProjectResult, error) {
+	realProjectPath, err := CanonicalPath(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if !s.Global() && !godot.IsPathUnderAnyRoot(realProjectPath, s.RootPaths()) {
+		return nil, NewUserError("project is not under one of our allowed roots", nil, []string{
+			"Allow this project's path with an additional `--root <PATH>`",
+			"Allow access to any project with the `--global` option",
+		})
+	}
+
+	if err := s.ensureStarted(ctx); err != nil {
+		return nil, err
+	}
+	s.ScanNow()
+
+	wait := opts.Wait
+	if wait <= 0 {
+		wait = s.config.OpenProjectTimeout
+	}
+
+	if s.hasRunningEditorForProject(realProjectPath) {
+		waitCtx, cancel := context.WithTimeout(ctx, wait)
+		defer cancel()
+
+		editor, err := s.WaitForEditor(waitCtx, realProjectPath)
+		if err != nil {
+			return nil, waitError(waitCtx, "timed out connecting to the Godot editor already running for '"+realProjectPath+"'", err)
+		}
+
+		return &OpenProjectResult{ProjectPath: realProjectPath, AlreadyOpen: true, Headless: editor.Headless}, nil
+	}
+
+	project, err := godot.ProjectFromPath(realProjectPath)
+	if err != nil {
+		return nil, NewUserError("invalid project", err, nil)
+	}
+
+	godotPath, err := s.ensureGodotPath(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := installAddon(project, s.config.Debug); err != nil {
+		return nil, NewUserError("unable to install godai addon", err, nil)
+	}
+	if err := enableAddon(project); err != nil {
+		return nil, NewUserError("unable to enable godai addon in project.godot file", err, nil)
+	}
+
+	args := []string{"--editor", "--path", realProjectPath}
+	if opts.Headless {
+		// Use these arguments rather than `--headless` because they'll survive an editor restart.
+		args = append(args, "--display-driver", "headless", "--audio-driver", "Dummy")
+	}
+
+	cmd := exec.Command(godotPath, args...)
+	cmd.Env = append(os.Environ(), "DISPLAY="+s.config.X11Display)
+	if opts.AutoApprove {
+		cmd.Env = append(cmd.Env, autoApproveToolsEnv+"=1")
+	}
+	detachProcess(cmd)
+
+	if err := cmd.Start(); err != nil {
+		return nil, NewUserError("unable to execute godot", err, []string{
+			"Check the Godot path: `godai config` (MCP: the `get_godai_settings` tool)",
+			"Set a different one: `godai config --set godot_path=<PATH>`",
+		})
+	}
+
+	// Reap the zombies!
+	go func() { _ = cmd.Wait() }()
+
+	if opts.Headless {
+		// Mark before waiting to connect: a slow first import can take longer
+		// than our timeout, and an editor that connects after we've returned is
+		// still one we launched and must be shut down with the session.
+		s.markHeadlessProject(realProjectPath)
+	}
+
+	waitCtx, cancel := context.WithTimeout(ctx, wait)
+	defer cancel()
+	if _, err := s.WaitForEditor(waitCtx, realProjectPath); err != nil {
+		return nil, waitError(waitCtx, "timed out waiting for connection from Godot editor for '"+realProjectPath+"'", err)
+	}
+
+	return &OpenProjectResult{ProjectPath: realProjectPath, Headless: opts.Headless}, nil
+}
+
+// Reports why the wait ended, so that a timeout or an interrupt doesn't get
+// reported (and exit) as "no editor connected".
+func waitError(waitCtx context.Context, message string, err error) error {
+	if ctxErr := waitCtx.Err(); ctxErr != nil {
+		err = ctxErr
+	}
+	return NewUserError(message, err, nil)
+}
+
+func ResolveProjectPath(hint string) (string, error) {
+	if hint != "" {
+		return validateProjectPath(hint)
+	}
+
+	if path, ok := findProjectFromCwd(); ok {
+		return path, nil
+	}
+
+	return "", NewUserError("no Godot project found", ErrNotConfigured, []string{
+		"Run this from inside a Godot project directory",
+		"Or name one with `--project-path <PATH>`",
+	})
+}
+
+func validateProjectPath(path string) (string, error) {
+	realPath, err := CanonicalPath(path)
+	if err != nil {
+		return "", NewUserError("invalid project path: "+path, err, nil)
+	}
+	if _, err := godot.ProjectFromPath(realPath); err != nil {
+		return "", NewUserError("not a Godot project: "+realPath, err, nil)
+	}
+	return realPath, nil
+}
+
+func findProjectFromCwd() (string, bool) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", false
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "project.godot")); err == nil {
+			if realPath, err := CanonicalPath(dir); err == nil {
+				return realPath, true
+			}
+			return "", false
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false
+		}
+		dir = parent
+	}
+}
+
+func (s *Session) GetConfig() SavedConfig {
+	return SavedConfig{
+		DefaultGodotPath: s.config.DefaultGodotPath,
+		ProjectBasePath:  s.config.ProjectBasePath,
+	}
+}
+
+func ResolveSavedConfig(sc SavedConfig) (SavedConfig, error) {
+	resolved := SavedConfig{}
+
+	if sc.DefaultGodotPath != "" {
+		path, err := ResolveGodotExecutable(sc.DefaultGodotPath)
+		if err != nil {
+			return resolved, NewUserError("invalid godot_path - doesn't exist or isn't executable", err, nil)
+		}
+		resolved.DefaultGodotPath = path
+	}
+
+	if sc.ProjectBasePath != "" {
+		path, err := resolveDirectory(sc.ProjectBasePath)
+		if err != nil {
+			return resolved, NewUserError("invalid project_base_path - doesn't exist or isn't a directory", err, nil)
+		}
+		resolved.ProjectBasePath = path
+	}
+
+	return resolved, nil
+}
+
+func (s *Session) SetConfig(sc SavedConfig) error {
+	resolved, err := ResolveSavedConfig(sc)
+	if err != nil {
+		return err
+	}
+
+	if resolved.DefaultGodotPath != "" {
+		s.config.DefaultGodotPath = resolved.DefaultGodotPath
+	}
+	if resolved.ProjectBasePath != "" {
+		s.config.ProjectBasePath = resolved.ProjectBasePath
+	}
+
+	return s.mergeSavedConfig(resolved)
+}
+
+func (s *Session) UnsetConfig(names []string) error {
+	for _, name := range names {
+		if err := CheckSettingName(name); err != nil {
+			return err
+		}
+	}
+
+	saved := SavedConfig{}
+	if s.config.SavedConfigPath != "" {
+		if existing, err := LoadConfig(s.config.SavedConfigPath); err == nil {
+			saved = *existing
+		}
+	}
+
+	live := s.GetConfig()
+	for _, name := range names {
+		if err := saved.SetSetting(name, ""); err != nil {
+			return err
+		}
+		if err := live.SetSetting(name, ""); err != nil {
+			return err
+		}
+	}
+
+	s.config.DefaultGodotPath = live.DefaultGodotPath
+	s.config.ProjectBasePath = live.ProjectBasePath
+
+	if s.config.SavedConfigPath == "" {
+		return nil
+	}
+	return SaveConfig(s.config.SavedConfigPath, &saved)
+}
+
+func (s *Session) ensureProjectBasePath(ctx context.Context) (string, error) {
+	if path := s.config.ProjectBasePath; path != "" {
+		if err := ValidateDirectory(path); err == nil {
+			return path, nil
+		}
+		slog.Warn("the configured project base path is no longer usable", "projectBasePath", path)
+	}
+
+	path, err := s.promptForPath(ctx,
+		"Where do you usually keep your Godot projects?",
+		"project_path",
+		"The base path to your Godot projects",
+		resolveDirectory)
+	if err == nil {
+		s.config.ProjectBasePath = path
+		s.logSaveSetting(SettingProjectBasePath, path)
+		return path, nil
+	}
+
+	return "", NewUserError("the path where your Godot projects usually live is not configured or doesn't exist", ErrNotConfigured, []string{
+		"Set it: `godai config --set project_base_path=<PATH>` (MCP: the `set_godai_settings` tool)",
+		"Or pass `--project-base-path <PATH>` when starting Godai",
+	})
+}
+
+func (s *Session) ensureGodotPath(ctx context.Context) (string, error) {
+	if path := s.config.DefaultGodotPath; path != "" {
+		if resolved, err := ResolveGodotExecutable(path); err == nil {
+			return resolved, nil
+		}
+		slog.Warn("the configured Godot executable is no longer usable", "godotPath", path)
+	}
+
+	path, err := s.promptForPath(ctx,
+		"Cannot find Godot",
+		"godot_path",
+		"The full path to the Godot 4 executable on your system",
+		ResolveGodotExecutable)
+	if err == nil {
+		s.config.DefaultGodotPath = path
+		s.logSaveSetting(SettingGodotPath, path)
+		return path, nil
+	}
+
+	return "", NewUserError("the path to the Godot 4 executable on your system is not configured or invalid", ErrNotConfigured, []string{
+		"Set it: `godai config --set godot_path=<PATH>` (MCP: the `set_godai_settings` tool)",
+		"Or pass `--godot-path <PATH>` when starting Godai",
+	})
+}
+
+func (s *Session) promptForPath(ctx context.Context, message, field, description string, resolve func(string) (string, error)) (string, error) {
+	result, err := s.getPrompter().Prompt(ctx, message, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			field: map[string]any{
+				"type":        "string",
+				"description": description,
+			},
+		},
+	})
+	if err != nil {
+		if err != ErrPromptUnsupported {
+			slog.Error("error asking for "+field, "error", err)
+		}
+		return "", err
+	}
+
+	value, _ := result[field].(string)
+	if value == "" {
+		slog.Error("no "+field+" was provided", "result", result)
+		return "", fmt.Errorf("no %s was provided", field)
+	}
+
+	path, err := resolve(value)
+	if err != nil {
+		slog.Error("invalid "+field+" was provided", "path", value, "error", err)
+		return "", err
+	}
+
+	return path, nil
+}

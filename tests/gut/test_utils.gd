@@ -59,6 +59,21 @@ func test_decode_property_value() -> void:
 	assert_true(decoded.get("value") is SphereMesh)
 	assert_eq(decoded.get("value").radius, 2.0)
 
+	# Godot's own parser needs a comma after the class name, so we add it: an
+	# Object() with no properties comes out with all of them at their defaults.
+	decoded = Utils.decode_property_value("Object(SphereMesh)", TYPE_OBJECT)
+	assert_true(decoded.get("value") is SphereMesh)
+	assert_eq(decoded.get("value").radius, SphereMesh.new().radius)
+
+	decoded = Utils.decode_property_value(" Object( SphereMesh ) ", TYPE_OBJECT)
+	assert_true(decoded.get("value") is SphereMesh)
+
+	# Anything that isn't an Object() holding a bare class name goes to Godot's
+	# parser untouched.
+	assert_eq(Utils._add_object_comma('Object(SphereMesh,"radius":2.0)'), 'Object(SphereMesh,"radius":2.0)')
+	assert_eq(Utils._add_object_comma("Object(Sphere Mesh)"), "Object(Sphere Mesh)")
+	assert_eq(Utils._add_object_comma("Vector2(1, 2)"), "Vector2(1, 2)")
+
 	# Parse failures are reported, rather than silently becoming null.
 	decoded = Utils.decode_property_value("Vector2(1 2)", TYPE_VECTOR2)
 	assert_true(decoded.has("error"))
@@ -123,6 +138,36 @@ func test_get_property_default_value() -> void:
 	var with_script: Node = autofree(Node.new())
 	with_script.set_script(load("res://tests/gut/fixtures/script_with_default.gd"))
 	assert_eq(Utils.get_default_property_value(with_script, "my_value"), 42)
+
+	# Godot tracks no default for 'scene_file_path', so it falls back to the
+	# zero value of the given type.
+	var node: Node = autofree(Node.new())
+	assert_null(Utils.get_default_property_value(node, "scene_file_path"))
+	assert_eq(Utils.get_default_property_value(node, "scene_file_path", TYPE_STRING), "")
+
+
+func test_get_property_map() -> void:
+	var node: Node3D = autofree(Node3D.new())
+	node.name = "MyNode"
+	node.position = Vector3(1, 2, 3)
+
+	var modified := Utils.get_property_map(node, true)
+	assert_eq(modified.get("position"), "Vector3(1, 2, 3)")
+	assert_eq(modified.get("name"), "MyNode")
+	# At its default, so left out...
+	assert_false(modified.has("visible"))
+	# ... as is an unset property Godot tracks no default for.
+	assert_false(modified.has("scene_file_path"))
+
+	var all := Utils.get_property_map(node, false)
+	assert_true(all.has("visible"))
+
+	# Properties Godot neither saves nor shows in the inspector are left out of
+	# both: they're derived from other properties, or unrelated to the node's
+	# own state.
+	for prop_name in ["global_position", "global_transform", "basis", "quaternion", "rotation_degrees", "multiplayer", "owner"]:
+		assert_false(modified.has(prop_name), "'%s' should be left out" % prop_name)
+		assert_false(all.has(prop_name), "'%s' should be left out" % prop_name)
 
 
 func test_script_read_tracking() -> void:

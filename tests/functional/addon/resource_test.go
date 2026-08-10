@@ -138,6 +138,21 @@ func TestResourceProperties(t *testing.T) {
 			"file_path": materialPath,
 		})
 		is.Equal(props["albedo_color"], "Color(1, 0, 0, 1)")
+
+		// "roughness" is still at its default, so it's left out by default.
+		_, hasRoughness := props["roughness"]
+		is.True(!hasRoughness)
+	})
+
+	t.Run("get_include_defaults", func(t *testing.T) {
+		is := is.New(t)
+
+		props := callToolOK(t, "get_resource_properties", map[string]any{
+			"file_path":        materialPath,
+			"include_defaults": true,
+		})
+		_, hasRoughness := props["roughness"]
+		is.True(hasRoughness)
 	})
 
 	t.Run("get_specific_properties", func(t *testing.T) {

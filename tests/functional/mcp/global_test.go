@@ -10,7 +10,7 @@ import (
 
 	"github.com/matryer/is"
 
-	"gitlab.com/snopek-games/godai/mcp/godot"
+	"gitlab.com/snopek-games/godai/internal/godot"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
@@ -33,7 +33,7 @@ func TestGlobalMode(t *testing.T) {
 	mustCreateProject(t, pmProject, "From Project Manager")
 	writeProjectsCfg(t, filepath.Join(xdgBase, "data", "godot", "projects.cfg"), pmProject)
 
-	globalInstances := filepath.Join(xdgBase, "cache", "godai-mcp", "instances")
+	globalInstances := filepath.Join(xdgBase, "cache", "godai", "instances")
 	inst, err := startServer(xdgBase, []string{
 		"--global",
 		"--project-base-path", basePathDir,
@@ -55,7 +55,7 @@ func TestGlobalMode(t *testing.T) {
 
 	newBase := filepath.Join(xdgBase, "base-projects-2")
 	mustCreateProject(t, filepath.Join(newBase, "another"), "Another")
-	out := callToolOKWith(t, inst.client, "set_mcp_configuration", map[string]any{
+	out := callToolOKWith(t, inst.client, "set_godai_settings", map[string]any{
 		"project_base_path": newBase,
 	})
 	is.Equal(out["success"], true)
@@ -106,7 +106,7 @@ func listProjects(t *testing.T, c *harness.MCPClient) map[string]string {
 
 func getConfig(t *testing.T, c *harness.MCPClient) map[string]any {
 	t.Helper()
-	return callToolOKWith(t, c, "get_mcp_configuration", nil)
+	return callToolOKWith(t, c, "get_godai_settings", nil)
 }
 
 func TestGlobalModeOpenAndConnect(t *testing.T) {
@@ -120,7 +120,7 @@ func TestGlobalModeOpenAndConnect(t *testing.T) {
 	project := filepath.Join(xdgBase, "anywhere", "global_proj")
 	mustCreateProject(t, project, "Global Project")
 
-	instances := filepath.Join(xdgBase, "cache", "godai-mcp", "instances")
+	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
 	port, err := harness.FindFreePort()
 	is.NoErr(err)
 
@@ -172,7 +172,7 @@ func listOpenProjects(t *testing.T, c *harness.MCPClient) map[string]string {
 }
 
 func TestGlobalAndRootMutuallyExclusive(t *testing.T) {
-	cmd := exec.Command(serverBin, "--global", "--root", t.TempDir())
+	cmd := exec.Command(serverBin, "mcp", "--global", "--root", t.TempDir())
 	out, err := cmd.CombinedOutput()
 	if err == nil {
 		t.Fatalf("expected a non-zero exit, got success; output:\n%s", out)

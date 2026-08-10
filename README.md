@@ -1,15 +1,18 @@
-Godai - AI agent (LLM) integration with the Godot Engine
-========================================================
+Godai - Godot Automation (and AI agent integration)
+===================================================
 
-Godai aims to integrate an AI agent (LLM) with the Godot editor, so that you can use natural
-language to ask the AI to perform various operations on your project.
+Godai provides Godot automation, including driving the Godot editor.
+
+The `godai` command lets you control Godot from the terminal or CI, and `godai mcp`
+exposes those same operations to an AI agent (LLM) over the Model Context Protocol (MCP),
+so you can ask in natural language as well.
 
 Works with Godot 4.6 or later.
 
 Features
 --------
 
-Through Godai, the AI can drive the Godot editor on your behalf. It can:
+Through Godai, you can:
 
 - **Manage projects:** list available projects, open them in new editor instances, and read or change
   project settings.
@@ -28,7 +31,7 @@ Through Godai, the AI can drive the Godot editor on your behalf. It can:
 - **Run arbitrary editor scripts:** for anything not covered by the tools above, execute GDScript
   directly in the editor.
 
-Most changes are made through the editor's own undo/redo system, so you can undo what the AI does
+Most changes are made through the editor's own undo/redo system, so you can undo what Godai does
 just like any other editor action.
 
 > [!CAUTION]
@@ -38,16 +41,173 @@ just like any other editor action.
 Modes of Operation
 ------------------
 
-Godai is capable of operating in two modes: **API mode** and **MCP mode**.
+Godai is capable of operating in three modes: **CLI mode**, **API mode** and **MCP mode**.
+
+### CLI mode
+
+In CLI mode, you run `godai` yourself from a terminal or a script. Start by finding a project and
+getting an editor running on it:
+
+```bash
+godai project list                       # what projects are there?
+godai project open ~/games/platformer    # open one in the editor (if not already running)
+godai editor list                        # which ones are open right now?
+```
+
+Tools that change the project ask for approval in the editor before they run. Add `--auto-approve`
+to `godai project open` to launch an editor that runs them without asking. This can be helpful for
+`--headless` editors and CI, where nobody can answer the dialog.
+
+Everything we can do in the editor is a "tool", which takes its own set of options:
+
+```bash
+godai editor-tool --help
+godai editor-tool get_project_settings --help
+godai editor-tool get_project_settings -p ~/games/platformer --names application/config/name
+```
+
+If you run `godai` within the Godot project, you can drop the `-p ~/games/platformer`.
+
+Let's create and edit a new scene (use `open_scene` to edit a pre-existing scene):
+
+```bash
+cd ~/games/platformer
+
+# Create a new scene (the root node is named "Test" after the scene filename).
+godai editor-tool create_scene \
+  --file-path res://test.tscn \
+  --root-node-type Node3D
+
+# Add a MeshInstance3D called "Sphere" with a SphereMesh.
+godai editor-tool add_node \
+  --parent-path . \
+  --node-type MeshInstance3D \
+  --properties name=Sphere \
+  --properties 'mesh=Object(SphereMesh)'
+```
+
+Property values are strings in Godot variant syntax, and `Object(...)` builds a resource to embed.
+`set_node_properties` takes an object keyed by node path, so a single call can change as many nodes
+as you like (and it becomes a single action in the editor's undo history):
+
+```bash
+# Make the sphere green by setting the material.
+godai editor-tool set_node_properties \
+  --action "Make the sphere green" \
+  --nodes '{"Sphere": {"material_override": "Object(StandardMaterial3D,\"albedo_color\":Color(0, 1, 0, 1))"}}'
+
+# Resize the sphere (a colon in the property name reaches inside the resource).
+godai editor-tool set_node_properties \
+  --action "Enlarge the sphere" \
+  --nodes '{"Sphere": {"mesh:radius": "1.0", "mesh:height": "2.0"}}'
+```
+
+Scripts work the same way, and an exported variable is just another property once the script is
+attached:
+
+```bash
+godai editor-tool create_script \
+  --file-path res://spin.gd \
+  --content 'extends MeshInstance3D
+
+@export var speed := 1.0
+
+func _process(delta: float) -> void:
+    rotate_y(speed * delta)
+'
+
+godai editor-tool attach_script \
+  --node-path Sphere \
+  --script-path res://spin.gd
+
+godai editor-tool set_node_properties \
+  --action "Slow the spin" \
+  --nodes '{"Sphere": {"speed": "0.25"}}'
+```
+
+Reading properties back uses those same colon paths. Only properties that differ from their
+defaults are shown (unless `--include-defaults` is used):
+
+```bash
+godai editor-tool get_node_properties \
+  --node-paths Sphere \
+  --node-paths Sphere:mesh \
+  --node-paths Sphere:material_override
+```
+
+Outputs:
+
+```json
+{
+  "Sphere": {
+    "material_override": "Object(StandardMaterial3D)",
+    "mesh": "Object(SphereMesh)",
+    "name": "Sphere",
+    "script": "Resource(\"res://spin.gd\")",
+    "speed": "0.25"
+  },
+  "Sphere:material_override": {
+    "albedo_color": "Color(0, 1, 0, 1)"
+  },
+  "Sphere:mesh": {
+    "height": "2.0",
+    "radius": "1.0"
+  }
+}
+```
+
+To see the whole scene at once:
+
+```bash
+godai editor-tool get_current_scene_tree
+```
+
+Outputs:
+
+```json
+{
+  "children": [
+    {
+      "name": "Sphere",
+      "path": "Sphere",
+      "script": "res://spin.gd",
+      "type": "MeshInstance3D"
+    }
+  ],
+  "name": "Test",
+  "path": ".",
+  "type": "Node3D"
+}
+```
+
+So far this has only changed the editor's copy of the scene, exactly as if you'd done it by hand,
+so each step can be undone with Ctrl+Z. Saving the scene is its own tool:
+
+```bash
+godai editor-tool save_scene
+```
+
+To change a script that already exists, read it first: `write_script` refuses to overwrite a
+script you haven't read, or one that has changed since you read it, so you can't clobber edits you
+haven't seen.
+
+```bash
+godai editor-tool read_script --file-path res://spin.gd
+godai editor-tool write_script --file-path res://spin.gd --content '...'
+```
+
+Two more worth knowing: `get_log_messages` returns the editor's recent output (where a broken
+script reports itself), and `execute_editor_script` runs GDScript inside the editor, for anything
+the other tools don't cover.
 
 ### API mode
 
-In API mode, you can type your prompts into the "AI" panel in the bottom dock of the Godot editor,
-and it will connect to a remote API (currently, the Anthropic API).
+In API mode, you can type your prompts into the "Godai" panel in the bottom dock of the Godot editor,
+and it will connect to a remote LLM API (currently, the Anthropic API).
 
-In order to use this mode, you need to have an API key (which will likely involve entering
-credit card information and paying some amount of money) and configuring it in Godot's editor
-settings.
+In order to use this mode, you need to enter an API key in Godot's editor settings. This will likely
+involve entering credit card information to the provider (for example, Anthropic), and paying some
+amount of money.
 
 The main advantage of this mode is that it requires only the Godot editor, and it'll work anywhere
 that the Godot editor does, including on Android, the Web, or standalone XR devices.
@@ -68,6 +228,53 @@ At the moment, some MCP clients (like Claude Code/Desktop) have a free tier, whi
 to use Godai at no cost to you. That is, until the bubble bursts, the investor money dries up,
 and these AI companies can no longer operate at a loss :-)
 
+Quick Start: CLI mode
+---------------------
+
+Install the `godai` binary from the [latest release](https://gitlab.com/snopek-games/godai/-/releases),
+or run it with `npx -y @snopek-games/godai`.
+
+Run `godai` with no arguments to see the commands, and `godai <command> --help` for any of them.
+
+| Command | What it does |
+| ------- | ------------ |
+| `godai project list` | List the Godot projects available to open |
+| `godai project open [path] [--headless] [--auto-approve]` | Open a project in the editor |
+| `godai config [setting...]` | Show Godai's own settings, or just the ones you name |
+| `godai config --set <setting>=<value>` | Change a setting (`--unset` clears one, `init` sets them up interactively) |
+| `godai editor-tool <tool>` | Run one of the tools a running editor provides (`--help` lists them) |
+| `godai editor list` | List the projects currently open in an editor |
+| `godai editor restart` \| `close` | Control a running editor |
+| `godai mcp` | Run the MCP server on stdio |
+| `godai self-update` | Update the binary in place |
+
+Each editor tool is its own subcommand with flags built from that tool's schema, so you can discover
+what it takes without reading any JSON:
+
+```bash
+godai editor-tool add_node --help
+godai editor-tool add_node --node-type Sprite2D --parent-path . --properties position="Vector2(10, 20)"
+```
+
+Commands that act on a project work out which one you mean, in this order: the positional `[path]`
+argument (on the commands that take one), `--project-path/-p`, the `GODAI_PROJECT_PATH` environment
+variable, and then the nearest `project.godot` at or above the working directory.
+
+Add `--json` to any command to get machine-readable output on stdout (errors go to stderr as JSON
+too).
+
+Exit codes distinguish the interesting cases:
+
+- `2`: bad usage
+- `3`: not configured
+- `4`: no editor connected
+- `5`: timed out
+- `6`: the editor ran the tool and it failed
+
+> [!NOTE]
+> A one-shot command leaves every editor it launched running - shutting one down would mean paying
+> for a full project import on the next invocation. Close it with `godai editor close <path>`.
+
 Quick Start: MCP mode
 ---------------------
 
@@ -76,7 +283,7 @@ Quick Start: MCP mode
 If you have Node installed (with `npx` available), then you can run:
 
 ```bash
-claude mcp add godai -- npx -y @snopek-games/godai-mcp
+claude mcp add godai -- npx -y @snopek-games/godai mcp
 ```
 Then restart Claude Code if it was already running. And that's it!
 
@@ -88,14 +295,14 @@ platform from the [latest release](https://gitlab.com/snopek-games/godai/-/relea
 then give the full path to that instead:
 
 ```bash
-claude mcp add godai -- /path/to/godai-mcp
+claude mcp add godai -- /path/to/godai mcp
 ```
 </details>
 
 In order to specify the path to Godot:
 
 ```bash
-claude mcp add godai -- npx -y @snopek-games/godai-mcp --godot-path /path/to/godot4
+claude mcp add godai -- npx -y @snopek-games/godai mcp --godot-path /path/to/godot4
 ```
 
 > [!NOTE]
@@ -140,7 +347,7 @@ Edit or create that file, and add an entry for Godai, for example:
     "godai": {
       "command": "npx",
       "args": [
-        "-y", "@snopek-games/godai-mcp",
+        "-y", "@snopek-games/godai", "mcp",
         "--global",
         "--godot-path", "/path/to/godot4",
         "--project-base-path", "/path/to/my/godot/projects"
@@ -155,8 +362,8 @@ Edit or create that file, and add an entry for Godai, for example:
 
 If you don't have (or don't want to use) Node/`npx`, you can download a standalone binary for your
 platform from the [latest release](https://gitlab.com/snopek-games/godai/-/releases) of Godai,
-then give the full path to that instead as the `"command"`, and drop the `"-y", "@snopek-games/godai-mcp"`
-argument.
+then give the full path to that instead as the `"command"`, and drop the `"-y", "@snopek-games/godai"`
+arguments (keeping `"mcp"`).
 
 So, for example:
 
@@ -164,8 +371,9 @@ So, for example:
 {
   "mcpServers": {
     "godai": {
-      "command": "/path/to/godai-mcp",
+      "command": "/path/to/godai",
       "args": [
+        "mcp",
         "--global",
         "--godot-path", "/path/to/godot4",
         "--project-base-path", "/path/to/my/godot/projects"
@@ -186,7 +394,7 @@ and provide that with the `--x11-display` option, for example:
     "godai": {
       "command": "npx",
       "args": [
-        "-y", "@snopek-games/godai-mcp",
+        "-y", "@snopek-games/godai", "mcp",
         // ... other arguments
         "--x11-display", ":1"
       ]
@@ -216,26 +424,27 @@ Two important notes:
   if your client supports it. If not, it'll use the current directory it was spawned from as its
   root. If you want to manually specify the allowed roots, add one or more `--root PATH` arguments.
 
-### Updating the MCP server
+Updating the Godai CLI
+----------------------
 
 If you're using a standalone binary, it can update itself:
 
 ```bash
-godai-mcp self-update --check   # is there a newer release?
-godai-mcp self-update           # install it
-godai-mcp self-update --rollback  # go back to the version the last update replaced
+godai self-update --check     # is there a newer release?
+godai self-update             # install it
+godai self-update --rollback  # go back to the version the last update replaced
 ```
 
 Only stable releases are offered; betas and release candidates are skipped. The previous version is
-kept next to the executable (as `godai-mcp....old`), which is what `--rollback` restores.
+kept next to the executable (as `godai.old`), which is what `--rollback` restores.
 
 > [!NOTE]
-> If you installed via `npx`/npm, use `npm install -g @snopek-games/godai-mcp@latest` instead - npm
+> If you installed via `npx`/npm, use `npm install -g @snopek-games/godai@latest` instead - npm
 > replaces the executable on its next install, so a self-update wouldn't stick. Claude Desktop
 > extensions (.MCPB) are updated by installing the new .MCPB file.
 
-The Godai addon inside your projects doesn't need updating separately: the MCP server carries a copy
-of the matching addon, and reinstalls it in your project when the versions don't match.
+The Godai addon inside your projects doesn't need updating separately: the `godai` binary carries a
+copy of the matching addon, and reinstalls it in your project when the versions don't match.
 
 Quick Start: API mode
 ---------------------
@@ -271,18 +480,18 @@ Technical Details
 Godai is made up of two parts:
 
 - **Addon for the Godot editor:** this provides the core functionality of Godai, exposing editor features
-  to the AI agent. It's used in both the API and MCP mode.
+  as tools. It's used in all three modes.
 
-- **Command-line MCP server written in Go:** this is what Claude Code (or other MCP client) interacts
-  with when using MCP mode. It connects to the addon running in the Godot editor using WebSockets.
-  This is only used in MCP mode.
+- **The `godai` command, written in Go:** this is what you run in CLI mode, and what Claude Code (or
+  other MCP client) interacts with in MCP mode. It connects to the addon running in the Godot editor
+  using WebSockets. It isn't used in API mode.
 
-This two part design allows the MCP server to launch the Godot editor, and interact with multiple Godot
+This two part design allows `godai` to launch the Godot editor, and interact with multiple Godot
 editor instances for different projects.
 
-It also maintains the connection to the MCP client if the editor restarts. This is important, because
-most MCP clients will only connect to your MCP servers at startup, and will give up on an MCP server if
-the connection is broken (until the MCP client is restarted).
+In MCP mode, it also maintains the connection to the MCP client if the editor restarts. This is
+important, because most MCP clients will only connect to your MCP servers at startup, and will give up
+on an MCP server if the connection is broken (until the MCP client is restarted).
 
 However, the addon itself does implement a full MCP server! If you go into **Editor Settings** and
 change the **Mcp Transport** to **HTTP**, you can connect to it directly from an MCP client.

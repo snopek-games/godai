@@ -1,5 +1,5 @@
-// Package mcp contains end-to-end tests for the Go MCP server: they build the
-// godai-mcp binary and drive it over stdio.
+// Package mcp contains end-to-end tests for the CLI's MCP server: they build
+// the godai binary and drive `godai mcp` over stdio.
 package mcp
 
 import (
@@ -71,7 +71,7 @@ func testMain(m *testing.M) int {
 		coverDir = abs
 	}
 
-	base, err := os.MkdirTemp("", "godai-mcp-functional-*")
+	base, err := os.MkdirTemp("", "godai-functional-*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: %v\n", err)
 		return 1
@@ -103,7 +103,7 @@ func testMain(m *testing.M) int {
 	}
 	projectPath = projectDir
 
-	instancesDir = filepath.Join(base, "cache", "godai-mcp", "instances")
+	instancesDir = filepath.Join(base, "cache", "godai", "instances")
 
 	if err := harness.CreateTestProject(projectDir, harness.ProjectOptions{Name: projectName}); err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: creating test project: %v\n", err)
@@ -122,7 +122,7 @@ func testMain(m *testing.M) int {
 
 	serverBin, err = buildServer(base)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "FAIL: building godai-mcp: %v\n", err)
+		fmt.Fprintf(os.Stderr, "FAIL: building godai: %v\n", err)
 		return 1
 	}
 
@@ -146,7 +146,7 @@ func testMain(m *testing.M) int {
 		"GODAI_AUTO_APPROVE_TOOLS=1",
 	}, verbose)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "FAIL: starting godai-mcp: %v\n", err)
+		fmt.Fprintf(os.Stderr, "FAIL: starting godai: %v\n", err)
 		return 1
 	}
 	serverCmd = inst.cmd
@@ -170,7 +170,7 @@ func startServer(xdgBase string, args, extraEnv []string, verbose bool) (*server
 }
 
 func startServerWithClient(xdgBase string, args, extraEnv []string, verbose bool, cfg harness.ClientConfig) (*serverInstance, error) {
-	cmd := exec.Command(serverBin, append([]string{"--no-update-check"}, args...)...)
+	cmd := exec.Command(serverBin, append([]string{"mcp", "--no-update-check"}, args...)...)
 	cmd.Env = append(os.Environ(),
 		"XDG_CONFIG_HOME="+filepath.Join(xdgBase, "config"),
 		"XDG_DATA_HOME="+filepath.Join(xdgBase, "data"),
@@ -216,12 +216,12 @@ func startServerWithClient(xdgBase string, args, extraEnv []string, verbose bool
 }
 
 func buildServer(dir string) (string, error) {
-	binPath := filepath.Join(dir, "godai-mcp")
+	binPath := filepath.Join(dir, "godai")
 	args := []string{"build"}
 	if coverDir != "" {
-		args = append(args, "-cover", "-coverpkg=gitlab.com/snopek-games/godai/cmd/godai-mcp,gitlab.com/snopek-games/godai/mcp/...")
+		args = append(args, "-cover", "-coverpkg=gitlab.com/snopek-games/godai/cmd/godai,gitlab.com/snopek-games/godai/internal/...")
 	}
-	args = append(args, "-o", binPath, "./cmd/godai-mcp")
+	args = append(args, "-o", binPath, "./cmd/godai")
 	cmd := exec.Command("go", args...)
 	cmd.Dir = harness.RepoRoot()
 	if out, err := cmd.CombinedOutput(); err != nil {

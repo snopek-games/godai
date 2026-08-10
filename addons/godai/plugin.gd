@@ -29,7 +29,7 @@ func _enter_tree() -> void:
 	key_event.command_or_control_autoremap = true
 	shortcut.events = [key_event]
 
-	panel_button = add_control_to_bottom_panel(panel, "AI", shortcut)
+	panel_button = add_control_to_bottom_panel(panel, "Godai", shortcut)
 	panel_button.pressed.connect(panel.show_panel)
 
 

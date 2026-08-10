@@ -20,8 +20,6 @@ class ScriptCreate extends DefaultTool:
 		var base_class: String = p_input.get('base_class', 'Node')
 		var content: String = p_input.get('content', '')
 
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
@@ -56,8 +54,6 @@ class ScriptOpen extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
@@ -77,8 +73,6 @@ class ScriptRead extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
@@ -103,11 +97,6 @@ class ScriptRead extends DefaultTool:
 class ScriptWrite extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
-
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
-		if not p_input.has('content'):
-			return ToolResult.rejected({error = "'content' is required"})
 		var content: String = p_input['content']
 
 		file_path = Utils.to_res_path(file_path)
@@ -160,8 +149,6 @@ class ScriptSave extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})

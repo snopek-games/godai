@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"sync"
 
-	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
+	"gitlab.com/snopek-games/godai/internal/jsonrpc"
 )
 
 // httpTransport talks to the Godot editor's HTTP transport, one JSON-RPC

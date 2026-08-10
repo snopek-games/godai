@@ -1,0 +1,176 @@
+{
+	"$schema": "../../addons/godai/tools/default/default_tools.schema.json",
+	"tools": {
+		"list_projects": {
+			"title": "List Godot Projects",
+			"description": [
+				"Lists the Godot projects that are available to open.",
+				"",
+				"When the MCP is running with --global, this includes the projects registered in the project manager and those under the project base path.",
+				"Otherwise, this recursively searches the allowed root paths."
+			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"projects": {
+						"type": "array",
+						"description": "The Godot projects that were found",
+						"items": {
+							"type": "object",
+							"properties": {
+								"project_path": {
+									"type": "string",
+									"description": "The absolute path to the project directory"
+								},
+								"project_name": {
+									"type": "string",
+									"description": "The project's configured name; omitted if it couldn't be read"
+								}
+							},
+							"required": ["project_path"]
+						}
+					}
+				},
+				"required": ["projects"]
+			}
+		},
+		"open_godot_project": {
+			"title": "Open Godot Project",
+			"description": "Opens a Godot project in a new Godot editor instance, if it isn't already open.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"project_path": {
+						"type": "string",
+						"description": "The absolute path to the project directory"
+					},
+					"headless": {
+						"type": "boolean",
+						"default": false,
+						"description": "Launch the editor without visual or audio output (default: false). This won't have an effect if the editor is already open for this project."
+					}
+				},
+				"required": ["project_path"]
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "True if the project was already open, or a new editor instance was started for it"
+					}
+				},
+				"required": ["success"]
+			}
+		},
+		"list_open_projects": {
+			"title": "List Open Godot Projects",
+			"description": "Lists the projects currently open in a Godot editor.",
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"projects": {
+						"type": "array",
+						"description": "The projects that are currently open in a Godot editor",
+						"items": {
+							"type": "object",
+							"properties": {
+								"project_path": {
+									"type": "string",
+									"description": "The absolute path to the project directory"
+								},
+								"project_name": {
+									"type": "string",
+									"description": "The project's configured name; omitted if it couldn't be read"
+								}
+							},
+							"required": ["project_path"]
+						}
+					}
+				},
+				"required": ["projects"]
+			}
+		},
+		"get_godai_settings": {
+			"title": "Get Godai Settings",
+			"description": [
+				"Gets Godai's own settings, which configure Godai itself rather than anything inside the Godot project or editor.",
+				"",
+				"Only the settings that can be changed at runtime are included; the rest come from command-line arguments.",
+				"",
+				"Use set_godai_settings to change them."
+			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"godot_path": {
+						"type": "string",
+						"description": "The full path to the Godot 4 executable; empty if none is configured"
+					},
+					"project_base_path": {
+						"type": "string",
+						"description": "The base path where the user's Godot projects live; always empty unless MCP is running with --global"
+					}
+				},
+				"required": ["godot_path", "project_base_path"]
+			}
+		},
+		"set_godai_settings": {
+			"title": "Set Godai Settings",
+			"description": [
+				"Changes Godai's own settings, which configure Godai itself rather than anything inside the Godot project or editor.",
+				"",
+				"Only the settings that can be changed at runtime can be set here; the rest come from command-line arguments.",
+				"",
+				"Use get_godai_settings to see the current values."
+			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"godot_path": {
+						"type": "string",
+						"description": "The full path to the Godot 4 executable"
+					},
+					"project_base_path": {
+						"type": "string",
+						"description": "The base path where the user's Godot projects live; can only be set when MCP is running with --global"
+					}
+				}
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "True if the settings were changed and saved"
+					}
+				},
+				"required": ["success"]
+			}
+		}
+	}
+}

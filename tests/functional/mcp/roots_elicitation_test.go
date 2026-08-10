@@ -12,7 +12,7 @@ import (
 
 	"github.com/matryer/is"
 
-	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
+	"gitlab.com/snopek-games/godai/internal/jsonrpc"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
@@ -65,7 +65,7 @@ func TestClientRoots(t *testing.T) {
 		},
 	}
 
-	instances := filepath.Join(xdgBase, "cache", "godai-mcp", "instances")
+	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
 	inst, err := startServerWithClient(xdgBase, []string{
 		"--root", staticRoot,
 		"--godot-path", godotWrapperPath,
@@ -99,7 +99,7 @@ func TestClientRootsUnsupported(t *testing.T) {
 		Capabilities: map[string]any{"roots": map[string]any{}},
 	}
 
-	instances := filepath.Join(xdgBase, "cache", "godai-mcp", "instances")
+	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
 	inst, err := startServerWithClient(xdgBase, []string{
 		"--root", staticRoot,
 		"--godot-path", godotWrapperPath,
@@ -153,7 +153,7 @@ func TestClientRootsListChanged(t *testing.T) {
 		},
 	}
 
-	instances := filepath.Join(xdgBase, "cache", "godai-mcp", "instances")
+	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
 	inst, err := startServerWithClient(xdgBase, []string{
 		"--root", staticRoot,
 		"--godot-path", godotWrapperPath,
@@ -205,7 +205,7 @@ func TestClientElicitation(t *testing.T) {
 		},
 	}
 
-	instances := filepath.Join(xdgBase, "cache", "godai-mcp", "instances")
+	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
 	inst, err := startServerWithClient(xdgBase, []string{
 		"--global",
 		"--godot-path", godotWrapperPath,

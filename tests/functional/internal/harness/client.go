@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
-	"gitlab.com/snopek-games/godai/mcp/jsonrpc"
-	"gitlab.com/snopek-games/godai/mcp/server"
+	"gitlab.com/snopek-games/godai/internal/jsonrpc"
+	"gitlab.com/snopek-games/godai/internal/mcp"
 )
 
 type ToolDef struct {
@@ -100,10 +101,28 @@ type transport interface {
 type MCPClient struct {
 	transport
 	capabilities map[string]any
+
+	schemaOnce sync.Once
+	schemas    *outputSchemaSet
+	schemaErr  error
+}
+
+// The tools/list is fetched once per client, and every tools/call result is
+// checked against the outputSchema its tool advertises there.
+func (c *MCPClient) outputSchemas(ctx context.Context) (*outputSchemaSet, error) {
+	c.schemaOnce.Do(func() {
+		defs, err := c.ListTools(ctx)
+		if err != nil {
+			c.schemaErr = fmt.Errorf("tools/list for outputSchema validation: %w", err)
+			return
+		}
+		c.schemas, c.schemaErr = compileOutputSchemas(defs)
+	})
+	return c.schemas, c.schemaErr
 }
 
 func (c *MCPClient) Initialize(ctx context.Context) (*InitializeResult, error) {
-	return c.InitializeWithVersion(ctx, server.ProtocolVersion)
+	return c.InitializeWithVersion(ctx, mcp.ProtocolVersion)
 }
 
 func (c *MCPClient) InitializeWithVersion(ctx context.Context, protocolVersion string) (*InitializeResult, error) {
@@ -156,6 +175,13 @@ func (c *MCPClient) CallTool(ctx context.Context, name string, args map[string]a
 		args = map[string]any{}
 	}
 
+	// Ahead of the call, so tools that take the server down with them (like
+	// close_editor) can still be validated.
+	schemas, err := c.outputSchemas(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	resp, err := c.Call(ctx, "tools/call", map[string]any{
 		"name":      name,
 		"arguments": args,
@@ -167,6 +193,9 @@ func (c *MCPClient) CallTool(ctx context.Context, name string, args map[string]a
 	var result ToolCallResult
 	if err := json.Unmarshal(resp.Result, &result); err != nil {
 		return nil, fmt.Errorf("invalid tools/call result %q: %w", resp.Result, err)
+	}
+	if err := schemas.validate(name, &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }

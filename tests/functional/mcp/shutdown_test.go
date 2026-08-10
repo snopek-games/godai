@@ -49,7 +49,7 @@ func TestCloseHeadlessEditorsOnShutdown(t *testing.T) {
 
 	// The server spawns the editor inheriting its own XDG_CACHE_HOME, so it
 	// advertises into the server's cache dir.
-	instances := filepath.Join(xdgBase, "cache", "godai-mcp", "instances")
+	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
 	port, err := harness.FindFreePort()
 	is.NoErr(err)
 

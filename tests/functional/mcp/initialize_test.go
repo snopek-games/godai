@@ -1,7 +1,7 @@
 package mcp
 
 import (
-	"gitlab.com/snopek-games/godai/mcp/server"
+	"gitlab.com/snopek-games/godai/internal/mcp"
 	"testing"
 
 	"github.com/matryer/is"
@@ -12,11 +12,11 @@ func TestInitialize(t *testing.T) {
 
 	result, err := client.Initialize(testContext(t))
 	is.NoErr(err)
-	is.Equal(result.ServerInfo.Name, server.GodaiMcpName)
-	is.Equal(result.ServerInfo.Title, server.GodaiMcpTitle)
+	is.Equal(result.ServerInfo.Name, mcp.GodaiMcpName)
+	is.Equal(result.ServerInfo.Title, mcp.GodaiMcpTitle)
 	is.True(result.ServerInfo.Version != "" && result.ServerInfo.Version != "unknown")
-	is.Equal(result.ProtocolVersion, server.ProtocolVersion)
-	is.Equal(result.Instructions, server.GodaiMcpInstructions)
+	is.Equal(result.ProtocolVersion, mcp.ProtocolVersion)
+	is.Equal(result.Instructions, mcp.GodaiMcpInstructions)
 	_, ok := result.Capabilities["tools"]
 	is.True(ok)
 }
@@ -33,6 +33,6 @@ func TestInitializeVersionNegotiation(t *testing.T) {
 		is := is.New(t)
 		result, err := client.InitializeWithVersion(testContext(t), "1999-01-01")
 		is.NoErr(err)
-		is.Equal(result.ProtocolVersion, server.ProtocolVersion)
+		is.Equal(result.ProtocolVersion, mcp.ProtocolVersion)
 	})
 }

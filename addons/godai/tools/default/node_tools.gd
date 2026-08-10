@@ -22,14 +22,18 @@ static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
 
 class NodeGetProperties extends DefaultTool:
 	func execute(p_input) -> ToolResult:
+		var node_paths: Array = p_input.get("node_paths", [])
+		var modified_only: bool = not bool(p_input.get("include_defaults", false))
+
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
 		if not edited_scene_root:
-			return ToolResult.resolved({})
+			return ToolResult.rejected({error = "No scene open"})
 
-		var node_paths: Array = p_input.get("node_paths", [])
-		var modified_only: bool = p_input.get("modified_only", false)
-		var results := {}
+		# Resolve all the nodes up front: if any node path is missing, we reject
+		# the whole call.
+		var targets := []
+		var missing := PackedStringArray()
 
 		for node_path in node_paths:
 			# The node path can carry a colon-separated property path (e.g.
@@ -42,14 +46,29 @@ class NodeGetProperties extends DefaultTool:
 
 			var node := edited_scene_root.get_node_or_null(base_path)
 			if not node:
-				results[node_path] = {}
+				missing.append(node_path)
 				continue
+
+			targets.append({
+				node_path = node_path,
+				node = node,
+				property_path = property_path,
+			})
+
+		if not missing.is_empty():
+			return ToolResult.rejected({error = "Cannot find node(s) in 'node_paths': " + ", ".join(missing)})
+
+		var results := {}
+
+		for target in targets:
+			var node_path: String = target['node_path']
+			var property_path: String = target['property_path']
 
 			if property_path.is_empty():
-				results[node_path] = Utils.get_property_map(node, modified_only)
+				results[node_path] = Utils.get_property_map(target['node'], modified_only)
 				continue
 
-			var resolved := Utils.resolve_property_path(node, property_path)
+			var resolved := Utils.resolve_property_path(target['node'], property_path)
 			if resolved.has("error"):
 				results[node_path] = { error = resolved['error'] }
 			elif resolved['value'] is Object:
@@ -68,20 +87,18 @@ class NodeSetProperties extends DefaultTool:
 			return ToolResult.rejected({error = "No scene open"})
 
 		var action: String = p_input.get('action', '')
-		var edits: Array = p_input.get('nodes', [])
+		var edits: Dictionary = p_input.get('nodes', {})
 
-		if action.is_empty():
-			return ToolResult.rejected({error = "'action' is required"})
-
-		var results := {}
 		var errors := PackedStringArray()
 		var ops := []
 
-		# Resolve and decode everything up front: if any property is invalid,
-		# we reject the whole call without changing anything.
-		for edit in edits:
-			var node_path: String = edit['node_path']
-			var props: Dictionary = edit['properties']
+		# Resolve and decode everything up front: if any node path or property is
+		# invalid, we reject the whole call without changing anything.
+		for node_path in edits:
+			var props = edits[node_path]
+			if not props is Dictionary:
+				errors.append("%s: must map property names to values" % node_path)
+				continue
 
 			# The node path can carry a colon-separated property path (e.g.
 			# "Child:mesh") to address a resource or other sub-object.
@@ -93,9 +110,8 @@ class NodeSetProperties extends DefaultTool:
 
 			var node := edited_scene_root.get_node_or_null(base_path)
 			if not node:
-				results[node_path] = false
+				errors.append("%s: cannot find node" % node_path)
 				continue
-			results[node_path] = true
 
 			for prop_name in props:
 				var full_path: String = prop_name if path_prefix.is_empty() else path_prefix + ":" + prop_name
@@ -110,6 +126,14 @@ class NodeSetProperties extends DefaultTool:
 					errors.append("%s / %s: %s" % [node_path, prop_name, decoded['error']])
 					continue
 
+				# Setting 'script' is another way to attach one, so it gets the
+				# same check attach_script makes.
+				if full_path == "script":
+					var script_error := Utils.check_script_for_node(node, decoded['value'])
+					if not script_error.is_empty():
+						errors.append("%s / %s: %s" % [node_path, prop_name, script_error])
+						continue
+
 				ops.append({
 					node = node,
 					path = full_path,
@@ -118,10 +142,10 @@ class NodeSetProperties extends DefaultTool:
 				})
 
 		if not errors.is_empty():
-			return ToolResult.rejected({error = "No properties were changed, due to the following errors:\n" + "\n".join(errors)})
+			return ToolResult.rejected({error = "Nothing was changed, due to the following errors:\n" + "\n".join(errors)})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("%s (AI)" % action)
+		undo_redo.create_action("%s (Godai)" % action)
 
 		for op in ops:
 			if op['path'].contains(":"):
@@ -135,7 +159,7 @@ class NodeSetProperties extends DefaultTool:
 
 		undo_redo.commit_action()
 
-		return ToolResult.resolved(results)
+		return ToolResult.resolved({success = true})
 
 
 class NodeAdd extends DefaultTool:
@@ -147,11 +171,6 @@ class NodeAdd extends DefaultTool:
 		var parent_path: String = p_input.get('parent_path', '')
 		var node_type: String = p_input.get('node_type', '')
 		var props: Dictionary = p_input.get('properties', {})
-
-		if parent_path.is_empty():
-			return ToolResult.rejected({error = "'parent_path' is required"})
-		if node_type.is_empty():
-			return ToolResult.rejected({error = "'node_type' is required"})
 
 		var parent = edited_scene_root.get_node_or_null(parent_path)
 		if not parent:
@@ -187,7 +206,7 @@ class NodeAdd extends DefaultTool:
 			return ToolResult.rejected({error = "Node wasn't created, due to the following errors:\n" + "\n".join(errors)})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("Create %s node (AI)" % node_type)
+		undo_redo.create_action("Create %s node (Godai)" % node_type)
 		Utils.editor_undo_redo_create_node(undo_redo, parent, node)
 
 		for op in ops:
@@ -200,7 +219,7 @@ class NodeAdd extends DefaultTool:
 
 		return ToolResult.resolved({
 			success = true,
-			node_path = edited_scene_root.get_path_to(node),
+			node_path = str(edited_scene_root.get_path_to(node)),
 		})
 
 
@@ -211,8 +230,6 @@ class NodeRemove extends DefaultTool:
 			return ToolResult.rejected({error = "No scene open"})
 
 		var node_path: String = p_input.get('node_path', '')
-		if node_path.is_empty():
-			return ToolResult.rejected({error = "'node_path' is required"})
 
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:
@@ -224,7 +241,7 @@ class NodeRemove extends DefaultTool:
 		var parent = node.get_parent()
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("Delete %s node (AI)" % node.name)
+		undo_redo.create_action("Delete %s node (Godai)" % node.name)
 		Utils.editor_undo_redo_remove_node(undo_redo, parent, node)
 
 		undo_redo.commit_action()
@@ -243,13 +260,9 @@ class NodeAddToGroup extends DefaultTool:
 		var node_path: String = p_input.get('node_path', '')
 		var groups: Array = p_input.get('groups', [])
 
-		if node_path.is_empty():
-			return ToolResult.rejected({error = "'node_path' is required"})
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:
 			return ToolResult.rejected({error = "Cannot find node at 'node_path': %s" % node_path})
-		if groups.is_empty():
-			return ToolResult.rejected({error = "'groups' is required"})
 
 		# Only add groups the node isn't already in, so undo doesn't remove a
 		# pre-existing membership.
@@ -261,7 +274,7 @@ class NodeAddToGroup extends DefaultTool:
 			return ToolResult.resolved({success = true})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("Add to group(s) (AI)")
+		undo_redo.create_action("Add to group(s) (Godai)")
 		for group in to_add:
 			# The second argument makes the membership persistent (saved to the
 			# scene file).
@@ -281,13 +294,9 @@ class NodeRemoveFromGroup extends DefaultTool:
 		var node_path: String = p_input.get('node_path', '')
 		var groups: Array = p_input.get('groups', [])
 
-		if node_path.is_empty():
-			return ToolResult.rejected({error = "'node_path' is required"})
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:
 			return ToolResult.rejected({error = "Cannot find node at 'node_path': %s" % node_path})
-		if groups.is_empty():
-			return ToolResult.rejected({error = "'groups' is required"})
 
 		# Only remove groups the node is actually in.
 		var to_remove := []
@@ -298,7 +307,7 @@ class NodeRemoveFromGroup extends DefaultTool:
 			return ToolResult.resolved({success = true})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("Remove from group(s) (AI)")
+		undo_redo.create_action("Remove from group(s) (Godai)")
 		for group in to_remove:
 			undo_redo.add_do_method(node, "remove_from_group", group)
 			undo_redo.add_undo_method(node, "add_to_group", group, true)
@@ -309,18 +318,29 @@ class NodeRemoveFromGroup extends DefaultTool:
 
 class NodeGetGroups extends DefaultTool:
 	func execute(p_input) -> ToolResult:
-		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
-		if not edited_scene_root:
-			return ToolResult.resolved({})
-
 		var node_paths: Array = p_input.get('node_paths', [])
 
-		var results := {}
+		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
+		if not edited_scene_root:
+			return ToolResult.rejected({error = "No scene open"})
+
+		# Resolve all the nodes up front: if any node path is missing, we reject
+		# the whole call.
+		var nodes := []
+		var missing := PackedStringArray()
 		for node_path in node_paths:
 			var node = edited_scene_root.get_node_or_null(node_path)
 			if not node:
-				results[node_path] = []
+				missing.append(node_path)
 				continue
+			nodes.append(node)
+
+		if not missing.is_empty():
+			return ToolResult.rejected({error = "Cannot find node(s) in 'node_paths': " + ", ".join(missing)})
+
+		var results := {}
+		for i in range(node_paths.size()):
+			var node: Node = nodes[i]
 
 			var groups := []
 			for group in node.get_groups():
@@ -328,7 +348,7 @@ class NodeGetGroups extends DefaultTool:
 				if str(group).begins_with("_"):
 					continue
 				groups.push_back(str(group))
-			results[node_path] = groups
+			results[node_paths[i]] = groups
 
 		return ToolResult.resolved(results)
 
@@ -343,15 +363,6 @@ class NodeConnectSignal extends DefaultTool:
 		var signal_name: String = p_input.get('signal', '')
 		var to_path: String = p_input.get('to_node', '')
 		var method: String = p_input.get('method', '')
-
-		if from_path.is_empty():
-			return ToolResult.rejected({error = "'from_node' is required"})
-		if signal_name.is_empty():
-			return ToolResult.rejected({error = "'signal' is required"})
-		if to_path.is_empty():
-			return ToolResult.rejected({error = "'to_node' is required"})
-		if method.is_empty():
-			return ToolResult.rejected({error = "'method' is required"})
 
 		var from_node = edited_scene_root.get_node_or_null(from_path)
 		if not from_node:
@@ -370,7 +381,7 @@ class NodeConnectSignal extends DefaultTool:
 			return ToolResult.rejected({error = "'%s' is already connected to %s.%s" % [signal_name, to_path, method]})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("Connect signal '%s' (AI)" % signal_name)
+		undo_redo.create_action("Connect signal '%s' (Godai)" % signal_name)
 		# CONNECT_PERSIST makes the connection part of the saved scene.
 		undo_redo.add_do_method(from_node, "connect", signal_name, callable, CONNECT_PERSIST)
 		undo_redo.add_undo_method(from_node, "disconnect", signal_name, callable)
@@ -390,15 +401,6 @@ class NodeDisconnectSignal extends DefaultTool:
 		var to_path: String = p_input.get('to_node', '')
 		var method: String = p_input.get('method', '')
 
-		if from_path.is_empty():
-			return ToolResult.rejected({error = "'from_node' is required"})
-		if signal_name.is_empty():
-			return ToolResult.rejected({error = "'signal' is required"})
-		if to_path.is_empty():
-			return ToolResult.rejected({error = "'to_node' is required"})
-		if method.is_empty():
-			return ToolResult.rejected({error = "'method' is required"})
-
 		var from_node = edited_scene_root.get_node_or_null(from_path)
 		if not from_node:
 			return ToolResult.rejected({error = "Cannot find 'from_node': %s" % from_path})
@@ -411,7 +413,7 @@ class NodeDisconnectSignal extends DefaultTool:
 			return ToolResult.rejected({error = "'%s' is not connected to %s.%s" % [signal_name, to_path, method]})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("Disconnect signal '%s' (AI)" % signal_name)
+		undo_redo.create_action("Disconnect signal '%s' (Godai)" % signal_name)
 		undo_redo.add_do_method(from_node, "disconnect", signal_name, callable)
 		undo_redo.add_undo_method(from_node, "connect", signal_name, callable, CONNECT_PERSIST)
 		undo_redo.commit_action()
@@ -428,10 +430,6 @@ class NodeAttachScript extends DefaultTool:
 		var node_path: String = p_input.get('node_path', '')
 		var script_path: String = p_input.get('script_path', '')
 
-		if node_path.is_empty():
-			return ToolResult.rejected({error = "'node_path' is required"})
-		if script_path.is_empty():
-			return ToolResult.rejected({error = "'script_path' is required"})
 		script_path = Utils.to_res_path(script_path)
 		if script_path.is_empty():
 			return ToolResult.rejected({error = "'script_path' must be inside the project (res://)"})
@@ -446,15 +444,14 @@ class NodeAttachScript extends DefaultTool:
 		if not script is Script:
 			return ToolResult.rejected({error = "'%s' is not a script" % script_path})
 
-		# Make sure the script's base type is compatible with the node.
-		var base_type: String = script.get_instance_base_type()
-		if base_type != "" and not ClassDB.is_parent_class(node.get_class(), base_type):
-			return ToolResult.rejected({error = "Script extends '%s', which is not compatible with a node of type '%s'" % [base_type, node.get_class()]})
+		var script_error := Utils.check_script_for_node(node, script)
+		if not script_error.is_empty():
+			return ToolResult.rejected({error = script_error})
 
 		var old_script = node.get_script()
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("Attach script (AI)")
+		undo_redo.create_action("Attach script (Godai)")
 		undo_redo.add_do_property(node, "script", script)
 		undo_redo.add_undo_property(node, "script", old_script)
 		undo_redo.commit_action()
@@ -469,8 +466,6 @@ class NodeDetachScript extends DefaultTool:
 			return ToolResult.rejected({error = "No scene open"})
 
 		var node_path: String = p_input.get('node_path', '')
-		if node_path.is_empty():
-			return ToolResult.rejected({error = "'node_path' is required"})
 
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:
@@ -481,7 +476,7 @@ class NodeDetachScript extends DefaultTool:
 			return ToolResult.rejected({error = "Node '%s' has no script attached" % node_path})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("Detach script (AI)")
+		undo_redo.create_action("Detach script (Godai)")
 		undo_redo.add_do_property(node, "script", null)
 		undo_redo.add_undo_property(node, "script", old_script)
 		undo_redo.commit_action()

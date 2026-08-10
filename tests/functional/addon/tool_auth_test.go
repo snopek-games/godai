@@ -24,8 +24,9 @@ const (
 // that isn't playing does nothing.
 const approvalTool = "stop_project"
 
-// A tool that never needs approval, because it's annotated read-only.
-const readOnlyTool = "get_current_scene"
+// A tool that never needs approval, because it's annotated read-only, and that
+// answers whether or not a scene is open.
+const readOnlyTool = "get_current_project"
 
 func denialMessage(tool string) string {
 	return "denied permission to use the '" + tool + "' tool"

@@ -45,8 +45,6 @@ class EditorGetSettings extends DefaultTool:
 class EditorSetSettings extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var settings: Dictionary = p_input.get('settings', {})
-		if settings.is_empty():
-			return ToolResult.rejected({error = "'settings' is required"})
 
 		for name in settings:
 			if GodaiEditorSettings.is_godai_setting(name):
@@ -250,8 +248,6 @@ func __user_code() -> Error:
 
 	func execute(p_input) -> ToolResult:
 		var code: String = p_input.get('code', '')
-		if code.is_empty():
-			return ToolResult.rejected({error = "'code' is required"})
 
 		var main_loop = Engine.get_main_loop()
 		if not main_loop is SceneTree:
@@ -270,7 +266,7 @@ func __user_code() -> Error:
 
 		var script_error = script.reload()
 		if script_error != OK:
-			return ToolResult.rejected({error = "Script failed to parse", log = logger.stop()})
+			return ToolResult.rejected({error = "Script failed to parse", output = logger.stop()})
 
 		var script_node = Node.new()
 		script_node.name = "EditorScriptNode"

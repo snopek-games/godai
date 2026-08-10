@@ -8,5 +8,5 @@
 /bundle/*.mcpb
 /dist/
 
-# Coverage profiles (scripts/mcp-coverage.sh -o)
+# Coverage profiles (scripts/go-coverage.sh -o)
 /cov.out

@@ -33,7 +33,7 @@ func test_execute_editor_script_process_user_code() -> void:
 				"    var undo_redo = EditorInterface.get_editor_undo_redo()",
 				"    ",
 				"    # Use undo/redo to add the node",
-				"    undo_redo.create_action(\"Add PI Label (AI)\")",
+				"    undo_redo.create_action(\"Add PI Label (Godai)\")",
 				"    editor_undo_redo_create_node(undo_redo, scene_root, label)",
 				"    undo_redo.commit_action()",
 				"    ",
@@ -56,7 +56,7 @@ func test_execute_editor_script_process_user_code() -> void:
 				"\t\tvar undo_redo = EditorInterface.get_editor_undo_redo()",
 				"\t\t",
 				"\t\t# Use undo/redo to add the node",
-				"\t\tundo_redo.create_action(\"Add PI Label (AI)\")",
+				"\t\tundo_redo.create_action(\"Add PI Label (Godai)\")",
 				"\t\teditor_undo_redo_create_node(undo_redo, scene_root, label)",
 				"\t\tundo_redo.commit_action()",
 				"\t\t",
@@ -97,3 +97,31 @@ func test_execute_editor_script() -> void:
 			output = await result.completed
 
 		assert_eq_deep(output, test['output'])
+
+
+func test_check_input() -> void:
+	var test_tool: ToolManager.Tool = tool_manager.get_tool("set_node_properties")
+
+	assert_eq(test_tool.check_input({action = "Move node", nodes = {"MyChild": {"position": "Vector2(1, 2)"}}}), "")
+
+	# Missing something the schema requires, or there but with nothing in it.
+	assert_eq(test_tool.check_input({nodes = {"MyChild": {}}}), "'action' is required")
+	assert_eq(test_tool.check_input({action = "", nodes = {"MyChild": {}}}), "'action' is required")
+	assert_eq(test_tool.check_input({action = "Move node", nodes = {}}), "'nodes' is required")
+
+	# ... unless the schema says an empty value is a value.
+	var write_tool: ToolManager.Tool = tool_manager.get_tool("write_script")
+	assert_eq(write_tool.check_input({file_path = "res://foo.gd", content = ""}), "")
+	assert_eq(write_tool.check_input({file_path = "", content = ""}), "'file_path' is required")
+	assert_eq(write_tool.check_input({file_path = "res://foo.gd"}), "'content' is required")
+
+	# The wrong type, including the array-of-entries shape that this tool used
+	# to take.
+	assert_eq(
+		test_tool.check_input({action = "Move node", nodes = [{node_path = "MyChild", properties = {}}]}),
+		"'nodes' must be an object, but got an array")
+	assert_eq(test_tool.check_input({action = 5, nodes = {"MyChild": {}}}), "'action' must be a string, but got a number")
+	assert_eq(test_tool.check_input([]), "Input must be an object, but got an array")
+
+	# Anything the schema doesn't mention is the tool's business, not ours.
+	assert_eq(test_tool.check_input({action = "Move node", nodes = {"MyChild": {}}, whatever = 5}), "")

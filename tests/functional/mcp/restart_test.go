@@ -15,7 +15,7 @@ import (
 )
 
 func editorInstancesDir(xdgBase string) string {
-	return filepath.Join(xdgBase, ".xdg", "XDG_CACHE_HOME", "godai-mcp", "instances")
+	return filepath.Join(xdgBase, ".xdg", "XDG_CACHE_HOME", "godai", "instances")
 }
 
 // launchConnectableEditor starts a headless editor a scanning server will

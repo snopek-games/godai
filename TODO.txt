@@ -4,21 +4,50 @@ TODO
 For a 1.0
 ---------
 
-0.4: Finish critical MCP stuff
+0.4: Finish critical CLI stuff
 ------------------------------
 
-- Rename `godai-mcp` to `godai` and rework to be a "Godot automation CLI with an MCP"
-- MCP: Better installation story
+- CLI: Allow downloading and managing Godot versions
+  ```
+  godai engine list               # should say yes/no if templates are installed too
+  godai engine run <version>      # launch a particular version of Godot; arguments to Godot go after `--`
+  godai engine install <version>  # download a version of Godot - maybe a `--with-templates` argument?
+  godai engine remove <version>
+  godai engine install-templates <version>
+  godai engine remove-templates <version>
+  godai engine use <version>      # set the default version (otherwise )
+  godai engine which <version>    # prints out the path to the executable
+  godai engine search             # search available versions
+  # Adding a custom engine version
+  godai engine link <custom-version> <path-to-executeable>
+
+  godai project pin-engine <version> # write a .godai.json with `{"godot_version":"version"}`
+  godai project unpin-engine         # remove "godot_version" or whole file if now empty
+  ```
+- CLI: Remove the prompt/elicitation for project_base_path and godot_path?
+  - If we manage the Godot versions, that's not required; and project_base_path is never required
+- CLI: Add command to create a new project
+  ```
+  # Will only work on non-existent directories, or empty directories. If no directory is given, use the CWD
+  godai project new --name="Blah" --godot-version=4.5 path/to/use
+  # Or is `create` better than new `new`?
+  ```
+- CLI: Better installation story
   - Options:
     - Provide `brew` package (as a "cask", I guess?)
     - Provide `WinGet` package
     - Provide `curl | bash` style script for MacOS, Linux and Windows (it would be `irm | WinGet` for Windows)
-- MCP: Test thoroughly on Windows and MacOS!
+- CLI: Rewrite the README (and move stuff to docs site)
+  - Clearer installation story
+  - Clearer mode separation (CLI vs Addon)
+- CLI: Test thoroughly on Windows and MacOS!
 - Add to MCP Registry
   - https://registry.modelcontextprotocol.io/
   - See: https://modelcontextprotocol.info/tools/registry/publishing/
 - Add MCPB to Claude directory
   - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
+- After release - deprecate the old NPM package:
+  `npm deprecate "@snopek-games/godai-mcp@*" "Renamed to @snopek-games/godai"`
 
 0.5: Finish critical API mode stuff
 -----------------------------------
@@ -47,10 +76,10 @@ For a 1.0
     - OpenAI: `OpenAIResponses`, with real OpenAI URL
     - Anthropic (Claude): `Anthropic` with real Anthropic URL
     - Google (Gemini): `OpenAIChatCompletions` with Gemini URI
-  - "Config" button in the "AI" panel
+  - "Config" button in the "Godai" panel
     - It should allow selecting one of the profiles or "custom", which gives you the underlying fields
     - This should basically reflect what we have in Editor Settings but friendlier
-  - "Model" selection field in the "AI" panel
+  - "Model" selection field in the "Godai" panel
     - It'll need to query the list of available models
     - We might need profiles to have a "filter" for the models to include/exclude (and maybe an editor setting too?)
     - Or, we may want to pull the model list from the models.dev API? It allows us to filter based on capability
@@ -63,11 +92,8 @@ For a 1.0
 Backlog
 -------
 
-- MCP: Add the ability to install Godot for the users platform
-  - This could/should include some minor version management, keeping multiple Godot versions and using the right one for the project
-  - Do we need a tool to download the export templates?
 - Make a Godot plugin in the Claude marketplace (which includes the .mcp.json)
-  - Users do `/plugin marketplace add snopek-games/godai-mcp` or `claude plugin install ...`
+  - Users do `/plugin marketplace add snopek-games/godai` or `claude plugin install ...`
   - See: https://claude.com/blog/claude-code-plugins
   - See: https://github.com/alexmeckes/godot-claude-skills
 - Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
@@ -85,6 +111,5 @@ Backlog
   - Receive them in the editor with an EditorDebuggerPlugin custom capture
 - Addon: Allow editor plugins to register custom tools for a particular project
   - Will need to allow MCP to update it's tools list
-- MCP: Add a command for creating a new project
 - Addon: Make user_chat.tscn and error_chat.tscn expand for their text, but wrap when they right the max width
   - I think we can do this my measuring the length of each line, and if one is over a certain threshold, then we expand to fill the whole parent

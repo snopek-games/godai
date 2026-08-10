@@ -19,11 +19,6 @@ class ResourceCreate extends DefaultTool:
 		var resource_type: String = p_input.get('resource_type', '')
 		var props: Dictionary = p_input.get('properties', {})
 
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
-		if resource_type.is_empty():
-			return ToolResult.rejected({error = "'resource_type' is required"})
-
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
@@ -92,9 +87,6 @@ class ResourceOpen extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
-
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
@@ -114,10 +106,7 @@ class ResourceGetProperties extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 		var properties: Array = p_input.get('properties', [])
-		var modified_only: bool = p_input.get('modified_only', false)
-
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
+		var modified_only: bool = not bool(p_input.get('include_defaults', false))
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
@@ -154,11 +143,6 @@ class ResourceSetProperties extends DefaultTool:
 		var action: String = p_input.get('action', '')
 		var file_path: String = p_input.get('file_path', '')
 		var props: Dictionary = p_input.get('properties', {})
-
-		if action.is_empty():
-			return ToolResult.rejected({error = "'action' is required"})
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
@@ -204,7 +188,7 @@ class ResourceSetProperties extends DefaultTool:
 			return ToolResult.rejected({error = "No properties were changed, due to the following errors:\n" + "\n".join(errors)})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("%s (AI)" % action)
+		undo_redo.create_action("%s (Godai)" % action)
 
 		for op in ops:
 			if op['path'].contains(":"):

@@ -52,8 +52,6 @@ class ProjectGetSettings extends DefaultTool:
 class ProjectSetSettings extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var settings: Dictionary = p_input.get('settings', {})
-		if settings.is_empty():
-			return ToolResult.rejected({error = "'settings' is required"})
 
 		for name in settings:
 			if GodaiEditorSettings.is_godai_project_setting(name):

@@ -36,32 +36,32 @@ func TestListProjects(t *testing.T) {
 func TestGetSetMcpConfiguration(t *testing.T) {
 	is := is.New(t)
 
-	cfg := callToolOK(t, "get_mcp_configuration", nil)
+	cfg := callToolOK(t, "get_godai_settings", nil)
 	godotPath, _ := cfg["godot_path"].(string)
 	is.True(godotPath != "")
 
-	out := callToolOK(t, "set_mcp_configuration", map[string]any{
+	out := callToolOK(t, "set_godai_settings", map[string]any{
 		"godot_path": godotPath,
 	})
 	is.Equal(out["success"], true)
 
-	callToolErr(t, "set_mcp_configuration", map[string]any{
+	callToolErr(t, "set_godai_settings", map[string]any{
 		"godot_path": "/definitely/not/a/real/godot",
 	}, "godot_path")
 
-	callToolErr(t, "set_mcp_configuration", map[string]any{
+	callToolErr(t, "set_godai_settings", map[string]any{
 		"godot_path": projectPath,
 	}, "godot_path")
 
-	callToolErr(t, "set_mcp_configuration", map[string]any{
+	callToolErr(t, "set_godai_settings", map[string]any{
 		"project_base_path": "/definitely/not/a/real/path",
-	}, "project_path")
+	}, "project_base_path")
 
-	callToolErr(t, "set_mcp_configuration", map[string]any{
+	callToolErr(t, "set_godai_settings", map[string]any{
 		"project_base_path": filepath.Join(projectPath, "project.godot"),
-	}, "project_path")
+	}, "project_base_path")
 
-	cfg = callToolOK(t, "get_mcp_configuration", nil)
+	cfg = callToolOK(t, "get_godai_settings", nil)
 	is.Equal(cfg["godot_path"], godotPath) // unchanged after the failed sets
 }
 

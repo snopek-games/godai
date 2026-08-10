@@ -14,31 +14,29 @@ func TestNoSceneOpen(t *testing.T) {
 	closeAllScenes(t)
 
 	t.Run("get_current_scene", func(t *testing.T) {
-		is := is.New(t)
-		structured := callToolOK(t, "get_current_scene", nil)
-		is.Equal(structured["scene_path"], "")
-		is.Equal(structured["root_node_type"], "")
-		is.Equal(structured["root_node_name"], "")
+		callToolErr(t, "get_current_scene", nil, "No scene open")
 	})
 
 	t.Run("get_current_scene_tree", func(t *testing.T) {
-		is := is.New(t)
-		structured := callToolOK(t, "get_current_scene_tree", nil)
-		is.Equal(len(structured), 0)
+		callToolErr(t, "get_current_scene_tree", nil, "No scene open")
+	})
+
+	t.Run("get_selected_nodes", func(t *testing.T) {
+		callToolErr(t, "get_selected_nodes", nil, "No scene open")
 	})
 
 	t.Run("get_node_properties", func(t *testing.T) {
-		is := is.New(t)
-		structured := callToolOK(t, "get_node_properties", map[string]any{
+		callToolErr(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"."},
-		})
-		is.Equal(len(structured), 0)
+		}, "No scene open")
 	})
 
 	t.Run("set_node_properties", func(t *testing.T) {
 		callToolErr(t, "set_node_properties", map[string]any{
 			"action": "Test",
-			"nodes":  []any{},
+			"nodes": map[string]any{
+				".": map[string]any{"name": "Whatever"},
+			},
 		}, "No scene open")
 	})
 
@@ -57,11 +55,9 @@ func TestNoSceneOpen(t *testing.T) {
 	})
 
 	t.Run("get_node_groups", func(t *testing.T) {
-		is := is.New(t)
-		structured := callToolOK(t, "get_node_groups", map[string]any{
+		callToolErr(t, "get_node_groups", map[string]any{
 			"node_paths": []string{"."},
-		})
-		is.Equal(len(structured), 0)
+		}, "No scene open")
 	})
 
 	t.Run("add_to_group", func(t *testing.T) {
@@ -275,16 +271,6 @@ return OK`)
 		paths, _ := structured["node_paths"].([]any)
 		is.Equal(len(paths), 1)
 		is.Equal(paths[0], "MyChild")
-	})
-
-	t.Run("no_scene_open", func(t *testing.T) {
-		requireManagedProject(t)
-		is := is.New(t)
-
-		closeAllScenes(t)
-		structured := callToolOK(t, "get_selected_nodes", nil)
-		paths, _ := structured["node_paths"].([]any)
-		is.Equal(len(paths), 0)
 	})
 }
 

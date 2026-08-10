@@ -127,7 +127,7 @@ func get_client_info() -> Dictionary:
 	return _client_info
 
 
-## Empty until the connected godai-mcp reports that a newer release exists.
+## Empty until the connected godai CLI reports that a newer release exists.
 func get_update_available() -> Dictionary:
 	return _update_available
 
@@ -443,11 +443,6 @@ func _remove_peer(p_peer: Peer) -> void:
 		update_available_changed.emit(_update_available)
 		_client_state = ClientState.NOT_CONNECTED
 		client_state_changed.emit(_client_state)
-
-		# The next client to connect could be a different AI agent, so make it
-		# re-read scripts before it can overwrite them. We can't do this for
-		# the HTTP transport, which doesn't keep a persistent connection.
-		Utils.clear_script_reads()
 
 
 func _process_http_peers() -> void:

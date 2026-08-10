@@ -22,11 +22,7 @@ class SceneGetCurrent extends DefaultTool:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
 		if not edited_scene_root:
-			return ToolResult.resolved({
-				scene_path = "",
-				root_node_type = "",
-				root_node_name = "",
-			})
+			return ToolResult.rejected({error = "No scene open"})
 
 		var scene_path: String = edited_scene_root.scene_file_path
 		if scene_path.is_empty():
@@ -66,7 +62,7 @@ class SceneGetTree extends DefaultTool:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
 		if not edited_scene_root:
-			return ToolResult.resolved({})
+			return ToolResult.rejected({error = "No scene open"})
 
 		return ToolResult.resolved(_get_node_structure(edited_scene_root, edited_scene_root))
 
@@ -75,11 +71,6 @@ class SceneCreate extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 		var root_node_type: String = p_input.get('root_node_type', '')
-
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
-		if root_node_type.is_empty():
-			return ToolResult.rejected({error = "'root_node_type' is required"})
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
@@ -132,9 +123,6 @@ class SceneOpen extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
-
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
@@ -150,7 +138,7 @@ class SceneGetSelectedNodes extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.resolved({ node_paths = [] })
+			return ToolResult.rejected({error = "No scene open"})
 
 		var selection := EditorInterface.get_selection()
 
@@ -174,10 +162,6 @@ class SceneInstantiate extends DefaultTool:
 		var scene_path: String = p_input.get('scene_path', '')
 		var node_name: String = p_input.get('name', '')
 
-		if parent_path.is_empty():
-			return ToolResult.rejected({error = "'parent_path' is required"})
-		if scene_path.is_empty():
-			return ToolResult.rejected({error = "'scene_path' is required"})
 		scene_path = Utils.to_res_path(scene_path)
 		if scene_path.is_empty():
 			return ToolResult.rejected({error = "'scene_path' must be inside the project (res://)"})
@@ -203,7 +187,7 @@ class SceneInstantiate extends DefaultTool:
 			node.name = node_name
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
-		undo_redo.create_action("Instantiate %s (AI)" % scene_path.get_file())
+		undo_redo.create_action("Instantiate %s (Godai)" % scene_path.get_file())
 		Utils.editor_undo_redo_create_node(undo_redo, parent, node)
 		undo_redo.commit_action()
 
@@ -240,8 +224,6 @@ class SceneSaveAs extends DefaultTool:
 		if not edited_scene_root:
 			return ToolResult.rejected({error = "No scene open"})
 
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})

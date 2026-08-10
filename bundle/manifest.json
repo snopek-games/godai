@@ -11,10 +11,11 @@
   "homepage": "https://gitlab.com/snopek-games/godai",
   "server": {
     "type": "binary",
-    "entry_point": "server/godai-mcp",
+    "entry_point": "server/godai-linux-x86_64",
     "mcp_config": {
-      "command": "${__dirname}/server/godai-mcp-linux-x86_64",
+      "command": "${__dirname}/server/godai-linux-x86_64",
       "args": [
+        "mcp",
         "--global",
         "--godot-path", "${user_config.godot_path}",
         "--project-base-path", "${user_config.project_base_path}",
@@ -22,10 +23,10 @@
       ],
       "platform_overrides": {
         "win32": {
-          "command": "${__dirname}/server/godai-mcp-windows-x86_64.exe"
+          "command": "${__dirname}/server/godai-windows-x86_64.exe"
         },
         "darwin": {
-          "command": "${__dirname}/server/godai-mcp-macos-arm64"
+          "command": "${__dirname}/server/godai-macos-arm64"
         }
       }
     }

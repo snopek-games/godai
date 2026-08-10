@@ -1,8 +1,8 @@
-Publishing godai-mcp to npm
+Publishing godai to npm
 ===========================
 
-This directory contains everything related to distributing the Go MCP proxy
-via npm, so that users can run it with `npx -y @snopek-games/godai-mcp`.
+This directory contains everything related to distributing the Go CLI via
+npm, so that users can run it with `npx -y @snopek-games/godai`.
 
 How the npm side works
 ----------------------
@@ -10,12 +10,12 @@ How the npm side works
 npm doesn't have first-class support for platform-specific binaries, so the
 ecosystem convention (used by esbuild, Biome, Turborepo, etc) is:
 
-- **One main package** (`@snopek-games/godai-mcp`) containing only a tiny
-  Node.js launcher script. Its `bin` field maps the `godai-mcp` command to
-  that script, which is what makes `npx @snopek-games/godai-mcp` work (when
+- **One main package** (`@snopek-games/godai`) containing only a tiny
+  Node.js launcher script. Its `bin` field maps the `godai` command to
+  that script, which is what makes `npx @snopek-games/godai` work (when
   a package has a single bin, npx runs it regardless of its name).
-- **One package per platform** (`@snopek-games/godai-mcp-linux-x64`,
-  `@snopek-games/godai-mcp-darwin-arm64`, etc) containing just the compiled
+- **One package per platform** (`@snopek-games/godai-linux-x64`,
+  `@snopek-games/godai-darwin-arm64`, etc) containing just the compiled
   binary. Each declares `os` and `cpu` fields in its package.json, which
   tell npm "only install me on this platform".
 - The main package lists all the platform packages as `optionalDependencies`.
@@ -36,19 +36,19 @@ Files in this directory
   placeholder; CI stamps the real version in at publish time. Its
   `optionalDependencies` keys are the source of truth for which platforms
   exist.
-- `godai-mcp.js` - the launcher script.
+- `godai.js` - the launcher script.
 - `README.md` - the README shown on npmjs.com for the main package.
 - `prepare-packages.mjs` - generates the actual publishable packages into
   `npm/dist/` (gitignored): it stamps the version, creates the platform
-  packages, and copies in the binaries from `dist/mcp/` (the artifacts of the
-  `mcp-build` CI job).
+  packages, and copies in the binaries from `dist/cli/` (the artifacts of the
+  `cli-build` CI job).
 
 How CI publishes a release
 --------------------------
 
 In `.gitlab-ci.yml`:
 
-- `mcp-package-npm` (package stage, every pipeline): runs
+- `package-npm` (package stage, every pipeline): runs
   `prepare-packages.mjs` with a dev version and does `npm pack --dry-run` on
   every package, so breakage is caught before release time.
 - `npm-publish` (release stage, only on `vX.Y.Z` tags): re-runs
@@ -98,8 +98,8 @@ automatically.
 Adding a new platform
 ---------------------
 
-1. Add the build variant to the `mcp-build` matrix in `.gitlab-ci.yml`.
-2. Add `@snopek-games/godai-mcp-<process.platform>-<process.arch>` to
+1. Add the build variant to the `cli-build` matrix in `.gitlab-ci.yml`.
+2. Add `@snopek-games/godai-<process.platform>-<process.arch>` to
    `optionalDependencies` in `npm/package.json` (use Node's names: `darwin`
    not `macos`, `win32` not `windows`, `x64` not `x86_64`).
 3. Map that package name to the CI variant in `VARIANTS` in
@@ -108,7 +108,7 @@ Adding a new platform
    configure a trusted publisher on a package that doesn't exist yet.
    Follow "Publishing manually" below, but only run `npm publish` in the
    *new* package's directory under `npm/dist/platforms/`. Use a version
-   like `X.Y.Z-bootstrap` (where `X.Y.Z` is the upcoming release) so it
+   like `X.Y.Z-dev1` (where `X.Y.Z` is the upcoming release) so it
    can't collide with a real release; the version doesn't matter otherwise,
    since installs always use the exact versions pinned by the main
    package's optionalDependencies.
@@ -126,12 +126,20 @@ before a trusted publisher can be configured for it), but also works as a
 fallback if CI is broken. Run from the repository root:
 
 ```sh
-# Build the binaries for all platforms, the same way CI does:
-CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-linux-x86_64/godai-mcp-linux-x86_64 ./cmd/godai-mcp/
-CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-linux-arm64/godai-mcp-linux-arm64 ./cmd/godai-mcp/
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-windows-x86_64/godai-mcp-windows-x86_64.exe ./cmd/godai-mcp/
-CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-windows-arm64/godai-mcp-windows-arm64.exe ./cmd/godai-mcp/
-CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/mcp/godai-mcp-macos-arm64/godai-mcp-macos-arm64 ./cmd/godai-mcp/
+# Only when publishing a pre-release version: stamp it into plugin.cfg, which
+# is where the binary and the addon it installs get their version from. Revert
+# this afterwards - the version-check CI job requires plugin.cfg to match the
+# release tag exactly.
+sed -i 's/^version=".*"$/version="<version>"/' addons/godai/plugin.cfg
+
+# Build the binaries for all platforms, the same way CI does (clearing the
+# output first, so a stale binary can't get published):
+rm -rf dist/cli
+CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-linux-x86_64/godai ./cmd/godai/
+CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-linux-arm64/godai ./cmd/godai/
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-windows-x86_64/godai.exe ./cmd/godai/
+CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-windows-arm64/godai.exe ./cmd/godai/
+CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-macos-arm64/godai ./cmd/godai/
 
 # Generate the npm packages with the right version stamped in
 # (npm never allows re-publishing a version, even a deleted one):
@@ -144,12 +152,22 @@ npm login
 for dir in npm/dist/platforms/*/; do
   (cd "$dir" && npm publish --access public)
 done
-(cd npm/dist/godai-mcp && npm publish --access public)
+(cd npm/dist/godai && npm publish --access public)
+
+# Revert the plugin.cfg change, if you made one:
+git checkout -- addons/godai/plugin.cfg
 ```
 
 With 2FA enabled, npm asks you to confirm each of the 6 publishes in the
 browser (or pass `--otp <code>` from your authenticator app to each
 `npm publish`).
+
+Letting a pre-release build claim the upcoming release's version instead of
+its own breaks two things: `installAddon` replaces a project's addon only when
+the embedded and installed versions differ as strings, so a project bootstrapped
+from the pre-release would keep a stale addon; and the update check only reports
+a release that sorts *above* the running version, so nobody would be told to
+upgrade to the real release.
 
 To just test the packaging without publishing, run the build and
 prepare-packages steps with a version like `0.0.0-test`, then

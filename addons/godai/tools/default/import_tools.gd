@@ -15,8 +15,6 @@ static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
 class ImportReimport extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var file_paths: Array = p_input.get('file_paths', [])
-		if file_paths.is_empty():
-			return ToolResult.rejected({error = "'file_paths' is required"})
 
 		var resolved_paths := PackedStringArray()
 		var errors := PackedStringArray()
@@ -45,8 +43,6 @@ class ImportGetSettings extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
@@ -83,8 +79,6 @@ class ImportSetSettings extends DefaultTool:
 		var importer: String = p_input.get('importer', '')
 		var options: Dictionary = p_input.get('options', {})
 
-		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' is required"})
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
 			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
