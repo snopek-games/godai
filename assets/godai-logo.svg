@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 400 400"
+   width="400"
+   height="400"
+   version="1.1"
+   id="svg16"
+   sodipodi:docname="godai-logo.svg"
+   inkscape:version="1.4.4 (1:1.4.4+202605061432+dcaf3e7d9e)"
+   inkscape:export-filename="../../icon.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <defs
+     id="defs20" />
+  <sodipodi:namedview
+     id="namedview18"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="true"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="0.44194175"
+     inkscape:cx="203.64675"
+     inkscape:cy="142.55272"
+     inkscape:window-width="1914"
+     inkscape:window-height="1027"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg16" />
+  <title
+     id="title2">GODAI</title>
+  <!-- ============ Shield ============ -->
+  <!-- Regular pentagon, point down. Centre (200,178), circumradius 180.
+       Add stroke="#478cbf" stroke-width="12" stroke-linejoin="round"
+       to this path if you want softened corners. -->
+  <path
+     id="shield"
+     fill="#478cbf"
+     d="m 94.200003,37.200043 c 66.706177,4.890815 136.631687,5.629338 211.599997,0 16.84491,69.296347 40.09116,135.712237 65.4,201.200007 -62.48921,38.22599 -117.34168,81.01593 -171.2,124.4 -53.64426,-43.62008 -110.292513,-85.35001 -171.199997,-124.4 24.157514,-64.74905 48.866677,-128.95579 65.4,-201.200007 z"
+     sodipodi:nodetypes="cccccc"
+     style="stroke:#ffffff;stroke-width:8;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1" />
+  <!-- ============ Kanji 五大 — stroked paths, no font ============ -->
+  <g
+     id="kanji"
+     fill="none"
+     stroke="#ffffff"
+     stroke-width="7"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     transform="matrix(1.1672526,0,0,1.1672526,-33.45052,-37.557167)">
+    <!-- 五  (go / five) -->
+    <g
+       id="kanji-go"
+       style="display:inline">
+      <!-- 1. top horizontal -->
+      <path
+         id="go-1"
+         d="m 130.2,109.5 h 59.2" />
+      <!-- 2. vertical, leaning left, top bar all the way to bottom bar -->
+      <path
+         id="go-2"
+         d="m 158.11716,110.06569 -10.73432,49.66862"
+         sodipodi:nodetypes="cc" />
+      <!-- 3. middle horizontal, turning down to the bottom bar -->
+      <path
+         id="go-3"
+         d="m 135.8,130.7 h 42.3 l -1.4,28.75147"
+         sodipodi:nodetypes="ccc" />
+      <!-- 4. bottom horizontal (widest) -->
+      <path
+         id="go-4"
+         d="m 127.4,160.3 h 67.7" />
+    </g>
+    <!-- 大  (dai / big) -->
+    <g
+       id="kanji-dai">
+      <!-- 1. horizontal -->
+      <path
+         id="dai-1"
+         d="m 210.6,120.1 h 62" />
+      <!-- 2. left-falling: vertical at the top, sweeping out to the lower left -->
+      <path
+         id="dai-2"
+         d="m 240.2,103.19987 c 0,39.5 -8.5,50.8 -31.1,60.7"
+         sodipodi:nodetypes="cc" />
+      <!-- 3. right-falling, from the crossing down to the lower right -->
+      <path
+         id="path2523"
+         d="m 240.16162,103.95087 c 0,39.5 8.5,50.8 31.1,60.7"
+         inkscape:label="dai-3"
+         sodipodi:nodetypes="cc" />
+    </g>
+  </g>
+  <!-- ============ Wordmark ============ -->
+  <metadata
+     id="metadata142">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>GODAI</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     id="g1121"
+     inkscape:label="workmark"
+     transform="matrix(1.1722958,0,0,1.1722958,-32.033516,-34.788385)">
+    <text
+       id="wordmark"
+       x="198.59737"
+       y="243.90909"
+       text-anchor="middle"
+       font-family="Arial, Helvetica, sans-serif"
+       font-size="70px"
+       fill="#ffffff"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:sans-serif;-inkscape-font-specification:sans-serif;display:none"
+       inkscape:label="text"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Roboto Condensed';-inkscape-font-specification:'Roboto Condensed, ';display:none"
+         id="tspan402"
+         inkscape:label="text">GODAI</tspan><text
+         id="text1090"
+         x="198.59737"
+         y="243.90909"
+         text-anchor="middle"
+         font-family="Arial, Helvetica, sans-serif"
+         font-size="70px"
+         fill="#ffffff"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:sans-serif;-inkscape-font-specification:sans-serif;display:inline"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Roboto Condensed';-inkscape-font-specification:'Roboto Condensed, '"
+           id="tspan1088">GODAI</tspan></text></text>
+    <g
+       aria-label="GODAI"
+       id="text1111"
+       style="font-size:70px;-inkscape-font-specification:sans-serif;text-anchor:middle;display:inline;fill:#ffffff"
+       inkscape:label="paths">
+      <path
+         d="m 144.8669,219.12881 v 18.55958 q -0.82031,1.09375 -2.49512,2.73437 -1.64062,1.64063 -4.61426,2.90527 -2.97363,1.26465 -7.79297,1.26465 -3.8623,0 -7.07519,-1.29883 -3.17871,-1.29882 -5.50293,-3.89648 -2.29004,-2.63184 -3.55469,-6.52832 -1.26465,-3.93066 -1.26465,-9.19434 v -9.33105 q 0,-5.22949 1.05957,-9.16016 1.05957,-3.93066 3.14453,-6.52832 2.11915,-2.59765 5.2295,-3.89648 3.14453,-1.29883 7.31445,-1.29883 4.81934,0 8.20312,1.81152 3.38379,1.81153 5.2295,5.2295 1.87988,3.41796 2.11914,8.20312 h -6.28906 q -0.23926,-3.07617 -1.29883,-5.26367 -1.05957,-2.22168 -3.00782,-3.38379 -1.94824,-1.19629 -4.95605,-1.19629 -2.87109,0 -4.85352,0.95703 -1.98242,0.95703 -3.24707,2.8711 -1.23046,1.91406 -1.81152,4.81933 -0.54687,2.90527 -0.54687,6.76758 v 9.39941 q 0,3.96485 0.78613,6.9043 0.78613,2.93945 2.22168,4.85352 1.46972,1.91406 3.52051,2.87109 2.05078,0.92285 4.61425,0.92285 2.90528,0 4.58008,-0.61523 1.67481,-0.61524 2.56348,-1.40137 0.92285,-0.78613 1.46972,-1.26465 v -11.48437 h -9.12597 v -5.33204 z"
+         style="font-family:'Roboto Condensed';-inkscape-font-specification:'Roboto Condensed, '"
+         id="path1123" />
+      <path
+         d="m 187.42061,214.71964 v 8.64746 q 0,5.26367 -1.16211,9.26269 -1.12793,3.96485 -3.31543,6.63086 -2.1875,2.66602 -5.26367,3.99902 -3.07617,1.33301 -6.93848,1.33301 -3.72558,0 -6.80176,-1.33301 -3.07617,-1.333 -5.29785,-3.99902 -2.22168,-2.66601 -3.45215,-6.63086 -1.19629,-3.99902 -1.19629,-9.26269 v -8.64746 q 0,-5.26368 1.19629,-9.22852 1.19629,-3.99902 3.41797,-6.66504 2.22168,-2.66602 5.29785,-3.99902 3.07618,-1.36719 6.80176,-1.36719 3.86231,0 6.93848,1.36719 3.11035,1.333 5.26367,3.99902 2.1875,2.66602 3.34961,6.66504 1.16211,3.96484 1.16211,9.22852 z m -6.2207,8.64746 v -8.71582 q 0,-4.10157 -0.6836,-7.04102 -0.68359,-2.97363 -2.0166,-4.85352 -1.33301,-1.87988 -3.28125,-2.76855 -1.94824,-0.92285 -4.51172,-0.92285 -2.42676,0 -4.375,0.92285 -1.91406,0.88867 -3.28125,2.76855 -1.36719,1.87989 -2.11914,4.85352 -0.71777,2.93945 -0.71777,7.04102 v 8.71582 q 0,4.13574 0.71777,7.10937 0.75195,2.93945 2.11914,4.85352 1.40137,1.87988 3.34961,2.80273 1.94824,0.88867 4.34082,0.88867 2.56348,0 4.51172,-0.88867 1.98242,-0.92285 3.28125,-2.80273 1.33301,-1.91407 1.98242,-4.85352 0.6836,-2.97363 0.6836,-7.10937 z"
+         style="font-family:'Roboto Condensed';-inkscape-font-specification:'Roboto Condensed, '"
+         id="path1125" />
+      <path
+         d="m 208.40694,243.90909 h -8.47657 l 0.0684,-5.36621 h 8.40821 q 4.47754,0 7.28027,-1.70899 2.80273,-1.74316 4.13574,-5.12695 1.33301,-3.41797 1.33301,-8.44238 v -8.51075 q 0,-3.96484 -0.75195,-6.83593 -0.75196,-2.8711 -2.25586,-4.7168 -1.50391,-1.8457 -3.79395,-2.73437 -2.29004,-0.92286 -5.36621,-0.92286 h -9.22851 v -5.40039 h 9.22851 q 4.2041,0 7.58789,1.33301 3.38379,1.29883 5.81055,3.93067 2.42676,2.59765 3.69141,6.45996 1.29882,3.8623 1.29882,8.95507 v 8.44239 q 0,5.09277 -1.29882,8.95508 -1.26465,3.8623 -3.72559,6.45996 -2.46094,2.59765 -5.98145,3.93066 -3.48632,1.29883 -7.96386,1.29883 z m -4.99024,-49.76563 v 49.76563 h -6.28906 v -49.76563 z"
+         style="font-family:'Roboto Condensed';-inkscape-font-specification:'Roboto Condensed, '"
+         id="path1127" />
+      <path
+         d="m 252.49873,198.55264 -13.60351,45.35645 h -6.42578 l 16.03027,-49.76563 h 4.0332 z m 11.00586,45.35645 -13.60351,-45.35645 -0.0684,-4.40918 h 4.06738 l 16.03027,49.76563 z m 0,-18.42285 v 5.40039 h -23.99414 v -5.40039 z"
+         style="font-family:'Roboto Condensed';-inkscape-font-specification:'Roboto Condensed, '"
+         id="path1129" />
+      <path
+         d="m 283.29463,194.14346 v 49.76563 h -6.28906 v -49.76563 z"
+         style="font-family:'Roboto Condensed';-inkscape-font-specification:'Roboto Condensed, '"
+         id="path1131" />
+    </g>
+  </g>
+</svg>
