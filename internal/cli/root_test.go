@@ -38,7 +38,7 @@ func TestUnknownCommandIsAUsageError(t *testing.T) {
 	}
 }
 
-func TestStaleSavedGodotPathDoesNotBlockCommands(t *testing.T) {
+func TestStaleSavedGodotVersionDoesNotBlockCommands(t *testing.T) {
 	is := is.New(t)
 
 	if runtime.GOOS == "windows" {
@@ -50,7 +50,7 @@ func TestStaleSavedGodotPathDoesNotBlockCommands(t *testing.T) {
 
 	configPath := filepath.Join(dir, "godai", "config.json")
 	is.NoErr(os.MkdirAll(filepath.Dir(configPath), 0o755))
-	saved, err := json.Marshal(core.SavedConfig{DefaultGodotPath: filepath.Join(dir, "gone", "godot")})
+	saved, err := json.Marshal(core.SavedConfig{GodotVersion: "4.5-stable"})
 	is.NoErr(err)
 	is.NoErr(os.WriteFile(configPath, saved, 0o644))
 

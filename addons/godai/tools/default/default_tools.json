@@ -23,6 +23,10 @@
 						"type": "boolean",
 						"description": "Whether the editor is running with a headless display driver"
 					},
+					"godot_version": {
+						"type": "string",
+						"description": "The version of Godot this editor is running, for example: `4.5.stable.official`, or `4.4.1.stable.mono.official` for a .NET build"
+					},
 					"error": {
 						"type": "string",
 						"description": "Why the call failed; present instead of the other properties when it did"
@@ -1790,7 +1794,7 @@
 			"description": [
 				"Restarts the Godot editor for the project.",
 				"",
-				"The editor first prompts the user to save their work, and only restarts once they confirm.",
+				"The user is asked to confirm first, and the call fails if they decline. A headless editor restarts without asking.",
 				"",
 				"By default, unsaved changes are saved before restarting; pass 'skip_save' as true to discard them instead."
 			],
@@ -1828,7 +1832,7 @@
 			"description": [
 				"Closes the Godot editor for the project.",
 				"",
-				"The editor first prompts the user to save their work, and only closes once they confirm.",
+				"The user is asked to confirm first, and the call fails if they decline. A headless editor closes without asking.",
 				"",
 				"By default, unsaved changes are saved before closing; pass 'skip_save' as true to discard them instead."
 			],

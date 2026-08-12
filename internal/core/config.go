@@ -19,34 +19,37 @@ const (
 )
 
 type Config struct {
-	Scope               Scope
-	RootPaths           []string
-	EditorInstancesPath string
-	EditorScanInterval  time.Duration
-	EditorRetryDelay    time.Duration
-	EditorTimeout       time.Duration
-	EditorToolTimeout   time.Duration
-	OpenProjectTimeout  time.Duration
-	DefaultGodotPath    string
-	ProjectBasePath     string
-	X11Display          string
-	UpdateCheckInterval time.Duration
-	Debug               bool
-	SavedConfigPath     string
-	CloseHeadlessOnExit bool
+	Scope                  Scope
+	RootPaths              []string
+	EditorInstancesPath    string
+	EditorScanInterval     time.Duration
+	EditorRetryDelay       time.Duration
+	EditorTimeout          time.Duration
+	EditorToolTimeout      time.Duration
+	OpenProjectTimeout     time.Duration
+	GodotPath              string
+	GodotVersion           string
+	GodotVersionIsExplicit bool
+	NoAutoInstall          bool
+	ProjectBasePath        string
+	X11Display             string
+	UpdateCheckInterval    time.Duration
+	Debug                  bool
+	SavedConfigPath        string
+	CloseHeadlessOnExit    bool
 }
 
 type SavedConfig struct {
-	DefaultGodotPath string `json:"godot_path"`
-	ProjectBasePath  string `json:"project_base_path"`
+	GodotVersion    string `json:"godot_version"`
+	ProjectBasePath string `json:"project_base_path"`
 }
 
 const (
-	SettingGodotPath       = "godot_path"
+	SettingGodotVersion    = "godot_version"
 	SettingProjectBasePath = "project_base_path"
 )
 
-var SettingNames = []string{SettingGodotPath, SettingProjectBasePath}
+var SettingNames = []string{SettingGodotVersion, SettingProjectBasePath}
 
 func CheckSettingName(name string) error {
 	if slices.Contains(SettingNames, name) {
@@ -59,8 +62,8 @@ func (sc SavedConfig) Setting(name string) (string, error) {
 	if err := CheckSettingName(name); err != nil {
 		return "", err
 	}
-	if name == SettingGodotPath {
-		return sc.DefaultGodotPath, nil
+	if name == SettingGodotVersion {
+		return sc.GodotVersion, nil
 	}
 	return sc.ProjectBasePath, nil
 }
@@ -69,8 +72,8 @@ func (sc *SavedConfig) SetSetting(name, value string) error {
 	if err := CheckSettingName(name); err != nil {
 		return err
 	}
-	if name == SettingGodotPath {
-		sc.DefaultGodotPath = value
+	if name == SettingGodotVersion {
+		sc.GodotVersion = value
 	} else {
 		sc.ProjectBasePath = value
 	}
@@ -161,6 +164,28 @@ func LoadConfig(path string) (*SavedConfig, error) {
 	return &config, nil
 }
 
+// SavedGodotVersion is the default version named in the config file, empty
+// when there isn't one or the file can't be read.
+func SavedGodotVersion(path string) string {
+	sc, err := LoadConfig(path)
+	if err != nil {
+		return ""
+	}
+	return sc.GodotVersion
+}
+
+// SetSavedGodotVersion writes godot_version to the config file, leaving the
+// other settings alone. An empty name unsets it.
+func SetSavedGodotVersion(path, name string) error {
+	sc, err := LoadConfig(path)
+	if err != nil {
+		sc = &SavedConfig{}
+	}
+
+	sc.GodotVersion = name
+	return SaveConfig(path, sc)
+}
+
 func SaveConfig(path string, config *SavedConfig) error {
 	dir := filepath.Dir(path)
 	err := os.MkdirAll(dir, 0o755)
@@ -168,12 +193,12 @@ func SaveConfig(path string, config *SavedConfig) error {
 		return err
 	}
 
-	b, err := json.Marshal(config)
+	b, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(path, b, 0o644); err != nil {
+	if err := os.WriteFile(path, append(b, '\n'), 0o644); err != nil {
 		return err
 	}
 

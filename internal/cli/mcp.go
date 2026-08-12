@@ -16,10 +16,9 @@ import (
 
 func mcpCommand(configPath string) *cli.Command {
 	return &cli.Command{
-		Name:  "mcp",
-		Usage: "run the MCP server on stdin/stdout, for use by an AI assistant",
-		Description: "Speaks the Model Context Protocol over stdio, exposing the same operations " +
-			"as the other subcommands as MCP tools.",
+		Name:        "mcp",
+		Usage:       "run the MCP server on stdin/stdout, for use by an AI agent",
+		Description: "Speaks the Model Context Protocol over stdio, exposing the same operations as the other subcommands as MCP tools.",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:  "no-update-check",
@@ -42,21 +41,24 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 	}
 
 	config := core.Config{
-		Scope:               core.ScopeRoots,
-		RootPaths:           cmd.StringSlice("root"),
-		EditorInstancesPath: cmd.String("editor-instances-path"),
-		EditorScanInterval:  durationFlag(cmd, "editor-scan-interval", serverScanTick),
-		EditorRetryDelay:    durationFlag(cmd, "editor-retry-delay", serverRetryDelay),
-		EditorTimeout:       durationFlag(cmd, "editor-timeout", 15*time.Second),
-		EditorToolTimeout:   durationFlag(cmd, "editor-tool-timeout", 300*time.Second),
-		OpenProjectTimeout:  serverOpenWait,
-		DefaultGodotPath:    cmd.String("godot-path"),
-		ProjectBasePath:     cmd.String("project-base-path"),
-		X11Display:          cmd.String("x11-display"),
-		UpdateCheckInterval: updateCheckInterval(cmd.Bool("no-update-check")),
-		Debug:               cmd.Bool("debug"),
-		SavedConfigPath:     configPath,
-		CloseHeadlessOnExit: true,
+		Scope:                  core.ScopeRoots,
+		RootPaths:              cmd.StringSlice("root"),
+		EditorInstancesPath:    cmd.String("editor-instances-path"),
+		EditorScanInterval:     durationFlag(cmd, "editor-scan-interval", serverScanTick),
+		EditorRetryDelay:       durationFlag(cmd, "editor-retry-delay", serverRetryDelay),
+		EditorTimeout:          durationFlag(cmd, "editor-timeout", editorTimeout),
+		EditorToolTimeout:      durationFlag(cmd, "editor-tool-timeout", editorToolTimeout),
+		OpenProjectTimeout:     serverOpenWait,
+		GodotPath:              cmd.String("godot-path"),
+		GodotVersion:           cmd.String("godot-version"),
+		GodotVersionIsExplicit: cmd.IsSet("godot-version"),
+		NoAutoInstall:          cmd.Bool("no-auto-install"),
+		ProjectBasePath:        cmd.String("project-base-path"),
+		X11Display:             cmd.String("x11-display"),
+		UpdateCheckInterval:    updateCheckInterval(cmd.Bool("no-update-check")),
+		Debug:                  cmd.Bool("debug"),
+		SavedConfigPath:        configPath,
+		CloseHeadlessOnExit:    true,
 	}
 
 	if cmd.Bool("global") {

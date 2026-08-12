@@ -23,7 +23,21 @@ class ProjectGetCurrent extends DefaultTool:
 			project_path = ProjectSettings.globalize_path("res://").simplify_path(),
 			project_name = ProjectSettings.get_setting("application/config/name"),
 			headless = (DisplayServer.get_name() == "headless"),
+			godot_version = _get_godot_version(),
 		})
+
+	func _get_godot_version() -> String:
+		var info := Engine.get_version_info()
+
+		var parts := PackedStringArray([str(info["major"]), str(info["minor"])])
+		if int(info["patch"]) != 0:
+			parts.append(str(info["patch"]))
+		parts.append(info["status"])
+		if ClassDB.class_exists("CSharpScript"):
+			parts.append("mono")
+		parts.append(info["build"])
+
+		return ".".join(parts)
 
 
 class ProjectGetSettings extends DefaultTool:

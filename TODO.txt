@@ -7,25 +7,9 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- CLI: Allow downloading and managing Godot versions
-  ```
-  godai engine list               # should say yes/no if templates are installed too
-  godai engine run <version>      # launch a particular version of Godot; arguments to Godot go after `--`
-  godai engine install <version>  # download a version of Godot - maybe a `--with-templates` argument?
-  godai engine remove <version>
-  godai engine install-templates <version>
-  godai engine remove-templates <version>
-  godai engine use <version>      # set the default version (otherwise )
-  godai engine which <version>    # prints out the path to the executable
-  godai engine search             # search available versions
-  # Adding a custom engine version
-  godai engine link <custom-version> <path-to-executeable>
-
-  godai project pin-engine <version> # write a .godai.json with `{"godot_version":"version"}`
-  godai project unpin-engine         # remove "godot_version" or whole file if now empty
-  ```
-- CLI: Remove the prompt/elicitation for project_base_path and godot_path?
-  - If we manage the Godot versions, that's not required; and project_base_path is never required
+- CLI: How to make the descriptions for `editor-tool` more CLI-friendly?
+- CLI: Remove the prompt/elicitation for project_base_path
+  - It's never required, and the godot_path one is gone with the setting
 - CLI: Add command to create a new project
   ```
   # Will only work on non-existent directories, or empty directories. If no directory is given, use the CWD

@@ -2,11 +2,15 @@ package godot
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-)
+	"slices"
+	"strconv"
+	"strings"
 
-// @todo Add a way to list projects from the `~/.local/share/godot/projects.cfg`
+	"gitlab.com/snopek-games/godai/internal/godot/variant"
+)
 
 type ProjectManagerEntry struct {
 	ProjectPath string
@@ -87,4 +91,83 @@ func (p *Project) GetPath() string {
 
 func (p *Project) GetConfigFile() (*ConfigFile, error) {
 	return LoadConfigFile(filepath.Join(p.path, "project.godot"))
+}
+
+// ProjectEngine is the engine version listed in `project.godot`, which is
+// major.minor version it was last saved with.
+type ProjectEngine struct {
+	Major int
+	Minor int
+	Mono  bool
+}
+
+func (e ProjectEngine) String() string {
+	version := fmt.Sprintf("%d.%d", e.Major, e.Minor)
+	if e.Mono {
+		version += " (C#)"
+	}
+	return version
+}
+
+func (e ProjectEngine) Matches(version EngineVersion) bool {
+	return version.Major == e.Major && version.Minor == e.Minor && version.Mono == e.Mono
+}
+
+const projectFeaturesKey = "config/features"
+
+func (p *Project) GetEngine() (ProjectEngine, bool, error) {
+	config, err := p.GetConfigFile()
+	if err != nil {
+		return ProjectEngine{}, false, err
+	}
+
+	value, ok := config.Get("application", projectFeaturesKey)
+	if !ok {
+		return ProjectEngine{}, false, nil
+	}
+
+	features, ok := value.(variant.PackedStringArray)
+	if !ok {
+		return ProjectEngine{}, false, fmt.Errorf("application/%s isn't a list of features", projectFeaturesKey)
+	}
+
+	engine := ProjectEngine{Mono: p.usesCSharp(features)}
+	for _, feature := range features {
+		if major, minor, ok := parseFeatureVersion(feature); ok {
+			engine.Major, engine.Minor = major, minor
+			return engine, true, nil
+		}
+	}
+
+	return ProjectEngine{}, false, nil
+}
+
+func (p *Project) usesCSharp(features variant.PackedStringArray) bool {
+	if slices.Contains(features, "C#") {
+		return true
+	}
+
+	matches, err := filepath.Glob(filepath.Join(p.path, "*.csproj"))
+	if err != nil {
+		return false
+	}
+	return len(matches) > 0
+}
+
+func parseFeatureVersion(feature string) (major, minor int, ok bool) {
+	parts := strings.Split(feature, ".")
+	if len(parts) < 2 {
+		return 0, 0, false
+	}
+
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, false
+	}
+	minor, err = strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, false
+	}
+
+	return major, minor, true
 }

@@ -20,6 +20,13 @@ type ProjectInfo struct {
 	ProjectName string `json:"project_name,omitempty"`
 }
 
+type OpenProjectInfo struct {
+	ProjectPath  string `json:"project_path"`
+	ProjectName  string `json:"project_name,omitempty"`
+	Headless     bool   `json:"headless"`
+	GodotVersion string `json:"godot_version,omitempty"`
+}
+
 const maxProjectScanDepth = 8
 
 // Known problematic directories to skip when scanning for project directories.
@@ -137,26 +144,32 @@ func sortProjects(list []ProjectInfo) {
 	sort.Slice(list, func(i, j int) bool { return list[i].ProjectPath < list[j].ProjectPath })
 }
 
-func (s *Session) ListOpenProjects(ctx context.Context) ([]ProjectInfo, error) {
+func sortOpenProjects(list []OpenProjectInfo) {
+	sort.Slice(list, func(i, j int) bool { return list[i].ProjectPath < list[j].ProjectPath })
+}
+
+func (s *Session) ListOpenProjects(ctx context.Context) ([]OpenProjectInfo, error) {
 	if err := s.ensureStarted(ctx); err != nil {
 		return nil, err
 	}
 	s.ScanNow()
 
 	seen := map[string]struct{}{}
-	list := []ProjectInfo{}
+	list := []OpenProjectInfo{}
 	for _, e := range s.Editors() {
 		if _, ok := seen[e.ProjectPath]; ok {
 			continue
 		}
 		seen[e.ProjectPath] = struct{}{}
-		list = append(list, ProjectInfo{
-			ProjectPath: e.ProjectPath,
-			ProjectName: e.ProjectName,
+		list = append(list, OpenProjectInfo{
+			ProjectPath:  e.ProjectPath,
+			ProjectName:  e.ProjectName,
+			Headless:     e.Headless,
+			GodotVersion: e.GodotVersion,
 		})
 	}
 
-	sortProjects(list)
+	sortOpenProjects(list)
 
 	return list, nil
 }
@@ -167,6 +180,27 @@ type OpenProjectOptions struct {
 	Headless    bool
 	AutoApprove bool
 	Wait        time.Duration
+	// GodotVersion opens the project with the version named, whatever the
+	// project itself asks for.
+	GodotVersion string
+}
+
+// AllowedProjectPath canonicalizes a project path the caller was given, and
+// refuses one outside the roots this session was told it may touch.
+func (s *Session) AllowedProjectPath(path string) (string, error) {
+	realProjectPath, err := CanonicalPath(path)
+	if err != nil {
+		return "", err
+	}
+
+	if !s.Global() && !godot.IsPathUnderAnyRoot(realProjectPath, s.RootPaths()) {
+		return "", NewUserError("project is not under one of our allowed roots", nil, []string{
+			"Allow this project's path with an additional `--root <PATH>`",
+			"Allow access to any project with the `--global` option",
+		})
+	}
+
+	return realProjectPath, nil
 }
 
 type OpenProjectResult struct {
@@ -176,16 +210,9 @@ type OpenProjectResult struct {
 }
 
 func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProjectOptions) (*OpenProjectResult, error) {
-	realProjectPath, err := CanonicalPath(path)
+	realProjectPath, err := s.AllowedProjectPath(path)
 	if err != nil {
 		return nil, err
-	}
-
-	if !s.Global() && !godot.IsPathUnderAnyRoot(realProjectPath, s.RootPaths()) {
-		return nil, NewUserError("project is not under one of our allowed roots", nil, []string{
-			"Allow this project's path with an additional `--root <PATH>`",
-			"Allow access to any project with the `--global` option",
-		})
 	}
 
 	if err := s.ensureStarted(ctx); err != nil {
@@ -206,6 +233,9 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 		if err != nil {
 			return nil, waitError(waitCtx, "timed out connecting to the Godot editor already running for '"+realProjectPath+"'", err)
 		}
+		if err := s.checkEditorVersion(editor, opts); err != nil {
+			return nil, err
+		}
 
 		return &OpenProjectResult{ProjectPath: realProjectPath, AlreadyOpen: true, Headless: editor.Headless}, nil
 	}
@@ -215,7 +245,11 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 		return nil, NewUserError("invalid project", err, nil)
 	}
 
-	godotPath, err := s.ensureGodotPath(ctx)
+	godotPath, err := s.GodotExecutable(ctx, realProjectPath, EngineOptions{
+		Version:     opts.GodotVersion,
+		AutoInstall: !s.config.NoAutoInstall,
+		Prompt:      true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -242,8 +276,8 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 
 	if err := cmd.Start(); err != nil {
 		return nil, NewUserError("unable to execute godot", err, []string{
-			"Check the Godot path: `godai config` (MCP: the `get_godai_settings` tool)",
-			"Set a different one: `godai config --set godot_path=<PATH>`",
+			"Check which Godot that is: `godai engine which`",
+			"Install it again: `godai engine install <VERSION>`",
 		})
 	}
 
@@ -264,6 +298,36 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 	}
 
 	return &OpenProjectResult{ProjectPath: realProjectPath, Headless: opts.Headless}, nil
+}
+
+// checkEditorVersion refuses to hand back an editor that isn't the version
+// that was asked for, since an editor that's already running can't change the
+// Godot it started with.
+func (s *Session) checkEditorVersion(editor *Editor, opts OpenProjectOptions) error {
+	wanted := opts.GodotVersion
+	if wanted == "" && s.config.GodotVersionIsExplicit {
+		wanted = s.config.GodotVersion
+	}
+	if wanted == "" || editor.GodotVersion == "" {
+		return nil
+	}
+
+	engine, err := s.FindEngine(wanted)
+	if err != nil {
+		return err
+	}
+	// A linked engine that wouldn't say what it is can't be told apart from
+	// the editor that's running, so it's taken at its word.
+	if !engine.Version.Known() || engine.Version.String() == editor.GodotVersion {
+		return nil
+	}
+
+	return NewUserError(
+		fmt.Sprintf("the editor already open for '%s' is Godot %s, not %s", editor.ProjectPath, editor.GodotVersion, engine.Name),
+		ErrEditorVersionMismatch, []string{
+			"Close it first: `godai editor close <PATH>` (MCP: the `close_editor` tool)",
+			"Or open it without asking for a version",
+		})
 }
 
 // Reports why the wait ended, so that a timeout or an interrupt doesn't get
@@ -325,20 +389,20 @@ func findProjectFromCwd() (string, bool) {
 
 func (s *Session) GetConfig() SavedConfig {
 	return SavedConfig{
-		DefaultGodotPath: s.config.DefaultGodotPath,
-		ProjectBasePath:  s.config.ProjectBasePath,
+		GodotVersion:    s.config.GodotVersion,
+		ProjectBasePath: s.config.ProjectBasePath,
 	}
 }
 
-func ResolveSavedConfig(sc SavedConfig) (SavedConfig, error) {
+func (s *Session) ResolveSavedConfig(sc SavedConfig) (SavedConfig, error) {
 	resolved := SavedConfig{}
 
-	if sc.DefaultGodotPath != "" {
-		path, err := ResolveGodotExecutable(sc.DefaultGodotPath)
+	if sc.GodotVersion != "" {
+		engine, err := s.FindEngine(sc.GodotVersion)
 		if err != nil {
-			return resolved, NewUserError("invalid godot_path - doesn't exist or isn't executable", err, nil)
+			return resolved, err
 		}
-		resolved.DefaultGodotPath = path
+		resolved.GodotVersion = engine.Name
 	}
 
 	if sc.ProjectBasePath != "" {
@@ -353,13 +417,13 @@ func ResolveSavedConfig(sc SavedConfig) (SavedConfig, error) {
 }
 
 func (s *Session) SetConfig(sc SavedConfig) error {
-	resolved, err := ResolveSavedConfig(sc)
+	resolved, err := s.ResolveSavedConfig(sc)
 	if err != nil {
 		return err
 	}
 
-	if resolved.DefaultGodotPath != "" {
-		s.config.DefaultGodotPath = resolved.DefaultGodotPath
+	if resolved.GodotVersion != "" {
+		s.config.GodotVersion = resolved.GodotVersion
 	}
 	if resolved.ProjectBasePath != "" {
 		s.config.ProjectBasePath = resolved.ProjectBasePath
@@ -392,7 +456,7 @@ func (s *Session) UnsetConfig(names []string) error {
 		}
 	}
 
-	s.config.DefaultGodotPath = live.DefaultGodotPath
+	s.config.GodotVersion = live.GodotVersion
 	s.config.ProjectBasePath = live.ProjectBasePath
 
 	if s.config.SavedConfigPath == "" {
@@ -423,31 +487,6 @@ func (s *Session) ensureProjectBasePath(ctx context.Context) (string, error) {
 	return "", NewUserError("the path where your Godot projects usually live is not configured or doesn't exist", ErrNotConfigured, []string{
 		"Set it: `godai config --set project_base_path=<PATH>` (MCP: the `set_godai_settings` tool)",
 		"Or pass `--project-base-path <PATH>` when starting Godai",
-	})
-}
-
-func (s *Session) ensureGodotPath(ctx context.Context) (string, error) {
-	if path := s.config.DefaultGodotPath; path != "" {
-		if resolved, err := ResolveGodotExecutable(path); err == nil {
-			return resolved, nil
-		}
-		slog.Warn("the configured Godot executable is no longer usable", "godotPath", path)
-	}
-
-	path, err := s.promptForPath(ctx,
-		"Cannot find Godot",
-		"godot_path",
-		"The full path to the Godot 4 executable on your system",
-		ResolveGodotExecutable)
-	if err == nil {
-		s.config.DefaultGodotPath = path
-		s.logSaveSetting(SettingGodotPath, path)
-		return path, nil
-	}
-
-	return "", NewUserError("the path to the Godot 4 executable on your system is not configured or invalid", ErrNotConfigured, []string{
-		"Set it: `godai config --set godot_path=<PATH>` (MCP: the `set_godai_settings` tool)",
-		"Or pass `--godot-path <PATH>` when starting Godai",
 	})
 }
 

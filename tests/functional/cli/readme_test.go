@@ -24,6 +24,7 @@ func TestReadmeExample(t *testing.T) {
 	// godai editor list
 	openProjects := godai(t, "editor", "list")
 	is.True(strings.Contains(openProjects, projectName))
+	is.True(strings.Contains(openProjects, "GODOT")) // with the version it's open in
 
 	// godai editor-tool --help
 	tools := godai(t, "editor-tool", "--help")

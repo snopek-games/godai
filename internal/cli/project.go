@@ -92,6 +92,67 @@ func projectCommand(configPath string) *cli.Command {
 					})
 				},
 			},
+			{
+				Name:        "pin-engine",
+				Usage:       "record which version of Godot this project is built with",
+				ArgsUsage:   "<version>",
+				Description: "The version is written to " + core.ProjectConfigName + " in the project, which is meant to be committed, so that everyone working on it opens the same editor.",
+				Flags:       []cli.Flag{projectPathFlag()},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					name, err := oneArg(cmd, "version")
+					if err != nil {
+						return err
+					}
+
+					return withSession(ctx, cmd, configPath, func(session *core.Session) error {
+						projectPath, err := core.ResolveProjectPath(cmd.String("project-path"))
+						if err != nil {
+							return err
+						}
+
+						engine, err := session.FindEngine(name)
+						if err != nil {
+							return err
+						}
+
+						if err := core.SetProjectGodotVersion(projectPath, engine.Name); err != nil {
+							return err
+						}
+
+						printer(cmd).Printf("%s now uses Godot %s\n", core.ProjectConfigPath(projectPath), engine.Name)
+						return nil
+					})
+				},
+			},
+			{
+				Name:  "unpin-engine",
+				Usage: "stop recording which version of Godot this project is built with",
+				Flags: []cli.Flag{projectPathFlag()},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if err := rejectArgs(cmd); err != nil {
+						return err
+					}
+
+					projectPath, err := core.ResolveProjectPath(cmd.String("project-path"))
+					if err != nil {
+						return err
+					}
+
+					pinned, err := core.UnsetProjectGodotVersion(projectPath)
+					if err != nil {
+						return err
+					}
+
+					out := printer(cmd)
+					if !pinned {
+						out.Printf("%s isn't pinned to a version of Godot\n", projectPath)
+						return nil
+					}
+
+					out.Printf("%s is no longer pinned to a version of Godot\n", projectPath)
+					return nil
+				},
+			},
 		},
 	}
 }
@@ -128,6 +189,13 @@ func printProjects(out *Printer, projects []core.ProjectInfo) error {
 		}
 		return out.Table([]string{"NAME", "PATH"}, rows)
 	})
+}
+
+func orUnknown(value string) string {
+	if value == "" {
+		return "-"
+	}
+	return value
 }
 
 func noteHeadlessEditors(out *Printer, session *core.Session) {

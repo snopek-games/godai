@@ -14,6 +14,8 @@ Features
 
 Through Godai, you can:
 
+- **Manage Godot itself:** download, run and switch between versions of the engine, and pin
+  a project to a specific version.
 - **Manage projects:** list available projects, open them in new editor instances, and read or change
   project settings.
 - **Edit scenes:** create, open, and save scenes, inspect the scene tree, and instantiate saved
@@ -45,8 +47,16 @@ Godai is capable of operating in three modes: **CLI mode**, **API mode** and **M
 
 ### CLI mode
 
-In CLI mode, you run `godai` yourself from a terminal or a script. Start by finding a project and
-getting an editor running on it:
+In CLI mode, you run `godai` yourself from a terminal or a script. Start by getting a Godot to
+run things with:
+
+```bash
+godai engine search                      # which versions are there?
+godai engine install 4.5                 # download one; the first becomes the default
+godai engine use 4.4.1                   # change the default later
+```
+
+Then find a project and get an editor running on it:
 
 ```bash
 godai project list                       # what projects are there?
@@ -238,8 +248,18 @@ Run `godai` with no arguments to see the commands, and `godai <command> --help` 
 
 | Command | What it does |
 | ------- | ------------ |
+| `godai engine search [filter] [--all]` | Search the Godot versions available to install |
+| `godai engine install <version> [--with-templates]` | Download and install a version of Godot, making the first one the default |
+| `godai engine list` | List the versions that are installed |
+| `godai engine use <version>` | Make a version the default |
+| `godai engine which [version]` | Print the path to a version, or to the one that would be used here |
+| `godai engine run [version] [-- args...]` | Run Godot, passing anything after `--` straight to it |
+| `godai engine remove <version>` | Remove an installed version (`install-templates` and `remove-templates` handle just the templates) |
+| `godai engine list-templates [version]` | List the export templates that are installed, or one version's platform by platform |
+| `godai engine link <name> <path>` | Give a name to a Godot executable Godai didn't install, recording which version it reports |
 | `godai project list` | List the Godot projects available to open |
 | `godai project open [path] [--headless] [--auto-approve]` | Open a project in the editor |
+| `godai project pin-engine <version>` \| `unpin-engine` | Record in the project which version of Godot it's built with |
 | `godai config [setting...]` | Show Godai's own settings, or just the ones you name |
 | `godai config --set <setting>=<value>` | Change a setting (`--unset` clears one, `init` sets them up interactively) |
 | `godai editor-tool <tool>` | Run one of the tools a running editor provides (`--help` lists them) |
@@ -259,6 +279,14 @@ godai editor-tool add_node --node-type Sprite2D --parent-path . --properties pos
 Commands that act on a project work out which one you mean, in this order: the positional `[path]`
 argument (on the commands that take one), `--project-path/-p`, the `GODAI_PROJECT_PATH` environment
 variable, and then the nearest `project.godot` at or above the working directory.
+
+Which Godot they run is worked out in a similar order: `--godot-path` (or `$GODOT`),
+`--godot-version`, the `godot_version` in the project's `.godai.json`, the version `project.godot`
+was last saved with, the `godot_version` setting, and then `godot4` or `godot` on `$PATH`.
+`godai engine which` prints the answer.
+
+`godai project pin-engine` writes the version to `.godai.json` in the project, next to
+`project.godot`. Commit it to your Git repo to ensure you always use the correct version.
 
 Add `--json` to any command to get machine-readable output on stdout (errors go to stderr as JSON
 too).
@@ -298,12 +326,6 @@ then give the full path to that instead:
 claude mcp add godai -- /path/to/godai mcp
 ```
 </details>
-
-In order to specify the path to Godot:
-
-```bash
-claude mcp add godai -- npx -y @snopek-games/godai mcp --godot-path /path/to/godot4
-```
 
 > [!NOTE]
 > You shouldn't have to manually install the Godai addon, it'll get automatically installed if you use

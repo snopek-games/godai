@@ -88,6 +88,19 @@ func ResolveGodotExecutable(path string) (string, error) {
 	return resolved, nil
 }
 
+// checkExecutable is the cheap half of ResolveGodotExecutable, for an
+// executable Godai installed itself and only needs to know is still there.
+func checkExecutable(path string) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if !fi.Mode().IsRegular() {
+		return errors.New("not a regular file")
+	}
+	return nil
+}
+
 func resolveDirectory(path string) (string, error) {
 	resolved, err := CanonicalPath(path)
 	if err != nil {

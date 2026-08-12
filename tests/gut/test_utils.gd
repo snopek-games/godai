@@ -14,8 +14,8 @@ func test_encode_property_value() -> void:
 	assert_eq(Utils.encode_property_value(&"Hello"), "Hello")
 
 	# A saved resource is encoded as a reference to its file.
-	var external := load("res://icon.svg")
-	assert_eq(Utils.encode_property_value(external), 'Resource("res://icon.svg")')
+	var external := load("res://icon.png")
+	assert_eq(Utils.encode_property_value(external), 'Resource("res://icon.png")')
 
 	# An embedded resource is encoded as just a summary.
 	var embedded := SphereMesh.new()
@@ -51,7 +51,7 @@ func test_decode_property_value() -> void:
 	assert_eq(decoded.get("value"), 2.5)
 
 	# A saved resource reference gets loaded.
-	decoded = Utils.decode_property_value('Resource("res://icon.svg")', TYPE_OBJECT)
+	decoded = Utils.decode_property_value('Resource("res://icon.png")', TYPE_OBJECT)
 	assert_true(decoded.get("value") is Texture2D)
 
 	# An embedded resource gets created, with its properties set.

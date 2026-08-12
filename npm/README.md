@@ -3,7 +3,7 @@ Godai
 
 A CLI for automating the [Godot Engine](https://godotengine.org/) editor -
 creating and editing scenes, writing scripts, running projects, and more - plus
-an MCP server so AI assistants (like Claude) can do the same things.
+an MCP server so AI agents (like Claude) can do the same things.
 
 This package is a small launcher that runs the prebuilt `godai` binary for your
 platform, which is installed automatically as an optional dependency.

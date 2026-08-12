@@ -17,7 +17,6 @@
       "args": [
         "mcp",
         "--global",
-        "--godot-path", "${user_config.godot_path}",
         "--project-base-path", "${user_config.project_base_path}",
         "--x11-display", "${user_config.x11_display}"
       ],
@@ -32,13 +31,6 @@
     }
   },
   "user_config": {
-    "godot_path": {
-      "type": "file",
-      "title": "Path to Godot executable",
-      "description": "The full path to the Godot 4 executable on your system",
-      "required": false,
-      "sensitive": false
-    },
     "project_base_path": {
       "type": "directory",
       "title": "Project path",

@@ -14,12 +14,37 @@ type successResult struct {
 	Success bool `json:"success"`
 }
 
+type openResult struct {
+	Success     bool `json:"success"`
+	AlreadyOpen bool `json:"already_open"`
+}
+
+type installedVersionsResult struct {
+	Versions []core.EngineListing `json:"versions"`
+}
+
+type pinResult struct {
+	Success      bool   `json:"success"`
+	GodotVersion string `json:"godot_version"`
+}
+
+type unpinResult struct {
+	Success   bool `json:"success"`
+	WasPinned bool `json:"was_pinned"`
+}
+
 func (s *Server) setupLocalTools() {
 	s.addLocalTool("list_projects", s.toolListProjects)
 	s.addLocalTool("open_godot_project", s.toolOpenGodotProject)
 	s.addLocalTool("list_open_projects", s.toolListOpenProjects)
 	s.addLocalTool("get_godai_settings", s.toolGetGodaiSettings)
 	s.addLocalTool("set_godai_settings", s.toolSetGodaiSettings)
+	s.addLocalTool("list_installed_godot_versions", s.toolListInstalledGodotVersions)
+	s.addLocalTool("search_available_godot_versions", s.toolSearchAvailableGodotVersions)
+	s.addLocalTool("install_godot_version", s.toolInstallGodotVersion)
+	s.addLocalTool("remove_godot_version", s.toolRemoveGodotVersion)
+	s.addLocalTool("pin_project_to_godot_version", s.toolPinProjectToGodotVersion)
+	s.addLocalTool("unpin_project_from_godot_version", s.toolUnpinProjectFromGodotVersion)
 
 	// Overrides a remote tool: the editor restarts itself, and we wait here for
 	// it to disconnect and reconnect.
@@ -53,6 +78,10 @@ type projectsResult struct {
 	Projects []core.ProjectInfo `json:"projects"`
 }
 
+type openProjectsResult struct {
+	Projects []core.OpenProjectInfo `json:"projects"`
+}
+
 func (s *Server) toolListProjects(ctx context.Context, _ core.Args) (any, error) {
 	projects, err := s.session.ListProjects(ctx)
 	if err != nil {
@@ -66,7 +95,7 @@ func (s *Server) toolListOpenProjects(ctx context.Context, _ core.Args) (any, er
 	if err != nil {
 		return nil, err
 	}
-	return projectsResult{Projects: projects}, nil
+	return openProjectsResult{Projects: projects}, nil
 }
 
 func (s *Server) toolOpenGodotProject(ctx context.Context, args core.Args) (any, error) {
@@ -83,11 +112,140 @@ func (s *Server) toolOpenGodotProject(ctx context.Context, args core.Args) (any,
 		return nil, core.NewUserError("headless argument must be a boolean", err, nil)
 	}
 
-	if _, err := s.session.OpenProject(ctx, projectPath, core.OpenProjectOptions{Headless: headless}); err != nil {
+	godotVersion, _, err := args.String("godot_version")
+	if err != nil {
+		return nil, core.NewUserError("godot_version argument must be a string", err, nil)
+	}
+
+	result, err := s.session.OpenProject(ctx, projectPath, core.OpenProjectOptions{
+		Headless:     headless,
+		GodotVersion: godotVersion,
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	return successResult{Success: true}, nil
+	return openResult{Success: true, AlreadyOpen: result.AlreadyOpen}, nil
+}
+
+func (s *Server) toolListInstalledGodotVersions(ctx context.Context, _ core.Args) (any, error) {
+	engines, err := s.session.ListEngines()
+	if err != nil {
+		return nil, err
+	}
+	return installedVersionsResult{Versions: engines}, nil
+}
+
+func (s *Server) toolSearchAvailableGodotVersions(ctx context.Context, args core.Args) (any, error) {
+	filter, _, err := args.String("filter")
+	if err != nil {
+		return nil, core.NewUserError("filter argument must be a string", err, nil)
+	}
+
+	includePre, _, err := args.Bool("include_prereleases")
+	if err != nil {
+		return nil, core.NewUserError("include_prereleases argument must be a boolean", err, nil)
+	}
+
+	versions, err := s.session.SearchEngines(ctx, filter, includePre, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return struct {
+		Versions []core.EngineSearchResult `json:"versions"`
+	}{versions}, nil
+}
+
+func (s *Server) toolInstallGodotVersion(ctx context.Context, args core.Args) (any, error) {
+	version, err := requiredStringArg(args, "godot_version")
+	if err != nil {
+		return nil, err
+	}
+
+	withTemplates, _, err := args.Bool("with_export_templates")
+	if err != nil {
+		return nil, core.NewUserError("with_export_templates argument must be a boolean", err, nil)
+	}
+
+	result, err := s.session.InstallEngine(ctx, version, core.DownloadOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	if withTemplates {
+		if err := s.session.InstallTemplatesIfNeeded(ctx, result.Engine.Version, core.DownloadOptions{}); err != nil {
+			return nil, err
+		}
+		// The templates are part of what a listing says about an engine.
+		if engine, err := s.session.DescribeEngine(result.Engine.Version); err == nil {
+			result.Engine = *engine
+		}
+	}
+
+	return result, nil
+}
+
+func (s *Server) toolRemoveGodotVersion(ctx context.Context, args core.Args) (any, error) {
+	version, err := requiredStringArg(args, "godot_version")
+	if err != nil {
+		return nil, err
+	}
+
+	withTemplates, _, err := args.Bool("with_export_templates")
+	if err != nil {
+		return nil, core.NewUserError("with_export_templates argument must be a boolean", err, nil)
+	}
+
+	return s.session.RemoveEngine(version, withTemplates)
+}
+
+func (s *Server) toolPinProjectToGodotVersion(ctx context.Context, args core.Args) (any, error) {
+	projectPath, err := s.allowedProjectPathArg(args)
+	if err != nil {
+		return nil, err
+	}
+
+	version, err := requiredStringArg(args, "godot_version")
+	if err != nil {
+		return nil, err
+	}
+
+	engine, err := s.session.FindEngine(version)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := core.SetProjectGodotVersion(projectPath, engine.Name); err != nil {
+		return nil, core.NewUserError("unable to write "+core.ProjectConfigName, err, nil)
+	}
+
+	return pinResult{Success: true, GodotVersion: engine.Name}, nil
+}
+
+func (s *Server) toolUnpinProjectFromGodotVersion(ctx context.Context, args core.Args) (any, error) {
+	projectPath, err := s.allowedProjectPathArg(args)
+	if err != nil {
+		return nil, err
+	}
+
+	wasPinned, err := core.UnsetProjectGodotVersion(projectPath)
+	if err != nil {
+		return nil, core.NewUserError("unable to write "+core.ProjectConfigName, err, nil)
+	}
+
+	return unpinResult{Success: true, WasPinned: wasPinned}, nil
+}
+
+func requiredStringArg(args core.Args, name string) (string, error) {
+	value, ok, err := args.String(name)
+	if err != nil {
+		return "", core.NewUserError(name+" argument must be a string", err, nil)
+	}
+	if !ok || value == "" {
+		return "", core.NewUserError(name+" argument is required", nil, nil)
+	}
+	return value, nil
 }
 
 func (s *Server) toolRestartEditor(ctx context.Context, args core.Args) (any, error) {
@@ -124,6 +282,16 @@ func (s *Server) projectPathArg(args core.Args) (string, error) {
 	return core.CanonicalPath(raw)
 }
 
+// allowedProjectPathArg is for the tools that write to a project without going
+// through an editor, so we need to check the allowed roots.
+func (s *Server) allowedProjectPathArg(args core.Args) (string, error) {
+	raw, ok, err := args.String("project_path")
+	if err != nil || !ok {
+		return "", core.NewUserError("project_path argument is required", err, nil)
+	}
+	return s.session.AllowedProjectPath(raw)
+}
+
 func (s *Server) toolGetGodaiSettings(ctx context.Context, _ core.Args) (any, error) {
 	sc := s.session.GetConfig()
 	if !s.session.Global() {
@@ -147,12 +315,7 @@ func (s *Server) toolSetGodaiSettings(ctx context.Context, args core.Args) (any,
 		return nil, core.NewUserError("project_base_path only applies when Godai is running with --global", core.ErrNotConfigured, nil)
 	}
 
-	resolved, err := core.ResolveSavedConfig(sc)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.session.SetConfig(resolved); err != nil {
+	if err := s.session.SetConfig(sc); err != nil {
 		return nil, err
 	}
 

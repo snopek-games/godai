@@ -6,9 +6,10 @@ import (
 )
 
 var (
-	ErrNoEditor      = errors.New("no Godot editor connected")
-	ErrNotConfigured = errors.New("not configured")
-	ErrToolFailed    = errors.New("the editor reported an error")
+	ErrNoEditor              = errors.New("no Godot editor connected")
+	ErrNotConfigured         = errors.New("not configured")
+	ErrToolFailed            = errors.New("the editor reported an error")
+	ErrEditorVersionMismatch = errors.New("the editor that's open is a different version of Godot")
 )
 
 type UserError struct {

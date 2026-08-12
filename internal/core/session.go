@@ -14,6 +14,10 @@ type Editor struct {
 	ProjectPath string
 	ProjectName string
 	Headless    bool
+	// GodotVersion is what the editor reported it is, named the way Godai
+	// names versions. Empty when it wouldn't say, or said something that isn't
+	// a version.
+	GodotVersion string
 
 	conn *godot.Connection
 }
@@ -49,6 +53,11 @@ type Session struct {
 
 	updateAvailable string
 	updateMutex     sync.RWMutex
+
+	engines         *godot.EngineManager
+	engineErr       error
+	installReporter InstallReporter
+	engineMutex     sync.Mutex
 }
 
 func New(config Config) (*Session, error) {
@@ -225,9 +234,10 @@ func (s *Session) onEditorConnect(conn *godot.Connection) error {
 	}
 
 	var projectInfo struct {
-		ProjectPath string `json:"project_path"`
-		ProjectName string `json:"project_name"`
-		Headless    bool   `json:"headless"`
+		ProjectPath  string `json:"project_path"`
+		ProjectName  string `json:"project_name"`
+		Headless     bool   `json:"headless"`
+		GodotVersion string `json:"godot_version"`
 	}
 	if err := callEditorToolInto(ctx, conn, "get_current_project", json.RawMessage("{}"), &projectInfo); err != nil {
 		return err
@@ -239,10 +249,11 @@ func (s *Session) onEditorConnect(conn *godot.Connection) error {
 	}
 
 	editor := &Editor{
-		conn:        conn,
-		ProjectPath: realProjectPath,
-		ProjectName: projectInfo.ProjectName,
-		Headless:    projectInfo.Headless,
+		conn:         conn,
+		ProjectPath:  realProjectPath,
+		ProjectName:  projectInfo.ProjectName,
+		Headless:     projectInfo.Headless,
+		GodotVersion: editorVersionName(projectInfo.GodotVersion),
 	}
 
 	s.editorsMutex.Lock()
@@ -254,6 +265,19 @@ func (s *Session) onEditorConnect(conn *godot.Connection) error {
 	s.sendUpdateNotification(ctx, conn)
 
 	return nil
+}
+
+func editorVersionName(reported string) string {
+	if reported == "" {
+		return ""
+	}
+
+	version, err := godot.ParseVersionOutput(reported)
+	if err != nil {
+		slog.Debug("unable to read the version the editor reported", "version", reported, "error", err)
+		return ""
+	}
+	return version.String()
 }
 
 func (s *Session) onEditorDisconnect(conn *godot.Connection) {
@@ -431,8 +455,8 @@ func (s *Session) mergeSavedConfig(update SavedConfig) error {
 	}
 
 	if existing, err := LoadConfig(s.config.SavedConfigPath); err == nil {
-		if update.DefaultGodotPath == "" {
-			update.DefaultGodotPath = existing.DefaultGodotPath
+		if update.GodotVersion == "" {
+			update.GodotVersion = existing.GodotVersion
 		}
 		if update.ProjectBasePath == "" {
 			update.ProjectBasePath = existing.ProjectBasePath

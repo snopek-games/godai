@@ -53,7 +53,7 @@ func editorCommand(configPath string) *cli.Command {
 						if err != nil {
 							return err
 						}
-						return printProjects(printer(cmd), projects)
+						return printRunningEditors(printer(cmd), projects)
 					})
 				},
 			},
@@ -89,6 +89,18 @@ func editorCommand(configPath string) *cli.Command {
 			},
 		},
 	}
+}
+
+func printRunningEditors(out *Printer, projects []core.OpenProjectInfo) error {
+	return out.Value(struct {
+		Projects []core.OpenProjectInfo `json:"projects"`
+	}{projects}, func(io.Writer) error {
+		rows := make([][]string, 0, len(projects))
+		for _, p := range projects {
+			rows = append(rows, []string{p.ProjectName, orUnknown(p.GodotVersion), yesNo(p.Headless), p.ProjectPath})
+		}
+		return out.Table([]string{"PROJECT NAME", "GODOT VERSION", "HEADLESS", "PROJECT PATH"}, rows)
+	})
 }
 
 func runEditorAction(ctx context.Context, cmd *cli.Command, configPath string, tool editorLifecycle, args core.Args) error {

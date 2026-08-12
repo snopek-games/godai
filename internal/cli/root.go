@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
-	"os/exec"
+	"strconv"
 	"time"
 
 	"gitlab.com/snopek-games/godai/internal/cli/output"
@@ -14,23 +14,25 @@ import (
 )
 
 const (
-	cliScanInterval  = 1 * time.Second
-	cliRetryDelay    = 500 * time.Millisecond
-	cliConnectWait   = 10 * time.Second
-	cliListOpenWait  = 2 * time.Second
-	cliOpenWait      = 120 * time.Second
-	serverScanTick   = 2 * time.Second
-	serverRetryDelay = 2 * time.Second
-	serverOpenWait   = 30 * time.Second
+	cliScanInterval   = 1 * time.Second
+	cliRetryDelay     = 500 * time.Millisecond
+	cliConnectWait    = 10 * time.Second
+	cliListOpenWait   = 2 * time.Second
+	cliOpenWait       = 120 * time.Second
+	editorTimeout     = 15 * time.Second
+	editorToolTimeout = 300 * time.Second
+	serverScanTick    = 2 * time.Second
+	serverRetryDelay  = 2 * time.Second
+	serverOpenWait    = 30 * time.Second
 )
 
 func Root() *cli.Command {
-	defaultGodotPath, projectBasePath, configPath := loadDefaults()
+	godotVersion, godotPath, projectBasePath, configPath := loadDefaults()
 	instancesPath, _ := core.GetInstancesPath()
 
 	root := &cli.Command{
 		Name:                  "godai",
-		Usage:                 "Godot automation CLI, with an MCP server for AI assistants",
+		Usage:                 "Godot automation CLI, with an MCP server for AI agents",
 		Version:               core.Version,
 		EnableShellCompletion: true,
 		Flags: []cli.Flag{
@@ -42,13 +44,22 @@ func Root() *cli.Command {
 				Name:  "global",
 				Usage: "use any Godot editor instance, wherever its project lives",
 			},
+			&cli.StringFlag{
+				Name:  "godot-version",
+				Usage: "version of Godot to use (see godai engine list), overriding whatever version a project asks for",
+				Value: godotVersion,
+			},
 			// GODOT is read in loadDefaults() rather than declared as a source,
 			// so that IsSet("godot-path") stays "the user typed this" and an
 			// ambient GODOT doesn't get validated as if they had.
 			&cli.StringFlag{
 				Name:  "godot-path",
-				Usage: "default path to the Godot executable [$GODOT]",
-				Value: defaultGodotPath,
+				Usage: "path to a Godot executable, used instead of any configured version [$GODOT]",
+				Value: godotPath,
+			},
+			&cli.BoolFlag{
+				Name:  "no-auto-install",
+				Usage: "don't download a version of Godot a project asks for but doesn't have",
 			},
 			&cli.StringFlag{
 				Name:  "project-base-path",
@@ -60,28 +71,32 @@ func Root() *cli.Command {
 				Usage: "directory where running Godot editors write their instance files",
 				Value: instancesPath,
 			},
-			&cli.IntFlag{
-				Name:  "editor-scan-interval",
-				Usage: "how often (in seconds) to scan for running Godot editors",
+			// The real defaults live in durationFlag, which only applies them
+			// when the flag isn't set, so there's no Value for urfave to print.
+			&cli.FloatFlag{
+				Name:        "editor-scan-interval",
+				Usage:       "how often (in seconds) to scan for running Godot editors",
+				DefaultText: secondsText(cliScanInterval),
 			},
-			&cli.IntFlag{
-				Name:  "editor-retry-delay",
-				Usage: "the delay (in seconds) between attempts to connect to the Godot editor",
+			&cli.FloatFlag{
+				Name:        "editor-retry-delay",
+				Usage:       "the delay (in seconds) between attempts to connect to the Godot editor",
+				DefaultText: secondsText(cliRetryDelay),
 			},
-			&cli.IntFlag{
+			&cli.FloatFlag{
 				Name:  "editor-timeout",
 				Usage: "the timeout (in seconds) when making a request to the editor",
-				Value: 15,
+				Value: editorTimeout.Seconds(),
 			},
-			&cli.IntFlag{
+			&cli.FloatFlag{
 				Name:  "editor-tool-timeout",
 				Usage: "the timeout (in seconds) when calling a tool in the editor, which may include waiting for the user to approve it",
-				Value: 300,
+				Value: editorToolTimeout.Seconds(),
 			},
-			&cli.IntFlag{
+			&cli.FloatFlag{
 				Name:  "connect-timeout",
 				Usage: "how long (in seconds) to wait for a Godot editor to connect",
-				Value: int(cliConnectWait / time.Second),
+				Value: cliConnectWait.Seconds(),
 			},
 			&cli.StringFlag{
 				Name:    "x11-display",
@@ -119,6 +134,7 @@ func Root() *cli.Command {
 			configCommand(configPath),
 			editorToolCommand(configPath),
 			editorCommand(configPath),
+			engineCommand(configPath),
 			selfUpdateCommand(),
 		},
 	}
@@ -161,32 +177,17 @@ func defaultCommandAction(_ context.Context, cmd *cli.Command) error {
 	return cli.ShowSubcommandHelp(cmd)
 }
 
-func loadDefaults() (godotPath, projectBasePath, configPath string) {
+func loadDefaults() (godotVersion, godotPath, projectBasePath, configPath string) {
 	// @todo Allow overriding this via an environment variable
 	configPath, err := core.GetConfigPath()
 	if err == nil {
 		if sc, err := core.LoadConfig(configPath); err == nil {
-			if sc.DefaultGodotPath != "" {
-				godotPath = sc.DefaultGodotPath
-			}
+			godotVersion = sc.GodotVersion
 			projectBasePath = sc.ProjectBasePath
 		}
 	}
 
-	if env := os.Getenv("GODOT"); env != "" {
-		godotPath = env
-	}
-
-	execNames := []string{"godot4", "godot"}
-	for _, execName := range execNames {
-		if godotPath == "" {
-			if path, err := exec.LookPath(execName); err == nil {
-				godotPath = path
-			}
-		}
-	}
-
-	return godotPath, projectBasePath, configPath
+	return godotVersion, os.Getenv("GODOT"), projectBasePath, configPath
 }
 
 func setupLogging(cmd *cli.Command) error {
@@ -227,15 +228,21 @@ func sessionConfig(cmd *cli.Command, configPath string) (core.Config, error) {
 		EditorInstancesPath: cmd.String("editor-instances-path"),
 		EditorScanInterval:  durationFlag(cmd, "editor-scan-interval", cliScanInterval),
 		EditorRetryDelay:    durationFlag(cmd, "editor-retry-delay", cliRetryDelay),
-		EditorTimeout:       durationFlag(cmd, "editor-timeout", 15*time.Second),
-		EditorToolTimeout:   durationFlag(cmd, "editor-tool-timeout", 300*time.Second),
+		EditorTimeout:       durationFlag(cmd, "editor-timeout", editorTimeout),
+		EditorToolTimeout:   durationFlag(cmd, "editor-tool-timeout", editorToolTimeout),
 		OpenProjectTimeout:  cliOpenWait,
-		DefaultGodotPath:    cmd.String("godot-path"),
+		GodotVersion:        cmd.String("godot-version"),
+		GodotPath:           cmd.String("godot-path"),
+		NoAutoInstall:       cmd.Bool("no-auto-install"),
 		ProjectBasePath:     cmd.String("project-base-path"),
 		X11Display:          cmd.String("x11-display"),
 		Debug:               cmd.Bool("debug"),
 		SavedConfigPath:     configPath,
 		CloseHeadlessOnExit: false,
+
+		// The saved default is the flag's value when it isn't given, so IsSet
+		// is what separates "use this one" from "this is my usual one".
+		GodotVersionIsExplicit: cmd.IsSet("godot-version"),
 	}
 
 	if cmd.Bool("global") {
@@ -254,12 +261,12 @@ func sessionConfig(cmd *cli.Command, configPath string) (core.Config, error) {
 }
 
 func validatePathFlags(cmd *cli.Command, config *core.Config) error {
-	if cmd.IsSet("godot-path") && config.DefaultGodotPath != "" {
-		resolved, err := core.ResolveGodotExecutable(config.DefaultGodotPath)
+	if cmd.IsSet("godot-path") && config.GodotPath != "" {
+		resolved, err := core.ResolveGodotExecutable(config.GodotPath)
 		if err != nil {
 			return newUsageError("invalid Godot path: %v", err)
 		}
-		config.DefaultGodotPath = resolved
+		config.GodotPath = resolved
 	}
 	if cmd.IsSet("project-base-path") && config.ProjectBasePath != "" {
 		if err := core.ValidateDirectory(config.ProjectBasePath); err != nil {
@@ -287,11 +294,20 @@ func durationFlag(cmd *cli.Command, name string, fallback time.Duration) time.Du
 	if !cmd.IsSet(name) {
 		return fallback
 	}
-	return time.Duration(cmd.Int(name)) * time.Second
+	return seconds(cmd.Float(name))
+}
+
+func seconds(value float64) time.Duration {
+	return time.Duration(value * float64(time.Second))
+}
+
+// Matches how urfave/cli renders a float flag's own default.
+func secondsText(d time.Duration) string {
+	return strconv.FormatFloat(d.Seconds(), 'g', -1, 64)
 }
 
 func connectWait(cmd *cli.Command) time.Duration {
-	wait := time.Duration(cmd.Int("connect-timeout")) * time.Second
+	wait := seconds(cmd.Float("connect-timeout"))
 	if wait <= 0 {
 		return cliConnectWait
 	}
@@ -322,6 +338,7 @@ func withSession(ctx context.Context, cmd *cli.Command, configPath string, fn fu
 	defer session.Close()
 
 	session.SetPrompter(newPrompter(cmd))
+	session.SetInstallReporter(installReporter(cmd))
 
 	return fn(session)
 }

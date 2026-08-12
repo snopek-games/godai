@@ -18,12 +18,9 @@ func configCommand(configPath string) *cli.Command {
 		Name:      "config",
 		Usage:     "read and change Godai's own settings",
 		ArgsUsage: "[setting...]",
-		Description: "These are Godai's settings, not anything inside a Godot project or the editor. " +
-			"They're stored in " + configPathOrDefault(configPath) + ".\n\n" +
-			"The settings are " + strings.Join(core.SettingNames, " and ") + ", named the same way " +
-			"here, in the config file and in the MCP tools.\n\n" +
-			"With nothing else to do, every setting is printed. Naming settings prints just " +
-			"their values, one per line, which is what you want in a script.",
+		Description: "These are Godai's settings, not anything inside a Godot project or the editor. They're stored in " + configPathOrDefault(configPath) + ".\n\n" +
+			"The settings are " + strings.Join(core.SettingNames, " and ") + ", named the same way here, in the config file and in the MCP tools.\n\n" +
+			"With nothing else to do, every setting is printed. Naming settings prints just their values, one per line, which is what you want in a script.",
 		// A path can contain a comma, so a repeated flag means one setting
 		// rather than a comma-separated list.
 		DisableSliceFlagSeparator: true,
@@ -57,7 +54,7 @@ func configCommand(configPath string) *cli.Command {
 					}
 
 					if cmd.Bool("no-input") || !isInteractive() {
-						return newUsageError("`godai config init` needs a terminal; use `godai config --set %s=<PATH>` instead", core.SettingGodotPath)
+						return newUsageError("`godai config init` needs a terminal; use `godai engine use <VERSION>` instead")
 					}
 
 					return withSession(ctx, cmd, configPath, func(session *core.Session) error {
@@ -117,16 +114,28 @@ func runConfigInit(ctx context.Context, cmd *cli.Command, session *core.Session)
 	current := session.GetConfig()
 	prompter := &ttyPrompter{}
 
-	answers, err := prompter.Prompt(ctx, "Let's set up Godai.", map[string]any{
+	versions, err := installedEngineNames(session)
+	if err != nil {
+		return err
+	}
+	if len(versions) == 0 {
+		return core.NewUserError("no version of Godot is installed", core.ErrNotConfigured, []string{
+			"See what there is: `godai engine search`",
+			"Install one: `godai engine install <VERSION>`",
+		})
+	}
+
+	answers, err := prompter.Prompt(ctx, "Let's set up Godai!", map[string]any{
 		"type":     "object",
-		"required": []any{"godot_path"},
+		"required": []any{core.SettingGodotVersion},
 		"properties": map[string]any{
-			"godot_path": map[string]any{
+			core.SettingGodotVersion: map[string]any{
 				"type":        "string",
-				"description": "The full path to the Godot 4 executable on your system",
-				"default":     current.DefaultGodotPath,
+				"description": "Which version of Godot to use by default",
+				"enum":        versions,
+				"default":     orFirst(current.GodotVersion, versions),
 			},
-			"project_base_path": map[string]any{
+			core.SettingProjectBasePath: map[string]any{
 				"type":        "string",
 				"description": "The base path where your Godot projects usually live",
 				"default":     current.ProjectBasePath,
@@ -138,10 +147,10 @@ func runConfigInit(ctx context.Context, cmd *cli.Command, session *core.Session)
 	}
 
 	update := core.SavedConfig{}
-	if v, ok := answers["godot_path"].(string); ok {
-		update.DefaultGodotPath = v
+	if v, ok := answers[core.SettingGodotVersion].(string); ok {
+		update.GodotVersion = v
 	}
-	if v, ok := answers["project_base_path"].(string); ok {
+	if v, ok := answers[core.SettingProjectBasePath].(string); ok {
 		update.ProjectBasePath = v
 	}
 
@@ -186,6 +195,31 @@ func printSettings(out *Printer, sc core.SavedConfig, names []string) error {
 		}
 		return nil
 	})
+}
+
+func installedEngineNames(session *core.Session) ([]string, error) {
+	manager, err := session.EngineManager()
+	if err != nil {
+		return nil, err
+	}
+
+	engines, err := manager.List()
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(engines))
+	for _, engine := range engines {
+		names = append(names, engine.Name)
+	}
+	return names, nil
+}
+
+func orFirst(value string, options []string) string {
+	if value != "" {
+		return value
+	}
+	return options[0]
 }
 
 func orUnset(value string) string {

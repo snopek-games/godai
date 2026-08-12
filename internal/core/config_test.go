@@ -68,14 +68,14 @@ func TestSaveAndLoadConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sub", "config.json")
 
 	want := &SavedConfig{
-		DefaultGodotPath: "/usr/bin/godot",
-		ProjectBasePath:  "/home/me/projects",
+		GodotVersion:    "4.5-stable",
+		ProjectBasePath: "/home/me/projects",
 	}
 	is.NoErr(SaveConfig(path, want))
 
 	got, err := LoadConfig(path)
 	is.NoErr(err)
-	is.Equal(got.DefaultGodotPath, want.DefaultGodotPath)
+	is.Equal(got.GodotVersion, want.GodotVersion)
 	is.Equal(got.ProjectBasePath, want.ProjectBasePath)
 }
 

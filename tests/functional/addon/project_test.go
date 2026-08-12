@@ -157,6 +157,12 @@ func TestGetCurrentProject(t *testing.T) {
 	gotPath, _ := structured["project_path"].(string)
 	is.True(gotPath != "")
 
+	// Written the way Godot writes its own version, so it has at least a
+	// number and a status: "4.5.stable.official".
+	version, _ := structured["godot_version"].(string)
+	is.True(strings.Count(version, ".") >= 2)
+	is.True(strings.HasPrefix(version, "4."))
+
 	if projectDir != "" {
 		is.Equal(structured["project_name"], projectName)
 

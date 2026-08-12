@@ -8,7 +8,10 @@ They cover:
 
 - the local tools in `internal/core` (via `internal/mcp/tools.go`) (`list_projects`,
   `open_godot_project`, `list_open_projects`, `get_godai_settings`,
-  `set_godai_settings`),
+  `set_godai_settings`, and the engine tools: `list_installed_godot_versions`,
+  `remove_godot_version`, `pin_project_to_godot_version`,
+  `unpin_project_from_godot_version`), though not the ones that download from
+  the internet (`search_available_godot_versions`, `install_godot_version`),
 - `--global` mode, where projects are discovered from the configured base path
   and Godot's project manager (`projects.cfg`) instead of a root, and
 - a smoke test proving a remote tool call is forwarded across to a real Godot

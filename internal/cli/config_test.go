@@ -22,33 +22,48 @@ func TestConfigReadsAndWritesSettings(t *testing.T) {
 
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("XDG_CACHE_HOME", dir)
 	configPath := filepath.Join(dir, "godai", "config.json")
 
-	godotPath := filepath.Join(dir, "godot")
-	is.NoErr(os.WriteFile(godotPath, []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	version := linkTestEngine(t, dir)
 	basePath := filepath.Join(dir, "projects")
 	is.NoErr(os.MkdirAll(basePath, 0o755))
 
 	_, err := runCLI(t, []string{"godai", "config",
-		"--set", core.SettingGodotPath + "=" + godotPath,
+		"--set", core.SettingGodotVersion + "=" + version,
 		"--set", core.SettingProjectBasePath + "=" + basePath,
 	})
 	is.NoErr(err)
-	is.Equal(readSavedConfig(t, configPath), core.SavedConfig{DefaultGodotPath: godotPath, ProjectBasePath: basePath})
+	is.Equal(readSavedConfig(t, configPath), core.SavedConfig{GodotVersion: version, ProjectBasePath: basePath})
 
 	otherBasePath := filepath.Join(dir, "other-projects")
 	is.NoErr(os.MkdirAll(otherBasePath, 0o755))
 	_, err = runCLI(t, []string{"godai", "config", "--set", core.SettingProjectBasePath + "=" + otherBasePath})
 	is.NoErr(err)
-	is.Equal(readSavedConfig(t, configPath), core.SavedConfig{DefaultGodotPath: godotPath, ProjectBasePath: otherBasePath})
+	is.Equal(readSavedConfig(t, configPath), core.SavedConfig{GodotVersion: version, ProjectBasePath: otherBasePath})
 
-	out, err := runCLI(t, []string{"godai", "config", core.SettingGodotPath})
+	out, err := runCLI(t, []string{"godai", "config", core.SettingGodotVersion})
 	is.NoErr(err)
-	is.Equal(strings.TrimSpace(out), godotPath)
+	is.Equal(strings.TrimSpace(out), version)
 
-	_, err = runCLI(t, []string{"godai", "config", "--unset", core.SettingGodotPath})
+	_, err = runCLI(t, []string{"godai", "config", "--unset", core.SettingGodotVersion})
 	is.NoErr(err)
 	is.Equal(readSavedConfig(t, configPath), core.SavedConfig{ProjectBasePath: otherBasePath})
+}
+
+// linkTestEngine gives a name to a script standing in for a Godot build.
+func linkTestEngine(t *testing.T, dir string) string {
+	t.Helper()
+
+	godotPath := filepath.Join(dir, "godot")
+	if err := os.WriteFile(godotPath, []byte("#!/bin/sh\necho 4.5.stable.official.a2b3c4d5e\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := runCLI(t, []string{"godai", "engine", "link", "test-build", godotPath}); err != nil {
+		t.Fatal(err)
+	}
+	return "test-build"
 }
 
 func TestConfigRejectsBadArguments(t *testing.T) {
@@ -59,8 +74,8 @@ func TestConfigRejectsBadArguments(t *testing.T) {
 		{"godai", "config", "godto_path"},
 		{"godai", "config", "--set", "godto_path=/somewhere"},
 		{"godai", "config", "--unset", "godto_path"},
-		{"godai", "config", "--set", core.SettingGodotPath + "="},
-		{"godai", "config", core.SettingGodotPath, "--set", core.SettingGodotPath + "=/somewhere"},
+		{"godai", "config", "--set", core.SettingGodotVersion + "="},
+		{"godai", "config", core.SettingGodotVersion, "--set", core.SettingGodotVersion + "=/somewhere"},
 	} {
 		err := runQuietly(t, args)
 		if code := ExitCodeFor(err); code != ExitUsage {

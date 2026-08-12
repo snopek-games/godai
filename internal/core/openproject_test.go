@@ -79,3 +79,39 @@ func TestOpenProjectTimeoutIsReportedAsATimeout(t *testing.T) {
 	_, err = s.OpenProject(context.Background(), projectPath, OpenProjectOptions{Wait: 50 * time.Millisecond})
 	is.True(errors.Is(err, context.DeadlineExceeded))
 }
+
+func TestAnEditorThatIsAlreadyOpenHasToBeTheVersionAskedFor(t *testing.T) {
+	is := is.New(t)
+
+	session := engineSessionFor(t, "4.4-stable", true)
+	installEngineFor(t, "4.4-stable")
+	installEngineFor(t, "4.5-stable")
+
+	editor := &Editor{ProjectPath: "/games/platformer", GodotVersion: "4.5-stable"}
+
+	err := session.checkEditorVersion(editor, OpenProjectOptions{})
+	is.True(errors.Is(err, ErrEditorVersionMismatch)) // the version given for the run
+
+	err = session.checkEditorVersion(editor, OpenProjectOptions{GodotVersion: "4.4"})
+	is.True(errors.Is(err, ErrEditorVersionMismatch)) // the version given for the call
+
+	is.NoErr(session.checkEditorVersion(editor, OpenProjectOptions{GodotVersion: "4.5"}))
+
+	// An editor too old to say which version it is can't be argued with.
+	is.NoErr(session.checkEditorVersion(&Editor{ProjectPath: "/games/platformer"}, OpenProjectOptions{GodotVersion: "4.4"}))
+}
+
+func TestALinkedEngineOfUnknownVersionIsTakenAtItsWord(t *testing.T) {
+	is := is.New(t)
+
+	session := engineSession(t, "")
+	linked := installEngineFor(t, "4.4-stable")
+
+	manager, err := session.EngineManager()
+	is.NoErr(err)
+	_, err = manager.Link(context.Background(), "my-build", linked)
+	is.NoErr(err)
+
+	editor := &Editor{ProjectPath: "/games/platformer", GodotVersion: "4.5-stable"}
+	is.NoErr(session.checkEditorVersion(editor, OpenProjectOptions{GodotVersion: "my-build"}))
+}

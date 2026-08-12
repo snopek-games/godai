@@ -427,6 +427,10 @@ func _authorize_tool_use(p_name: String, p_input) -> ToolAuth.Request:
 	if not ToolAuth.needs_authorization(tool_obj):
 		return ToolAuth.Request.resolved(p_name, p_input, true)
 
+	var headless := DisplayServer.get_name() == "headless"
+	if headless and p_name in ToolAuth.HEADLESS_ALWAYS_ALLOWED_TOOLS:
+		return ToolAuth.Request.resolved(p_name, p_input, true)
+
 	match tool_auth.get_decision(p_name):
 		ToolAuth.Decision.ALLOW:
 			return ToolAuth.Request.resolved(p_name, p_input, true)
@@ -436,7 +440,7 @@ func _authorize_tool_use(p_name: String, p_input) -> ToolAuth.Request:
 	if GodaiEditorSettings.get_auto_approve_tools():
 		return ToolAuth.Request.resolved(p_name, p_input, true)
 
-	if DisplayServer.get_name() == "headless":
+	if headless:
 		push_warning("Denying use of the '%s' tool: running headless, and %s is not set."
 			% [p_name, GodaiEditorSettings.AUTO_APPROVE_TOOLS_ENV])
 		return ToolAuth.Request.resolved(p_name, p_input, false)

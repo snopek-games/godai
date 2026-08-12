@@ -159,10 +159,12 @@ func newFlag(spec Spec, property propertySchema) cli.Flag {
 	switch spec.Kind {
 	case KindBool:
 		return &cli.BoolFlag{Name: spec.Flag, Aliases: aliasesFor(spec), Usage: usage}
+	// Collect omits unset flags, so the editor's own default applies: printing
+	// Go's zero value would contradict the schema's description of the default.
 	case KindInt:
-		return &cli.IntFlag{Name: spec.Flag, Aliases: aliasesFor(spec), Usage: usage}
+		return &cli.IntFlag{Name: spec.Flag, Aliases: aliasesFor(spec), Usage: usage, HideDefault: true}
 	case KindNumber:
-		return &cli.FloatFlag{Name: spec.Flag, Aliases: aliasesFor(spec), Usage: usage}
+		return &cli.FloatFlag{Name: spec.Flag, Aliases: aliasesFor(spec), Usage: usage, HideDefault: true}
 	case KindStringList, KindStringMap:
 		// A slice rather than cli.StringMapFlag: the map flag splits values on
 		// commas, which mangles Godot variant syntax like "Vector2(1, 2)".

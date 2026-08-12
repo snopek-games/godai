@@ -21,6 +21,10 @@ import (
 
 const projectName = "Godai MCP Functional Test"
 
+// testEngineName is the linked engine the server is given, standing in for one
+// `godai engine install` would have downloaded.
+const testEngineName = "test-build"
+
 var (
 	client           *harness.MCPClient
 	projectPath      string
@@ -28,6 +32,7 @@ var (
 	serverCmd        *exec.Cmd
 	serverBin        string
 	godotWrapperPath string
+	enginesPath      string
 
 	// When set (via GODAI_COVERDIR), the binary is built with -cover and each
 	// server runs with GOCOVERDIR pointing here. Coverage is flushed only on the
@@ -120,6 +125,11 @@ func testMain(m *testing.M) int {
 	}
 	godotWrapperPath = godotWrapper
 
+	if err := linkTestEngine(base, godotWrapper); err != nil {
+		fmt.Fprintf(os.Stderr, "FAIL: linking the test engine: %v\n", err)
+		return 1
+	}
+
 	serverBin, err = buildServer(base)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: building godai: %v\n", err)
@@ -157,6 +167,27 @@ func testMain(m *testing.M) int {
 		fmt.Fprintf(os.Stderr, "Server log: %s\n", inst.logPath)
 	}
 	return code
+}
+
+func linkTestEngine(xdgBase, executable string) error {
+	configDir := filepath.Join(xdgBase, "config", "godai")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		return err
+	}
+	enginesPath = filepath.Join(configDir, "engines.json")
+
+	return writeLinkedEngines(map[string]any{
+		testEngineName: map[string]string{"path": executable},
+	})
+}
+
+func writeLinkedEngines(linked map[string]any) error {
+	engines, err := json.Marshal(map[string]any{"linked": linked})
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(enginesPath, engines, 0o644)
 }
 
 type serverInstance struct {

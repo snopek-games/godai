@@ -67,6 +67,7 @@ func startEditorWithoutAutoApproval(t *testing.T) *harness.MCPClient {
 		Transport:          "http",
 		Verbose:            os.Getenv("GODAI_TEST_VERBOSE") != "",
 		NoAutoApproveTools: true,
+		DisableShutdown:    true,
 	})
 	if err != nil {
 		t.Fatalf("launching editor: %v", err)
@@ -141,6 +142,18 @@ func TestToolApprovalWithoutAutoApprove(t *testing.T) {
 
 	t.Run("tool_needing_approval_is_denied", func(t *testing.T) {
 		requireDenied(t, callToolOn(t, c, approvalTool, nil), approvalTool)
+	})
+
+	// Whoever launched a headless editor has to be able to shut it down again,
+	// even with nothing to approve the lifecycle tools. The harness sets
+	// GODAI_DISABLE_CLOSE, so they stop short of really doing it.
+	t.Run("editor_lifecycle_tools_are_allowed", func(t *testing.T) {
+		for _, tool := range []string{"restart_editor", "close_editor"} {
+			result := callToolOn(t, c, tool, map[string]any{"skip_save": true})
+			if result.IsError {
+				t.Fatalf("tools/call %s should not need approval headless, got: %s", tool, result.Text())
+			}
+		}
 	})
 
 	t.Run("denied_tool_does_not_run", func(t *testing.T) {

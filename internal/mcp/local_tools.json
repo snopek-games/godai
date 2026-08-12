@@ -40,7 +40,11 @@
 		},
 		"open_godot_project": {
 			"title": "Open Godot Project",
-			"description": "Opens a Godot project in a new Godot editor instance, if it isn't already open.",
+			"description": [
+				"Opens a Godot project in a new Godot editor instance, if it isn't already open.",
+				"",
+				"An editor that is already open keeps the version of Godot and the headless setting it was started with: headless is ignored for it, and asking for a godot_version it isn't running is an error rather than a silent no-op. Check already_open in the result to see whether an editor was already there."
+			],
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -51,7 +55,11 @@
 					"headless": {
 						"type": "boolean",
 						"default": false,
-						"description": "Launch the editor without visual or audio output (default: false). This won't have an effect if the editor is already open for this project."
+						"description": "Launch the editor without visual or audio output (default: false)"
+					},
+					"godot_version": {
+						"type": "string",
+						"description": "Open the project with this version of Godot, regardless of the version the project itself asks for, installing it if it isn't installed yet. Use a version from list_installed_godot_versions. Leave this out to let Godai work out the version, which is almost always what you want: opening a project with a newer version of Godot than it was made with upgrades the project."
 					}
 				},
 				"required": ["project_path"]
@@ -68,14 +76,18 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the project was already open, or a new editor instance was started for it"
+					},
+					"already_open": {
+						"type": "boolean",
+						"description": "True if an editor was already running for this project, in which case headless was ignored and godot_version, if it was given, matched what that editor is running"
 					}
 				},
-				"required": ["success"]
+				"required": ["success", "already_open"]
 			}
 		},
 		"list_open_projects": {
 			"title": "List Open Godot Projects",
-			"description": "Lists the projects currently open in a Godot editor.",
+			"description": "Lists the projects currently open in a Godot editor, which version of Godot each one is open in, and whether that editor is headless.",
 			"annotations": {
 				"readOnlyHint": true,
 				"openWorldHint": false
@@ -96,13 +108,318 @@
 								"project_name": {
 									"type": "string",
 									"description": "The project's configured name; omitted if it couldn't be read"
+								},
+								"headless": {
+									"type": "boolean",
+									"description": "True if the editor running this project is headless, so it has no visible window"
+								},
+								"godot_version": {
+									"type": "string",
+									"description": "The version of Godot this project is open in, named the way list_installed_godot_versions names it; omitted if the editor wouldn't say"
 								}
 							},
-							"required": ["project_path"]
+							"required": ["project_path", "headless"]
 						}
 					}
 				},
 				"required": ["projects"]
+			}
+		},
+		"list_installed_godot_versions": {
+			"title": "List Installed Godot Versions",
+			"description": [
+				"Lists the versions of Godot that Godai can run: the ones it installed, and the custom builds that were linked with a name.",
+				"",
+				"Versions are named the way the Godot downloads are: `4.5-stable`, `4.4.1-stable`, `4.6-beta3`, and `4.5-stable-mono` for a .NET build. A linked build is named by whatever it was linked as.",
+				"",
+				"Use search_available_godot_versions to see the versions that could be installed."
+			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"versions": {
+						"type": "array",
+						"description": "The versions of Godot that are installed or linked",
+						"items": {
+							"type": "object",
+							"properties": {
+								"version": {
+									"type": "string",
+									"description": "The name this version is known by, which is what every other tool takes"
+								},
+								"reported_version": {
+									"type": "string",
+									"description": "For a linked build, the version it reported when it was linked; absent if it wouldn't say"
+								},
+								"path": {
+									"type": "string",
+									"description": "The absolute path to the Godot executable"
+								},
+								"templates": {
+									"type": "string",
+									"enum": ["none", "partial", "all"],
+									"description": "Whether this version's export templates are installed; absent for a linked build, whose templates aren't Godai's to know about"
+								},
+								"linked": {
+									"type": "boolean",
+									"description": "True for a custom build that Godai didn't install"
+								},
+								"default": {
+									"type": "boolean",
+									"description": "True if this is the version Godai uses when nothing else settles it"
+								}
+							},
+							"required": ["version", "path", "linked", "default"]
+						}
+					}
+				},
+				"required": ["versions"]
+			}
+		},
+		"search_available_godot_versions": {
+			"title": "Search Available Godot Versions",
+			"description": [
+				"Searches the versions of Godot that are available to install, newest first.",
+				"",
+				"This searches the godotengine/godot-builds repository, so it sees versions that aren't installed yet. Use install_godot_version to get one."
+			],
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"filter": {
+						"type": "string",
+						"description": "Only versions starting with this, so `4.5` finds 4.5 and 4.5.1, but not 3.4.5"
+					},
+					"include_prereleases": {
+						"type": "boolean",
+						"default": false,
+						"description": "Include dev, alpha, beta and rc releases (default: false)"
+					}
+				}
+			},
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": true
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"versions": {
+						"type": "array",
+						"description": "The versions that can be installed, newest first",
+						"items": {
+							"type": "object",
+							"properties": {
+								"version": {
+									"type": "string",
+									"description": "The name to pass to install_godot_version"
+								},
+								"installed": {
+									"type": "boolean",
+									"description": "True if this version is already installed"
+								}
+							},
+							"required": ["version", "installed"]
+						}
+					}
+				},
+				"required": ["versions"]
+			}
+		},
+		"install_godot_version": {
+			"title": "Install Godot Version",
+			"description": [
+				"Downloads and installs a version of Godot.",
+				"",
+				"This downloads hundreds of megabytes and can take several minutes.",
+				"",
+				"If the user hasn't set a default version of Godot yet, this one becomes the default that Godai uses; the result says whether that happened."
+			],
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"godot_version": {
+						"type": "string",
+						"description": "The version to install, as listed by search_available_godot_versions: `4.5-stable`, `4.4.1-stable`, `4.6-beta3`. A shorter `4.5` or `4.4.1` means the stable release. Add `-mono` for a .NET build, such as `4.5-stable-mono`, which the search doesn't list separately."
+					},
+					"with_export_templates": {
+						"type": "boolean",
+						"default": false,
+						"description": "Install this version's export templates too, which are only needed to export a project (default: false). A version that already has some templates is left as it is."
+					}
+				},
+				"required": ["godot_version"]
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"engine": {
+						"type": "object",
+						"description": "The version that was installed",
+						"properties": {
+							"version": {
+								"type": "string",
+								"description": "The name this version is known by, which is what every other tool takes"
+							},
+							"path": {
+								"type": "string",
+								"description": "The absolute path to the Godot executable"
+							},
+							"templates": {
+								"type": "string",
+								"enum": ["none", "partial", "all"],
+								"description": "Whether this version's export templates are installed"
+							},
+							"linked": {
+								"type": "boolean",
+								"description": "Always false for an installed version"
+							},
+							"default": {
+								"type": "boolean",
+								"description": "True if this is the version Godai uses when nothing else settles it"
+							}
+						},
+						"required": ["version", "path", "linked", "default"]
+					},
+					"became_default": {
+						"type": "boolean",
+						"description": "True if there was no default version of Godot before, so this one became it"
+					}
+				},
+				"required": ["engine", "became_default"]
+			}
+		},
+		"remove_godot_version": {
+			"title": "Remove Godot Version",
+			"description": "Removes a version of Godot that Godai installed, or forgets a custom build that was linked with a name.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"godot_version": {
+						"type": "string",
+						"description": "The version or linked name to remove, as listed by list_installed_godot_versions"
+					},
+					"with_export_templates": {
+						"type": "boolean",
+						"default": false,
+						"description": "Remove this version's export templates too (default: false)"
+					}
+				},
+				"required": ["godot_version"]
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"version": {
+						"type": "string",
+						"description": "The version or linked name that was removed"
+					},
+					"linked": {
+						"type": "boolean",
+						"description": "True if this was a linked custom build, which was forgotten rather than deleted"
+					},
+					"templates_removed": {
+						"type": "boolean",
+						"description": "True if this version's export templates were removed too"
+					},
+					"default_cleared": {
+						"type": "boolean",
+						"description": "True if this was the default version of Godot, so there is no default now"
+					}
+				},
+				"required": ["version", "linked", "templates_removed", "default_cleared"]
+			}
+		},
+		"pin_project_to_godot_version": {
+			"title": "Pin Project to Godot Version",
+			"description": [
+				"Records in the project which version of Godot it is built with, so that Godai always opens it with that version.",
+				"",
+				"This is written to a .godai.json config file in the project, which is meant to be committed, so that everyone working on it opens the same editor."
+			],
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"project_path": {
+						"type": "string",
+						"description": "The absolute path to the project directory"
+					},
+					"godot_version": {
+						"type": "string",
+						"description": "The version or linked name to pin the project to, which must already be installed"
+					}
+				},
+				"required": ["project_path", "godot_version"]
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "True if the project was pinned to that version"
+					},
+					"godot_version": {
+						"type": "string",
+						"description": "The version the project is now pinned to"
+					}
+				},
+				"required": ["success", "godot_version"]
+			}
+		},
+		"unpin_project_from_godot_version": {
+			"title": "Unpin Project from Godot Version",
+			"description": "Removes the version of Godot recorded in the project's .godai.json config file, leaving Godai to work out which version to open it with from the project itself.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"project_path": {
+						"type": "string",
+						"description": "The absolute path to the project directory"
+					}
+				},
+				"required": ["project_path"]
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "True if the project is no longer pinned to a version of Godot"
+					},
+					"was_pinned": {
+						"type": "boolean",
+						"description": "True if the project was pinned to begin with"
+					}
+				},
+				"required": ["success", "was_pinned"]
 			}
 		},
 		"get_godai_settings": {
@@ -121,16 +438,16 @@
 			"outputSchema": {
 				"type": "object",
 				"properties": {
-					"godot_path": {
+					"godot_version": {
 						"type": "string",
-						"description": "The full path to the Godot 4 executable; empty if none is configured"
+						"description": "The version of Godot used by default, as named by list_installed_godot_versions; empty if none is configured"
 					},
 					"project_base_path": {
 						"type": "string",
 						"description": "The base path where the user's Godot projects live; always empty unless MCP is running with --global"
 					}
 				},
-				"required": ["godot_path", "project_base_path"]
+				"required": ["godot_version", "project_base_path"]
 			}
 		},
 		"set_godai_settings": {
@@ -151,9 +468,9 @@
 			"inputSchema": {
 				"type": "object",
 				"properties": {
-					"godot_path": {
+					"godot_version": {
 						"type": "string",
-						"description": "The full path to the Godot 4 executable"
+						"description": "The version of Godot to use by default; it must already be installed, which list_installed_godot_versions shows"
 					},
 					"project_base_path": {
 						"type": "string",
