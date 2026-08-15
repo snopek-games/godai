@@ -1779,6 +1779,7 @@
 		},
 		"clear_log_messages": {
 			"title": "Clear Log Messages",
+			"toolsets": ["editor"],
 			"description": [
 				"Clears the log messages captured so far, so subsequent get_log_messages calls only return output from after this point.",
 				"",
