@@ -1,0 +1,20 @@
+{
+  "id": "reimport-tileset",
+  "tags": ["import", "textures", "easy"],
+
+  "timeout_sec": 600,
+  "max_budget_usd": 2.0,
+
+  "expected_actions": [
+    "reimport"
+  ],
+
+  "forbidden_actions": [
+    "execute_editor_script"
+  ],
+
+  "protected_paths": [
+    "project.godot",
+    "main.tscn"
+  ]
+}

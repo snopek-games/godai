@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="LabelSettings" path="res://heading.tres" id="1"]
+
+[node name="Main" type="Control"]
+
+[node name="Heading" type="Label" parent="."]
+offset_right = 400.0
+offset_bottom = 60.0
+text = "Space Miner"
+label_settings = ExtResource("1")

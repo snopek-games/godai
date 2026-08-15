@@ -8,5 +8,14 @@
 /bundle/*.mcpb
 /dist/
 
+# Local config
+/.env
+
 # Coverage profiles (scripts/go-coverage.sh -o)
 /cov.out
+
+# Eval output (godai-eval run --out, godai-eval matrix --out-dir)
+/results/
+/results*.json
+/eval-report.md
+/results*-transcripts/

@@ -93,6 +93,42 @@ func projectCommand(configPath string) *cli.Command {
 				},
 			},
 			{
+				Name:      "install-addon",
+				Usage:     "install and enable the godai addon in a project, without opening the editor",
+				ArgsUsage: "[path]",
+				Flags:     []cli.Flag{projectPathFlag()},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if err := atMostOneArg(cmd, "project path"); err != nil {
+						return err
+					}
+
+					return withSession(ctx, cmd, configPath, func(session *core.Session) error {
+						hint := cmd.Args().First()
+						if hint == "" {
+							hint = cmd.String("project-path")
+						}
+
+						projectPath, err := core.ResolveProjectPath(hint)
+						if err != nil {
+							return err
+						}
+
+						installedPath, err := session.InstallAddon(projectPath)
+						if err != nil {
+							return err
+						}
+
+						result := struct {
+							ProjectPath string `json:"project_path"`
+						}{installedPath}
+						return printer(cmd).Value(result, func(w io.Writer) error {
+							_, err := fmt.Fprintf(w, "addon installed: %s\n", installedPath)
+							return err
+						})
+					})
+				},
+			},
+			{
 				Name:        "pin-engine",
 				Usage:       "record which version of Godot this project is built with",
 				ArgsUsage:   "<version>",

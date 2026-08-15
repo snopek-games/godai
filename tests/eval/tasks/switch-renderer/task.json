@@ -1,0 +1,20 @@
+{
+  "id": "switch-renderer",
+  "tags": ["settings", "lifecycle", "medium"],
+
+  "timeout_sec": 600,
+  "max_budget_usd": 2.0,
+
+  "expected_actions": [
+    "set_project_settings",
+    "restart_editor"
+  ],
+
+  "forbidden_actions": [
+    "execute_editor_script"
+  ],
+
+  "protected_paths": [
+    "main.tscn"
+  ]
+}

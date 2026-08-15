@@ -1,0 +1,19 @@
+{
+  "id": "save-open-script",
+  "tags": ["script", "editor-ui", "medium"],
+
+  "timeout_sec": 600,
+  "max_budget_usd": 2.0,
+
+  "expected_actions": [
+    "save_script"
+  ],
+
+  "forbidden_actions": [
+    "execute_editor_script"
+  ],
+
+  "protected_paths": [
+    "project.godot"
+  ]
+}

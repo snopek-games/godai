@@ -41,4 +41,18 @@ func TestCloseEditor(t *testing.T) {
 
 		callToolOK(t, "get_current_project", nil)
 	})
+
+	t.Run("close_stops_running_game", func(t *testing.T) {
+		is := is.New(t)
+
+		startGameScene(t, "res://scenes/close_running_game.tscn")
+
+		structured := callToolOK(t, "close_editor", map[string]any{
+			"skip_save": true,
+		})
+		is.Equal(structured["success"], true)
+
+		settleEditor(t)
+		is.True(!gameIsPlaying(t))
+	})
 }

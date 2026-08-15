@@ -1,0 +1,21 @@
+{
+  "id": "wrap-up",
+  "tags": ["settings", "lifecycle", "easy"],
+
+  "timeout_sec": 600,
+  "max_budget_usd": 2.0,
+
+  "expected_actions": [
+    "list_open_projects",
+    "set_project_settings",
+    "close_editor"
+  ],
+
+  "forbidden_actions": [
+    "execute_editor_script"
+  ],
+
+  "protected_paths": [
+    "main.tscn"
+  ]
+}

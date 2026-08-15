@@ -43,6 +43,8 @@
 			"description": [
 				"Opens a Godot project in a new Godot editor instance, if it isn't already open.",
 				"",
+				"Safe to call first for any project, open or not: one that is already open returns its running editor rather than starting a second one, so there is no need to check with list_open_projects beforehand.",
+				"",
 				"An editor that is already open keeps the version of Godot and the headless setting it was started with: headless is ignored for it, and asking for a godot_version it isn't running is an error rather than a silent no-op. Check already_open in the result to see whether an editor was already there."
 			],
 			"inputSchema": {
@@ -67,7 +69,7 @@
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": false,
-				"idempotentHint": false,
+				"idempotentHint": true,
 				"openWorldHint": false
 			},
 			"outputSchema": {

@@ -47,6 +47,19 @@ func PluginVersion(fsys fs.FS) (string, error) {
 	return v, nil
 }
 
+func setupAddon(project *godot.Project, forceReplace bool) error {
+	if err := installAddon(project, forceReplace); err != nil {
+		return NewUserError("unable to install godai addon", err, nil)
+	}
+	if err := enableAddon(project); err != nil {
+		return NewUserError("unable to enable godai addon in project.godot file", err, nil)
+	}
+	if err := enableAutoload(project); err != nil {
+		return NewUserError("unable to add the godai autoload to project.godot file", err, nil)
+	}
+	return nil
+}
+
 func installAddon(project *godot.Project, forceReplace bool) error {
 	projectPath := project.GetPath()
 	addonRelPath := filepath.Join("addons", "godai")
@@ -128,6 +141,69 @@ func installAddon(project *godot.Project, forceReplace bool) error {
 
 		return nil
 	})
+}
+
+const (
+	autoloadName  = "Godai"
+	autoloadValue = "*res://addons/godai/game/godai.gd"
+)
+
+// The editor only runs plugin.gd's _enable_plugin() when the plugin is toggled
+// on in its UI, so an install done from here has to add the autoload itself.
+func enableAutoload(project *godot.Project) error {
+	configPath := filepath.Join(project.GetPath(), "project.godot")
+
+	f, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(string(f)))
+
+	section := ""
+	found := false
+	out := strings.Builder{}
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) > 0 {
+			if line[0] == '[' && line[len(line)-1] == ']' {
+				section = line[1 : len(line)-1]
+			} else if section == "autoload" && strings.HasPrefix(line, autoloadName+"=") {
+				parser := variant.NewParser(strings.NewReader(line))
+				stmt, err := parser.ParseStatement()
+				if err != nil {
+					return err
+				}
+
+				if value, ok := stmt.Value.(string); ok && value == autoloadValue {
+					return nil
+				}
+
+				buf := &strings.Builder{}
+				writer := variant.NewWriter(buf)
+				if err := writer.WriteAssignment(autoloadName, autoloadValue); err != nil {
+					return err
+				}
+				writer.Flush()
+				line = strings.TrimSuffix(buf.String(), "\n")
+
+				found = true
+			}
+		}
+		out.WriteString(line)
+		out.WriteString("\n")
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	if !found {
+		out.WriteString("[autoload]\n\n")
+		out.WriteString(autoloadName + "=\"" + autoloadValue + "\"\n\n")
+	}
+
+	return os.WriteFile(configPath, []byte(out.String()), 0o755)
 }
 
 // Attempt a safe edit of the project file.

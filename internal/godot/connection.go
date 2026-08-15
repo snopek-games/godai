@@ -23,6 +23,7 @@ const (
 type Connection struct {
 	ws               *websocket.Conn
 	port             int
+	pid              int
 	writeMutex       sync.Mutex
 	requestMutex     sync.Mutex
 	lastRequestID    int
@@ -34,10 +35,11 @@ type Connection struct {
 	closing bool
 }
 
-func NewConnection(ws *websocket.Conn, port int) *Connection {
+func NewConnection(ws *websocket.Conn, port int, pid int) *Connection {
 	return &Connection{
 		ws:               ws,
 		port:             port,
+		pid:              pid,
 		pendingResponses: map[int]chan *jsonrpc.Response{},
 		doneCh:           make(chan struct{}),
 	}
@@ -45,6 +47,10 @@ func NewConnection(ws *websocket.Conn, port int) *Connection {
 
 func (c *Connection) GetPort() int {
 	return c.port
+}
+
+func (c *Connection) GetPID() int {
+	return c.pid
 }
 
 func (c *Connection) Run() error {

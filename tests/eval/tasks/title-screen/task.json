@@ -1,0 +1,22 @@
+{
+  "id": "title-screen",
+  "tags": ["scene", "settings", "easy"],
+
+  "timeout_sec": 600,
+  "max_budget_usd": 2.0,
+
+  "expected_actions": [
+    "create_scene",
+    "add_node",
+    "set_project_settings",
+    "save_scene"
+  ],
+
+  "forbidden_actions": [
+    "execute_editor_script"
+  ],
+
+  "protected_paths": [
+    "main.tscn"
+  ]
+}

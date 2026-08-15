@@ -1,0 +1,17 @@
+; Engine configuration file.
+
+config_version=5
+
+[application]
+
+config/name="Eval: run-and-diagnose"
+run/main_scene="res://main.tscn"
+
+[editor]
+
+run/main_run_args="--headless"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

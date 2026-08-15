@@ -79,6 +79,7 @@ func CreateTestProject(dir string, opts ProjectOptions) error {
 		projectGodot += "\n[editor_overrides]\n\ngodai/mcp/skip_secret_check=true\n"
 	}
 	if opts.InstallAddon {
+		projectGodot += "\n[autoload]\n\nGodai=\"*res://addons/godai/game/godai.gd\"\n"
 		projectGodot += "\n[editor_plugins]\n\nenabled=PackedStringArray(\"res://addons/godai/plugin.cfg\")\n"
 	}
 

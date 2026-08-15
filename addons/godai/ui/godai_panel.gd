@@ -4,6 +4,7 @@ extends Control
 const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
 
 const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
+const EvalRun = preload("res://addons/godai/eval_run.gd")
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolAuth = preload("res://addons/godai/tools/tool_auth.gd")
 const DefaultToolsLoader = preload("res://addons/godai/tools/default/loader.gd")
@@ -30,6 +31,8 @@ const ErrorChatScene = preload("res://addons/godai/ui/error_chat.tscn")
 @onready var tool_use_info_dialog: AcceptDialog = %ToolUseInfoDialog
 @onready var tool_use_auth_dialog: ToolUseAuthDialog = %ToolUseAuthDialog
 
+signal chat_started(chat: ClaudeClient.Chat, request: ClaudeClient.Request)
+
 var claude_client: ClaudeClient
 var current_chat: ClaudeClient.Chat
 var tools: ToolManager = ToolManager.new()
@@ -41,6 +44,8 @@ var _pending_auth_requests: Array[ToolAuth.Request]
 var _shown_auth_request: ToolAuth.Request
 var _updating_auth_queue := false
 var _current_request: ClaudeClient.Request
+
+var _eval_run: EvalRun
 
 var _mcp_instance_id: String
 var _mcp_instance_secret: String
@@ -83,11 +88,14 @@ func _ready() -> void:
 
 	if Engine.is_editor_hint():
 		var settings: EditorSettings = EditorInterface.get_editor_settings()
-		settings.settings_changed.connect(_update_from_editor_settings.bind(settings))
-		_update_from_editor_settings(settings)
+		settings.settings_changed.connect(_update_from_editor_settings)
+		_update_from_editor_settings()
 
 	_update_mcp_status_bar()
 	_start_mcp()
+
+	if EvalRun.should_run():
+		_eval_run = EvalRun.start(self)
 
 
 func _generate_string(p_len: int) -> String:
@@ -107,9 +115,9 @@ func show_panel() -> void:
 		prompt.grab_focus()
 
 
-func _update_from_editor_settings(p_settings: EditorSettings) -> void:
-	claude_client.api_key = p_settings.get_setting(GodaiEditorSettings.ANTHROPIC_API_KEY_SETTING)
-	claude_client.model = p_settings.get_setting(GodaiEditorSettings.ANTHROPIC_API_MODEL_SETTING)
+func _update_from_editor_settings() -> void:
+	claude_client.api_key = GodaiEditorSettings.get_anthropic_api_key()
+	claude_client.model = GodaiEditorSettings.get_anthropic_model()
 	mcp_server.skip_secret_check = GodaiEditorSettings.get_mcp_skip_secret_check()
 	_mcp_transport = GodaiEditorSettings.get_mcp_transport() as MCPServer.Transport
 	_mcp_base_port = GodaiEditorSettings.get_mcp_base_port()
@@ -572,6 +580,11 @@ func _stop_current_chat() -> void:
 	loading_label.visible = false
 
 
+func submit_prompt(p_text: String) -> void:
+	prompt.text = p_text
+	_submit_message()
+
+
 func _submit_message() -> void:
 	var content := prompt.text
 	prompt.clear()
@@ -586,6 +599,8 @@ func _submit_message() -> void:
 
 	var request := claude_client.submit_chat(current_chat)
 	_current_request = request
+
+	chat_started.emit(current_chat, request)
 
 	var resp: ClaudeClient.Response = await request.completed
 

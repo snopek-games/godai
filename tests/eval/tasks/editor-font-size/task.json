@@ -1,0 +1,21 @@
+{
+  "id": "editor-font-size",
+  "tags": ["editor-settings", "easy"],
+
+  "timeout_sec": 600,
+  "max_budget_usd": 2.0,
+
+  "expected_actions": [
+    "get_editor_settings",
+    "set_editor_settings"
+  ],
+
+  "forbidden_actions": [
+    "execute_editor_script"
+  ],
+
+  "protected_paths": [
+    "project.godot",
+    "main.tscn"
+  ]
+}

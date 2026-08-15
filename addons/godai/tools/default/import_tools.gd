@@ -53,6 +53,9 @@ class ImportGetSettings extends DefaultTool:
 		if not FileAccess.file_exists(import_path):
 			return ToolResult.rejected({error = "'%s' has no import settings (it isn't an imported asset)" % file_path})
 
+		# Re-import the file, which should update the .import file to include all options.
+		EditorInterface.get_resource_filesystem().reimport_files(PackedStringArray([file_path]))
+
 		var cfg := ConfigFile.new()
 		var err := cfg.load(import_path)
 		if err != OK:
@@ -89,6 +92,9 @@ class ImportSetSettings extends DefaultTool:
 		if not FileAccess.file_exists(import_path):
 			return ToolResult.rejected({error = "'%s' has no import settings (it isn't an imported asset)" % file_path})
 
+		# Re-import the file, which should update the .import file to include all options.
+		EditorInterface.get_resource_filesystem().reimport_files(PackedStringArray([file_path]))
+
 		var cfg := ConfigFile.new()
 		var err := cfg.load(import_path)
 		if err != OK:
@@ -98,6 +104,9 @@ class ImportSetSettings extends DefaultTool:
 			cfg.set_value("remap", "importer", importer)
 
 		for key in options:
+			if not cfg.has_section_key("params", key):
+				return ToolResult.rejected({error = "unknown import setting '%s'" % key})
+
 			# The expected type isn't known here, so fall back to the raw
 			# string when the value isn't valid variant syntax.
 			var decoded := Utils.decode_property_value(options[key], TYPE_NIL)

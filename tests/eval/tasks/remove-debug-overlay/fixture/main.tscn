@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[node name="Main" type="Node2D"]
+
+[node name="Player" type="Sprite2D" parent="."]
+position = Vector2(100, 100)
+
+[node name="DebugOverlay" type="CanvasLayer" parent="."]
+
+[node name="FPSLabel" type="Label" parent="DebugOverlay"]
+text = "FPS: 0"

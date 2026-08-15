@@ -1,0 +1,6 @@
+[gd_resource type="Resource" format=3]
+
+[resource]
+metadata/max_health = 3
+metadata/run_speed = 220.0
+metadata/jump_velocity = -400.0

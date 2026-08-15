@@ -39,11 +39,15 @@ static func decode_property_value(p_raw: Variant, p_expected_type: int) -> Dicti
 
 	var string_value: String = p_raw
 
-	# String properties take the raw string, so no quoting is required.
-	if p_expected_type == TYPE_STRING:
+	# String properties take raw strings, but the tool descriptions promise
+	# variant syntax, so a value parsing as a quoted string is unquoted.
+	if p_expected_type == TYPE_STRING or p_expected_type == TYPE_STRING_NAME:
+		var parsed_string: Variant = str_to_var(string_value)
+		if typeof(parsed_string) in [TYPE_STRING, TYPE_STRING_NAME]:
+			string_value = parsed_string
+		if p_expected_type == TYPE_STRING_NAME:
+			return { value = StringName(string_value) }
 		return { value = string_value }
-	if p_expected_type == TYPE_STRING_NAME:
-		return { value = StringName(string_value) }
 
 	var parsed: Variant = str_to_var(_add_object_comma(string_value))
 	if parsed == null and not string_value.strip_edges() in ["null", "nil"]:

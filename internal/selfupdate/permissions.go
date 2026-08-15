@@ -37,8 +37,7 @@ func (e *PermissionError) Hint() string {
 
 func PackageManagerHint(exePath string) string {
 	if slices.Contains(strings.Split(filepath.ToSlash(exePath), "/"), "node_modules") {
-		return "godai was installed by npm, which will replace this executable again on its next install; " +
-			"update it with 'npm install -g @snopek-games/godai@latest' instead"
+		return "godai was installed by npm, which will replace this executable again on its next install; update it with 'npm install -g @snopek-games/godai@latest' instead"
 	}
 	return ""
 }

@@ -7,6 +7,14 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
+- MCP: Add a way to clear log messages (and/or add timestamps so agents know they are the same messages?)
+  - Both a clear_log_messages()
+  - And a `{clear_log_messages: true}` for run_project()
+- MCP: Reduce the number of tools? toolsets? `search_tools()` tool?
+  - See: https://github.com/github/github-mcp-server/issues/275
+- MCP: Verity properties are set successfully in set_node_properties
+  - We could check a before/after to see if it changes at all, and do a get after to see if it's the desired value
+- MCP: Check properties in set_project_settings (and give a warning when the project needs to be restarted)
 - CLI: How to make the descriptions for `editor-tool` more CLI-friendly?
 - CLI: Remove the prompt/elicitation for project_base_path
   - It's never required, and the godot_path one is gone with the setting
@@ -25,6 +33,7 @@ For a 1.0
   - Clearer installation story
   - Clearer mode separation (CLI vs Addon)
 - CLI: Test thoroughly on Windows and MacOS!
+- CLI: XDG_* vars only work to isolate tests on Linux -- we need something that'll work on MacOS (and maybe Windows?) too
 - Add to MCP Registry
   - https://registry.modelcontextprotocol.io/
   - See: https://modelcontextprotocol.info/tools/registry/publishing/
@@ -32,6 +41,12 @@ For a 1.0
   - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
 - After release - deprecate the old NPM package:
   `npm deprecate "@snopek-games/godai-mcp@*" "Renamed to @snopek-games/godai"`
+- Eval: Look at existing gamedev benchmarking suites and see if we can use them with Godai
+  - Can we run those test suites with Godai added to the mix?
+  - Can we adapt their tasks and bring them into our eval framework?
+  - Links:
+    - See https://github.com/waynchi/gamedevbench
+    - See https://github.com/FreedomIntelligence/gamecraft-bench
 
 0.5: Finish critical API mode stuff
 -----------------------------------
@@ -46,6 +61,10 @@ For a 1.0
     - The tricky thing is that this is Anthropic specific (OpenAI has their own thing)
     - How does this overlap with our tools for script editing?
   - Having a way to "reload" the tools would help iteration during development
+- Addon: Allow resuming the conversation after a `restart_editor`
+- Addon: Add in game tools
+  - Sending input
+  - Taking a screenshot
 - Addon: Implement support for more LLM APIs
   - Make 2-3 client backends:
     - `Anthropic`: "Anthropic"

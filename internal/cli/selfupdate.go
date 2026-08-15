@@ -63,8 +63,7 @@ func runSelfUpdate(ctx context.Context, cmd *cli.Command) error {
 
 	if allowUnverified {
 		fmt.Fprintln(os.Stderr,
-			"DANGER: --dangerously-allow-unverified is set, so the download will be installed "+
-				"without checking it against the release checksums")
+			"DANGER: --dangerously-allow-unverified is set, so the download will be installed without checking it against the release checksums")
 	}
 
 	updater, err := selfupdate.New(selfupdate.Config{

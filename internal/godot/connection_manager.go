@@ -265,7 +265,7 @@ func (m *ConnectionManager) connectionLoop(inst instance, stopCh chan struct{}) 
 		}
 
 		slog.Info("connected to editor", "port", port)
-		conn := NewConnection(ws, port)
+		conn := NewConnection(ws, port, inst.PID)
 
 		// Start the connection's run loop.
 		connErrCh := make(chan error, 1)

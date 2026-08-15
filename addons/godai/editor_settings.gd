@@ -23,6 +23,8 @@ const MCP_SKIP_SECRET_CHECK_DEFAULT = false
 const AUTO_APPROVE_TOOLS_DEFAULT = false
 
 # Environment variables that override the editor settings (used for testing).
+const ANTHROPIC_API_KEY_ENV = "GODAI_ANTHROPIC_API_KEY"
+const ANTHROPIC_API_MODEL_ENV = "GODAI_ANTHROPIC_MODEL"
 const MCP_TRANSPORT_ENV = "GODAI_MCP_TRANSPORT"
 const MCP_BASE_PORT_ENV = "GODAI_MCP_BASE_PORT"
 const MCP_PORT_COUNT_ENV = "GODAI_MCP_PORT_COUNT"
@@ -73,6 +75,21 @@ static func add_editor_settings() -> void:
 	_add_editor_setting(AUTO_APPROVE_TOOLS_SETTING, TYPE_BOOL, AUTO_APPROVE_TOOLS_DEFAULT)
 	_add_editor_setting(ALLOWED_TOOLS_SETTING, TYPE_STRING, "", PROPERTY_HINT_MULTILINE_TEXT)
 	_add_editor_setting(DENIED_TOOLS_SETTING, TYPE_STRING, "", PROPERTY_HINT_MULTILINE_TEXT)
+
+
+static func _get_string_env_or_setting(p_env: String, p_setting: String) -> String:
+	var value := OS.get_environment(p_env)
+	if not value.is_empty():
+		return value
+	return EditorInterface.get_editor_settings().get_setting(p_setting)
+
+
+static func get_anthropic_api_key() -> String:
+	return _get_string_env_or_setting(ANTHROPIC_API_KEY_ENV, ANTHROPIC_API_KEY_SETTING)
+
+
+static func get_anthropic_model() -> String:
+	return _get_string_env_or_setting(ANTHROPIC_API_MODEL_ENV, ANTHROPIC_API_MODEL_SETTING)
 
 
 static func _get_int_env_or_setting(p_env: String, p_setting: String) -> int:

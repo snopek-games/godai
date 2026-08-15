@@ -1,0 +1,13 @@
+; Engine configuration file.
+
+config_version=5
+
+[application]
+
+config/name="Eval: duplicate-level"
+run/main_scene="res://level_1.tscn"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

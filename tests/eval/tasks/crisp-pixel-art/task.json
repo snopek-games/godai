@@ -1,0 +1,17 @@
+{
+  "id": "crisp-pixel-art",
+  "tags": ["settings", "textures", "easy"],
+
+  "timeout_sec": 600,
+  "max_budget_usd": 2.0,
+
+  "expected_actions": [
+    "set_project_settings"
+  ],
+
+  "forbidden_actions": [
+    "execute_editor_script"
+  ],
+
+  "protected_paths": []
+}

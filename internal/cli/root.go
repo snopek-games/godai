@@ -145,6 +145,7 @@ func Root() *cli.Command {
 
 	setErrorHandlers(root)
 	wrapHelp()
+	trimHelpGlobals()
 
 	return root
 }

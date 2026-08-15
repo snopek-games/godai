@@ -1,0 +1,29 @@
+[gd_scene format=3]
+
+[node name="Main" type="Node2D"]
+
+[node name="Orbs" type="Node2D" parent="."]
+
+[node name="Orb1" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb2" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb3" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb4" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb5" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb6" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb7" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb8" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb9" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb10" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb11" type="Sprite2D" parent="Orbs"]
+
+[node name="Orb12" type="Sprite2D" parent="Orbs"]

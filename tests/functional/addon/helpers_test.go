@@ -97,6 +97,51 @@ func setupSceneWithChild(t *testing.T, scenePath string) {
 	})
 }
 
+// Runs a minimal scene as a separate game process and confirms the editor
+// considers it playing.
+func startGameScene(t *testing.T, scenePath string) {
+	t.Helper()
+
+	// Otherwise the game opens a window on a developer's machine.
+	callToolOK(t, "set_project_settings", map[string]any{
+		"settings": map[string]any{"editor/run/main_run_args": "--headless"},
+	})
+
+	callToolOK(t, "create_scene", map[string]any{
+		"file_path":      scenePath,
+		"root_node_type": "Node",
+	})
+	callToolOK(t, "save_scene", nil)
+
+	t.Cleanup(func() {
+		client.CallTool(testContext(t), "stop_project", map[string]any{})
+	})
+
+	structured := callToolOK(t, "run_project", map[string]any{"scene": scenePath})
+	if structured["success"] != true {
+		t.Fatalf("run_project: %v", structured)
+	}
+	if !gameIsPlaying(t) {
+		t.Fatal("expected the game to be playing after run_project")
+	}
+}
+
+func gameIsPlaying(t *testing.T) bool {
+	t.Helper()
+
+	out := runEditorScript(t, `print("PLAYING:", EditorInterface.is_playing_scene())
+return OK`)
+
+	lines, _ := out["output"].([]any)
+	for _, line := range asStrings(lines) {
+		if rest, found := strings.CutPrefix(line, "PLAYING:"); found {
+			return strings.TrimSpace(rest) == "true"
+		}
+	}
+	t.Fatal("no PLAYING marker in editor script output")
+	return false
+}
+
 func settleEditor(t *testing.T) {
 	t.Helper()
 	runEditorScript(t, `await Engine.get_main_loop().process_frame

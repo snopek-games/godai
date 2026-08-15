@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[node name="Arena" type="Node2D"]
+
+[node name="Enemy1" type="Sprite2D" parent="." groups=["enemies"]]
+position = Vector2(200, 100)
+
+[node name="Enemy2" type="Sprite2D" parent="." groups=["enemies"]]
+position = Vector2(400, 100)
+
+[node name="Enemy3" type="Sprite2D" parent="."]
+position = Vector2(600, 100)
+
+[node name="Player" type="Sprite2D" parent="." groups=["enemies"]]
+position = Vector2(100, 300)

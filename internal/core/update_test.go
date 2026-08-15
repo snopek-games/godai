@@ -43,7 +43,7 @@ func recordingEditor(t *testing.T) (*godot.Connection, chan map[string]any) {
 	ws, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
 	is.NoErr(err)
 
-	conn := godot.NewConnection(ws, 1)
+	conn := godot.NewConnection(ws, 1, 0)
 	t.Cleanup(func() { conn.Close() })
 
 	return conn, received

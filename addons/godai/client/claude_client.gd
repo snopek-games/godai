@@ -21,6 +21,11 @@ const STOP_REASON_ERRORS = {
 
 const HTTP_REQUEST_META = 'godai_request'
 
+## Request options that only some models take, and which the model name (typed
+## into a setting by the user) doesn't tell us.
+const OPTION_ADAPTIVE_THINKING = "adaptive thinking"
+const OPTION_EFFORT = "effort"
+
 
 class MessageContent extends RefCounted:
 	var data: Dictionary
@@ -178,6 +183,9 @@ var tools: ToolManager
 ## runs. Returns a ToolAuth.Request. When unset, every tool runs unauthorized.
 var tool_use_authorizer: Callable
 
+# Model name -> the options it has already rejected, so we stop sending them.
+var _unsupported_options: Dictionary
+
 
 func _init() -> void:
 	pass
@@ -201,8 +209,10 @@ func _submit_request(p_request: Request) -> void:
 	data['max_tokens'] = p_request.max_tokens
 
 	if not p_request.effort.is_empty():
-		data['thinking'] = {type = "adaptive"}
-		data['output_config'] = {effort = p_request.effort}
+		if _supports(p_request.model, OPTION_ADAPTIVE_THINKING):
+			data['thinking'] = {type = "adaptive"}
+		if _supports(p_request.model, OPTION_EFFORT):
+			data['output_config'] = {effort = p_request.effort}
 
 	if tools and tools.tools.size() > 0:
 		data['tools'] = tools.tools.values().map(func (v): return v.to_dict())
@@ -247,7 +257,15 @@ func _on_request_completed(p_result: int, p_code: int, p_headers: PackedStringAr
 		resp.error = ResponseError.new("http_request_error", "Unable to make HTTP request")
 	elif p_code < 200 or p_code >= 300 or data.get("type") == "error":
 		var error: Dictionary = data.get("error", {})
-		resp.error = ResponseError.new(error.get("type", "unknown_error"), error.get("message", ""))
+		var message: String = error.get("message", "")
+
+		var unsupported := _get_rejected_option(message)
+		if not unsupported.is_empty() and _supports(req.model, unsupported):
+			_mark_unsupported(req.model, unsupported)
+			_submit_request(req)
+			return
+
+		resp.error = ResponseError.new(error.get("type", "unknown_error"), message)
 	else:
 		resp.payload = data
 
@@ -324,6 +342,36 @@ func _on_request_completed(p_result: int, p_code: int, p_headers: PackedStringAr
 
 	if complete:
 		req.resolve(resp)
+
+
+## The API says which option it rejected in the message; there's no field or
+## code for it.
+func _get_rejected_option(p_message: String) -> String:
+	var message := p_message.to_lower()
+
+	if message.contains("thinking.type.adaptive") \
+		or (message.contains("adaptive thinking") and message.contains("not supported")):
+		return OPTION_ADAPTIVE_THINKING
+
+	if message.contains("effort parameter") and message.contains("not support"):
+		return OPTION_EFFORT
+
+	return ""
+
+
+func dropped_options(p_model: String) -> Array:
+	return _unsupported_options.get(p_model, {}).keys()
+
+
+func _supports(p_model: String, p_option: String) -> bool:
+	return not _unsupported_options.get(p_model, {}).has(p_option)
+
+
+func _mark_unsupported(p_model: String, p_option: String) -> void:
+	push_warning("Model '%s' doesn't support %s: retrying without it." % [p_model, p_option])
+	if not _unsupported_options.has(p_model):
+		_unsupported_options[p_model] = {}
+	_unsupported_options[p_model][p_option] = true
 
 
 func _authorize_tool_use(p_name: String, p_input) -> bool:

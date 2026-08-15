@@ -1,0 +1,21 @@
+{
+  "id": "resize-heading-font",
+  "tags": ["resource", "easy"],
+
+  "timeout_sec": 600,
+  "max_budget_usd": 2.0,
+
+  "expected_actions": [
+    "get_resource_properties",
+    "set_resource_properties"
+  ],
+
+  "forbidden_actions": [
+    "execute_editor_script"
+  ],
+
+  "protected_paths": [
+    "project.godot",
+    "main.tscn"
+  ]
+}

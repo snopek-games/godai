@@ -146,10 +146,10 @@ func (s *Session) RestartEditor(ctx context.Context, projectPath string, args Ar
 	return nil
 }
 
-// closeDisconnectTimeout bounds how long we wait for the editor to drop its
-// connection after the user confirms the close (it still has to save and shut
-// down).
-const closeDisconnectTimeout = 120 * time.Second
+// closeShutdownTimeout bounds how long we wait for the editor to drop its
+// connection and exit after the user confirms the close (it still has to save
+// and shut down).
+const closeShutdownTimeout = 120 * time.Second
 
 func (s *Session) CloseEditor(ctx context.Context, projectPath string, args Args) error {
 	editor, err := s.EditorFor(projectPath)
@@ -161,10 +161,18 @@ func (s *Session) CloseEditor(ctx context.Context, projectPath string, args Args
 		return err
 	}
 
-	waitCtx, cancel := context.WithTimeout(ctx, closeDisconnectTimeout)
+	waitCtx, cancel := context.WithTimeout(ctx, closeShutdownTimeout)
 	defer cancel()
 	if err := s.waitForDisconnect(waitCtx, projectPath, editor.conn); err != nil {
 		return NewUserError("the editor did not disconnect after closing", err, nil)
+	}
+
+	// The editor saves its state (e.g. editor settings) during teardown, after
+	// the connection drops, so the close isn't done until the process is gone.
+	if pid := editor.conn.GetPID(); pid > 0 {
+		if err := godot.WaitForProcessExit(waitCtx, pid); err != nil {
+			return NewUserError("the editor did not exit after closing", err, nil)
+		}
 	}
 
 	s.unmarkHeadlessProject(projectPath)

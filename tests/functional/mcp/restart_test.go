@@ -145,4 +145,48 @@ func TestRestartEditor(t *testing.T) {
 
 	projects := listOpenProjects(t, inst.client)
 	is.Equal(projects[projectPath], "Restart Project")
+
+	// The relaunch rebuilds the command line, so a windowed editor coming back
+	// would mean the display-driver flags were lost.
+	current := callToolOKWith(t, inst.client, "get_current_project", map[string]any{
+		"project_path": projectPath,
+	})
+	is.Equal(current["headless"], true)
+
+	// An unsaved scene must not hang the restart on the editor's own
+	// save-confirmation dialog, which a headless editor can never answer.
+	callToolOKWith(t, inst.client, "create_scene", map[string]any{
+		"project_path":   projectPath,
+		"file_path":      "res://unsaved_restart.tscn",
+		"root_node_type": "Node2D",
+	})
+	callToolOKWith(t, inst.client, "add_node", map[string]any{
+		"project_path": projectPath,
+		"parent_path":  ".",
+		"node_type":    "Node2D",
+		"properties":   map[string]any{"name": "Unsaved"},
+	})
+
+	dirtyCtx, cancelDirty := context.WithTimeout(context.Background(), 150*time.Second)
+	defer cancelDirty()
+	res, err = inst.client.CallTool(dirtyCtx, "restart_editor", map[string]any{
+		"project_path": projectPath,
+		"skip_save":    true,
+	})
+	is.NoErr(err)
+	is.True(!res.IsError)
+
+	pidsDirty := getInstancePIDs(t, instancesDir)
+	newPID = false
+	for pid := range pidsDirty {
+		if !pidsAfter[pid] {
+			newPID = true
+		}
+	}
+	is.True(newPID)
+
+	current = callToolOKWith(t, inst.client, "get_current_project", map[string]any{
+		"project_path": projectPath,
+	})
+	is.Equal(current["headless"], true)
 }

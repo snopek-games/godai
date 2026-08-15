@@ -1,0 +1,23 @@
+{
+  "id": "enemy-groups",
+  "tags": ["scene", "groups", "easy"],
+
+  "timeout_sec": 600,
+  "max_budget_usd": 2.0,
+
+  "expected_actions": [
+    "open_scene",
+    "get_node_groups",
+    "add_to_group",
+    "remove_from_group",
+    "save_scene"
+  ],
+
+  "forbidden_actions": [
+    "execute_editor_script"
+  ],
+
+  "protected_paths": [
+    "project.godot"
+  ]
+}

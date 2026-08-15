@@ -1,0 +1,17 @@
+; Engine configuration file.
+
+config_version=5
+
+[application]
+
+config/name="Eval: save-open-script"
+run/main_scene="res://main.tscn"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/eval_unsaved/plugin.cfg")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

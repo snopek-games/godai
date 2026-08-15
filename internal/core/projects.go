@@ -209,7 +209,29 @@ type OpenProjectResult struct {
 	Headless    bool   `json:"headless"`
 }
 
+// InstallAddon installs and enables the godai addon in a project, exactly as
+// opening it would, but without launching an editor.
+func (s *Session) InstallAddon(path string) (string, error) {
+	realProjectPath, err := s.AllowedProjectPath(path)
+	if err != nil {
+		return "", err
+	}
+
+	project, err := godot.ProjectFromPath(realProjectPath)
+	if err != nil {
+		return "", NewUserError("invalid project", err, nil)
+	}
+
+	if err := setupAddon(project, s.config.Debug); err != nil {
+		return "", err
+	}
+	return realProjectPath, nil
+}
+
 func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProjectOptions) (*OpenProjectResult, error) {
+	opts.Headless = opts.Headless || s.config.ForceHeadless
+	opts.AutoApprove = opts.AutoApprove || s.config.ForceAutoApprove
+
 	realProjectPath, err := s.AllowedProjectPath(path)
 	if err != nil {
 		return nil, err
@@ -254,11 +276,8 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 		return nil, err
 	}
 
-	if err := installAddon(project, s.config.Debug); err != nil {
-		return nil, NewUserError("unable to install godai addon", err, nil)
-	}
-	if err := enableAddon(project); err != nil {
-		return nil, NewUserError("unable to enable godai addon in project.godot file", err, nil)
+	if err := setupAddon(project, s.config.Debug); err != nil {
+		return nil, err
 	}
 
 	args := []string{"--editor", "--path", realProjectPath}

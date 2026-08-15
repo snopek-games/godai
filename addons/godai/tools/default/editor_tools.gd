@@ -3,6 +3,7 @@ extends RefCounted
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolResult = ToolManager.ToolResult
 const DefaultTool = ToolManager.DefaultTool
+const EditorGlobals = preload("res://addons/godai/editor_globals.gd")
 const Utils = preload("res://addons/godai/utils.gd")
 const CustomLogger = preload("res://addons/godai/custom_logger.gd")
 const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
@@ -112,6 +113,9 @@ class EditorRestart extends DefaultTool:
 		return result
 
 	func _restart(p_save: bool) -> void:
+		# A running game is a separate process that would outlive the editor.
+		EditorInterface.stop_playing_scene()
+
 		if p_save:
 			EditorInterface.save_all_scenes()
 
@@ -120,8 +124,15 @@ class EditorRestart extends DefaultTool:
 		if OS.get_environment(DISABLE_CLOSE_ENV) != "":
 			return
 
-		# We've already saved above (if requested), so don't save again here.
-		EditorInterface.restart_editor(false)
+		# Not EditorInterface.restart_editor(): its unsaved-changes prompt has no
+		# user to answer it headless. OS.get_cmdline_args() strips --editor/--path
+		# (and the headless flags), so those are rebuilt and the rest kept.
+		var args := PackedStringArray(["--editor", "--path", ProjectSettings.globalize_path("res://").simplify_path()])
+		if DisplayServer.get_name() == "headless":
+			args.append_array(["--display-driver", "headless", "--audio-driver", "Dummy"])
+		args.append_array(OS.get_cmdline_args())
+		OS.set_restart_on_exit(true, args)
+		Engine.get_main_loop().quit()
 
 
 class EditorClose extends DefaultTool:
@@ -171,6 +182,9 @@ class EditorClose extends DefaultTool:
 		return result
 
 	func _close(p_save: bool) -> void:
+		# A running game is a separate process that would outlive the editor.
+		EditorInterface.stop_playing_scene()
+
 		if p_save:
 			EditorInterface.save_all_scenes()
 
@@ -183,25 +197,10 @@ class EditorClose extends DefaultTool:
 
 
 class LogGetMessages extends DefaultTool:
-	var logger: CustomLogger
-
-	func _init(p_data: Dictionary) -> void:
-		super._init(p_data)
-		logger = CustomLogger.new()
-		# Keep a bounded backlog of recent output, always capturing.
-		logger.max_messages = 1000
-		OS.add_logger(logger)
-		logger.start()
-
-	func _notification(p_what: int) -> void:
-		match p_what:
-			NOTIFICATION_PREDELETE:
-				OS.remove_logger(logger)
-
 	func execute(p_input) -> ToolResult:
 		var count := int(p_input.get('count', 100))
 
-		var messages := logger.get_messages()
+		var messages := EditorGlobals.logger.get_messages()
 		if count > 0 and messages.size() > count:
 			messages = messages.slice(messages.size() - count)
 

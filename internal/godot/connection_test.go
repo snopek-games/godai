@@ -37,7 +37,7 @@ func TestCallMethodOnADroppedConnection(t *testing.T) {
 		t.Fatalf("dialing the mock editor: %v", err)
 	}
 
-	conn := NewConnection(ws, 0)
+	conn := NewConnection(ws, 0, 0)
 	go conn.Run()
 	defer conn.Close()
 
@@ -90,7 +90,7 @@ func TestConnectionConcurrentWrites(t *testing.T) {
 		t.Fatalf("dialing the mock editor: %v", err)
 	}
 
-	conn := NewConnection(ws, 0)
+	conn := NewConnection(ws, 0, 0)
 	go conn.Run()
 	defer conn.Close()
 

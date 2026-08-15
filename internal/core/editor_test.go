@@ -46,7 +46,7 @@ func replyingEditor(t *testing.T, result string) *godot.Connection {
 	ws, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
 	is.NoErr(err)
 
-	conn := godot.NewConnection(ws, 1)
+	conn := godot.NewConnection(ws, 1, 0)
 	go conn.Run()
 	t.Cleanup(func() { conn.Close() })
 

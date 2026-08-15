@@ -18,6 +18,10 @@ config/name="Godai"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="uid://cegulex1888ld"
 
+[autoload]
+
+Godai="*uid://cx3445acrymoq"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/godai/plugin.cfg", "res://addons/gut/plugin.cfg")

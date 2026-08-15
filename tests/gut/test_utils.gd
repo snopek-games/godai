@@ -38,6 +38,18 @@ func test_decode_property_value() -> void:
 	decoded = Utils.decode_property_value("Hello", TYPE_STRING_NAME)
 	assert_eq(decoded.get("value"), &"Hello")
 
+	# Variant syntax works for them too, without the quotes becoming part of
+	# the value...
+	decoded = Utils.decode_property_value('"Hello World"', TYPE_STRING)
+	assert_eq(decoded.get("value"), "Hello World")
+
+	decoded = Utils.decode_property_value('"Hello"', TYPE_STRING_NAME)
+	assert_eq(decoded.get("value"), &"Hello")
+
+	# ... but a raw string that parses as some other type stays raw.
+	decoded = Utils.decode_property_value("true", TYPE_STRING)
+	assert_eq(decoded.get("value"), "true")
+
 	# Other types are parsed with str_to_var().
 	decoded = Utils.decode_property_value("Vector2(1, 2)", TYPE_VECTOR2)
 	assert_eq(decoded.get("value"), Vector2(1, 2))

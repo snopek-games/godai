@@ -24,6 +24,14 @@ func mcpCommand(configPath string) *cli.Command {
 				Name:  "no-update-check",
 				Usage: "don't check whether a newer release of godai is available",
 			},
+			&cli.BoolFlag{
+				Name:  "headless",
+				Usage: "launch any editors without visual or audio output, even when the agent doesn't ask for it",
+			},
+			&cli.BoolFlag{
+				Name:  "auto-approve",
+				Usage: "run tools in any launched editors without asking for approval",
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			return runServer(ctx, cmd, configPath)
@@ -53,6 +61,8 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 		GodotVersion:           cmd.String("godot-version"),
 		GodotVersionIsExplicit: cmd.IsSet("godot-version"),
 		NoAutoInstall:          cmd.Bool("no-auto-install"),
+		ForceHeadless:          cmd.Bool("headless"),
+		ForceAutoApprove:       cmd.Bool("auto-approve"),
 		ProjectBasePath:        cmd.String("project-base-path"),
 		X11Display:             cmd.String("x11-display"),
 		UpdateCheckInterval:    updateCheckInterval(cmd.Bool("no-update-check")),

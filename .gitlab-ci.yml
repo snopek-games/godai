@@ -3,6 +3,8 @@ stages:
   - build
   - package
   - release
+  # Last, so nothing waits for this stage.
+  - eval
 
 default:
   tags:
@@ -15,6 +17,7 @@ variables:
   CLI_BIN_NAME: "godai"
   MCPB_NAME: "godai-mcp"
   GO_VERSION: "1.25.12"
+  GODOT_VERSION: "4.6.3"
   GOPATH: "$CI_PROJECT_DIR/.go"
   GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
   CGO_ENABLED: "0"
@@ -37,15 +40,8 @@ go-test:
 godot-test:
   stage: test
   image: golang:${GO_VERSION}
-  variables:
-    GODOT_VERSION: "4.6.3"
   before_script:
-    - apt-get update && apt-get install -y --no-install-recommends unzip libfontconfig1
-    - wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-    - unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-    - mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
-    - rm "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-    - godot --version
+    - ./scripts/install-godot.sh
   script:
     - godot --headless --import
     # GUT exits zero when it doesn't find any tests, so check for that too.
@@ -243,3 +239,106 @@ release:
           url: "${PACKAGE_REGISTRY_URL}/godai-addon-${CI_COMMIT_TAG}.zip"
         - name: "checksums-${CI_COMMIT_TAG}.txt"
           url: "${PACKAGE_REGISTRY_URL}/checksums-${CI_COMMIT_TAG}.txt"
+
+# The eval jobs; see tests/eval/README.md.
+
+# Run this always: it's free, and our evaluation is invalid if the oracle stops working.
+eval-solution:
+  stage: eval
+  image: golang:${GO_VERSION}
+  needs: []
+  before_script:
+    - ./scripts/install-godot.sh
+  script:
+    - go run ./cmd/godai-eval run --solution --godot /usr/local/bin/godot --out results-solution.json
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - results-solution.json
+      - results-solution-transcripts/
+
+# The inverse of eval-solution: no agent runs at all, and every task has to
+# fail. A task that passes untouched has verifiers that check nothing.
+eval-pristine:
+  stage: eval
+  image: golang:${GO_VERSION}
+  needs: []
+  before_script:
+    - ./scripts/install-godot.sh
+  script:
+    - go run ./cmd/godai-eval run --pristine --godot /usr/local/bin/godot --out results-pristine.json
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - results-pristine.json
+
+eval-cells:
+  stage: eval
+  image: golang:${GO_VERSION}
+  needs: []
+  tags:
+    - saas-linux-small-amd64
+  rules:
+    - if: '$ANTHROPIC_API_KEY == null || $ANTHROPIC_API_KEY == ""'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - when: manual
+  allow_failure: true
+  timeout: 1h
+  variables:
+    # Pin Claude Code version and disable auto-updates.
+    CLAUDE_VERSION: "2.1.229"
+    DISABLE_AUTOUPDATER: "1"
+  before_script:
+    - scripts/install-godot.sh
+    - curl -fsSL https://claude.ai/install.sh | bash -s "$CLAUDE_VERSION"
+    - export PATH="$HOME/.local/bin:$PATH"
+    - claude --version
+  parallel:
+    matrix:
+      - MODEL: [haiku, sonnet]
+        SURFACE: [editor]
+      - MODEL: [haiku, sonnet]
+        SURFACE: [none, mcp, cli]
+        EXTRA: "--full-tools"
+  script:
+    - mkdir -p results
+    - |
+      go run ./cmd/godai-eval run \
+        --model "$MODEL" \
+        --surface "$SURFACE" \
+        --repeats 10 \
+        --godot /usr/local/bin/godot \
+        --out "results/${MODEL}-${SURFACE}.json" \
+        --verbose \
+        --bare \
+        $EXTRA
+  artifacts:
+    when: always
+    expire_in: 1 month
+    paths:
+      - results/
+
+eval-compare:
+  stage: eval
+  image: golang:${GO_VERSION}
+  tags:
+    - saas-linux-small-amd64
+  rules:
+    - if: '$ANTHROPIC_API_KEY == null || $ANTHROPIC_API_KEY == ""'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - when: on_success
+  needs:
+    - job: eval-cells
+      artifacts: true
+  script:
+    - go run ./cmd/godai-eval compare results/ --out eval-report.md
+  artifacts:
+    when: always
+    expire_in: 1 month
+    paths:
+      - eval-report.md
+      - results/

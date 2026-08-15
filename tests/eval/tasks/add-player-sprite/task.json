@@ -1,0 +1,23 @@
+{
+  "id": "add-player-sprite",
+  "tags": ["scene", "script", "easy"],
+
+  "timeout_sec": 600,
+  "max_budget_usd": 2.0,
+
+  "expected_actions": [
+    "open_scene",
+    "add_node",
+    "create_script",
+    "attach_script",
+    "save_scene"
+  ],
+
+  "forbidden_actions": [
+    "execute_editor_script"
+  ],
+
+  "protected_paths": [
+    "project.godot"
+  ]
+}

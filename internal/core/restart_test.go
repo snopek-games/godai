@@ -36,8 +36,8 @@ func TestWaitForEditorReconnect(t *testing.T) {
 		is := is.New(t)
 
 		s := newTestSession(t)
-		oldConn := godot.NewConnection(nil, 1)
-		newConn := godot.NewConnection(nil, 2)
+		oldConn := godot.NewConnection(nil, 1, 0)
+		newConn := godot.NewConnection(nil, 2, 0)
 		s.addEditor(projectPath, oldConn)
 
 		go func() {
@@ -63,7 +63,7 @@ func TestWaitForEditorReconnect(t *testing.T) {
 		// If the old connection is still present (hasn't dropped yet), we must
 		// keep waiting rather than returning it.
 		s := newTestSession(t)
-		oldConn := godot.NewConnection(nil, 1)
+		oldConn := godot.NewConnection(nil, 1, 0)
 		s.addEditor(projectPath, oldConn)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -77,7 +77,7 @@ func TestWaitForEditorReconnect(t *testing.T) {
 		is := is.New(t)
 
 		s := newTestSession(t)
-		oldConn := godot.NewConnection(nil, 1)
+		oldConn := godot.NewConnection(nil, 1, 0)
 		s.addEditor(projectPath, oldConn)
 		s.onEditorDisconnect(oldConn)
 
@@ -96,7 +96,7 @@ func TestWaitForEditorDisconnect(t *testing.T) {
 		is := is.New(t)
 
 		s := newTestSession(t)
-		oldConn := godot.NewConnection(nil, 1)
+		oldConn := godot.NewConnection(nil, 1, 0)
 		s.addEditor(projectPath, oldConn)
 
 		go func() {
@@ -116,8 +116,8 @@ func TestWaitForEditorDisconnect(t *testing.T) {
 
 		// A fresh connection for the same project also means the old one is gone.
 		s := newTestSession(t)
-		oldConn := godot.NewConnection(nil, 1)
-		newConn := godot.NewConnection(nil, 2)
+		oldConn := godot.NewConnection(nil, 1, 0)
+		newConn := godot.NewConnection(nil, 2, 0)
 		s.addEditor(projectPath, oldConn)
 
 		go func() {
@@ -137,7 +137,7 @@ func TestWaitForEditorDisconnect(t *testing.T) {
 		is := is.New(t)
 
 		s := newTestSession(t)
-		oldConn := godot.NewConnection(nil, 1)
+		oldConn := godot.NewConnection(nil, 1, 0)
 		s.addEditor(projectPath, oldConn)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)

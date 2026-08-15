@@ -29,6 +29,53 @@ func wrapHelp() {
 	}
 }
 
+// Both templates are copies of urfave/cli v3.6.1's, differing only in the
+// trailing section: a pointer to the root help instead of every global option.
+const commandHelpTemplate = `NAME:
+   {{template "helpNameTemplate" .}}
+
+USAGE:
+   {{template "usageTemplate" .}}{{if .Category}}
+
+CATEGORY:
+   {{.Category}}{{end}}{{if .Description}}
+
+DESCRIPTION:
+   {{template "descriptionTemplate" .}}{{end}}{{if .VisibleFlagCategories}}
+
+OPTIONS:{{template "visibleFlagCategoryTemplate" .}}{{else if .VisibleFlags}}
+
+OPTIONS:{{template "visibleFlagTemplate" .}}{{end}}{{if .VisiblePersistentFlags}}
+
+Global options also apply; run '{{.Root.Name}} --help' to list them.{{end}}
+`
+
+const subcommandHelpTemplate = `NAME:
+   {{template "helpNameTemplate" .}}
+
+USAGE:
+   {{if .UsageText}}{{wrap .UsageText 3}}{{else}}{{.FullName}}{{if .VisibleCommands}} [command [command options]]{{end}}{{if .ArgsUsage}} {{.ArgsUsage}}{{else}}{{if .Arguments}} [arguments...]{{end}}{{end}}{{end}}{{if .Category}}
+
+CATEGORY:
+   {{.Category}}{{end}}{{if .Description}}
+
+DESCRIPTION:
+   {{template "descriptionTemplate" .}}{{end}}{{if .VisibleCommands}}
+
+COMMANDS:{{template "visibleCommandTemplate" .}}{{end}}{{if .VisibleFlagCategories}}
+
+OPTIONS:{{template "visibleFlagCategoryTemplate" .}}{{else if .VisibleFlags}}
+
+OPTIONS:{{template "visibleFlagTemplate" .}}{{end}}{{if .VisiblePersistentFlags}}
+
+Global options also apply; run '{{.Root.Name}} --help' to list them.{{end}}
+`
+
+func trimHelpGlobals() {
+	cli.CommandHelpTemplate = commandHelpTemplate
+	cli.SubcommandHelpTemplate = subcommandHelpTemplate
+}
+
 func wrapHelpText(text string, offset int) string {
 	return wrapText(text, offset, helpWidth())
 }

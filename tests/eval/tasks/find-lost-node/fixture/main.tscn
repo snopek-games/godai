@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[node name="Main" type="Node2D"]
+
+[node name="Coin1" type="Sprite2D" parent="."]
+position = Vector2(120, 80)
+
+[node name="Coin2" type="Sprite2D" parent="."]
+position = Vector2(260, 140)
+
+[node name="Coin3" type="Sprite2D" parent="."]
+position = Vector2(99999, -42000)
+
+[node name="Coin4" type="Sprite2D" parent="."]
+position = Vector2(500, 90)

@@ -31,6 +31,8 @@ type Config struct {
 	GodotVersion           string
 	GodotVersionIsExplicit bool
 	NoAutoInstall          bool
+	ForceHeadless          bool
+	ForceAutoApprove       bool
 	ProjectBasePath        string
 	X11Display             string
 	UpdateCheckInterval    time.Duration

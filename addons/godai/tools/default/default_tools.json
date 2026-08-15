@@ -1553,6 +1553,8 @@
 				"",
 				"Option values are strings in Godot variant syntax (e.g. `2`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
 				"",
+				"An unknown option name fails the whole call. On error, nothing is changed.",
+				"",
 				"Use get_import_settings to see the available option names and the current importer."
 			],
 			"annotations": {
@@ -1601,7 +1603,7 @@
 		"get_editor_settings": {
 			"title": "Get Editor Settings",
 			"description": [
-				"Gets settings from the Godot editor itself (the values stored in the global editor configuration, e.g. 'interface/editor/code_font_size' or 'text_editor/appearance/whitespace/draw_tabs'). These are editor-wide preferences, not project settings.",
+				"Gets settings from the Godot editor itself (the values stored in the global editor configuration, e.g. 'text_editor/behavior/indent/size' or 'text_editor/appearance/whitespace/draw_tabs'). These are editor-wide preferences, not project settings.",
 				"",
 				"Pass 'names' to get specific settings by name (returned regardless of whether they match their default).",
 				"Otherwise, all settings are returned, but only those whose value differs from the default; pass 'include_defaults' as true to also include settings left at their default value.",
@@ -1652,7 +1654,7 @@
 			"description": [
 				"Changes settings in the Godot editor itself (editor-wide preferences, not project settings).",
 				"",
-				"Pass 'settings': a map of setting name (e.g. 'interface/editor/code_font_size') to value. Values are strings in Godot variant syntax (e.g. `16`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
+				"Pass 'settings': a map of setting name (e.g. 'text_editor/behavior/indent/size') to value. Values are strings in Godot variant syntax (e.g. `16`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
 				"",
 				"Use get_editor_settings to see the available setting names and their current values.",
 				"",
@@ -1698,9 +1700,7 @@
 			"description": [
 				"Gets recent log output from the editor (print() output, warnings, and errors) captured since the editor started.",
 				"",
-				"Messages are sorted oldest first.",
-				"",
-				"Note: Only includes messages from code run in the editor, not from running the project."
+				"Messages are sorted oldest first. Includes messages from both the editor and games run via `run_project`."
 			],
 			"annotations": {
 				"readOnlyHint": true,
@@ -1796,7 +1796,9 @@
 				"",
 				"The user is asked to confirm first, and the call fails if they decline. A headless editor restarts without asking.",
 				"",
-				"By default, unsaved changes are saved before restarting; pass 'skip_save' as true to discard them instead."
+				"By default, unsaved changes are saved before restarting; pass 'skip_save' as true to discard them instead.",
+				"",
+				"If the project is running, it is stopped first."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -1834,7 +1836,9 @@
 				"",
 				"The user is asked to confirm first, and the call fails if they decline. A headless editor closes without asking.",
 				"",
-				"By default, unsaved changes are saved before closing; pass 'skip_save' as true to discard them instead."
+				"By default, unsaved changes are saved before closing; pass 'skip_save' as true to discard them instead.",
+				"",
+				"If the project is running, it is stopped first."
 			],
 			"annotations": {
 				"readOnlyHint": false,

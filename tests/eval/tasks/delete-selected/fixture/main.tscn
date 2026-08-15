@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[node name="Main" type="Node2D"]
+
+[node name="Keep1" type="Sprite2D" parent="."]
+position = Vector2(80, 80)
+
+[node name="Crate1" type="Sprite2D" parent="."]
+position = Vector2(200, 120)
+
+[node name="Crate2" type="Sprite2D" parent="."]
+position = Vector2(260, 120)
+
+[node name="Keep2" type="Sprite2D" parent="."]
+position = Vector2(400, 200)
