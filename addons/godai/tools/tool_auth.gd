@@ -81,11 +81,11 @@ static func needs_authorization(p_tool: ToolManager.Tool) -> bool:
 
 
 static func denied_result(p_tool_name: String) -> ToolManager.ToolResult:
-	return ToolManager.ToolResult.rejected({error = DENIED_MESSAGE % p_tool_name})
+	return ToolManager.ToolResult.rejected({errors = [DENIED_MESSAGE % p_tool_name]})
 
 
 static func timed_out_result(p_tool_name: String) -> ToolManager.ToolResult:
-	return ToolManager.ToolResult.rejected({error = TIMED_OUT_MESSAGE % p_tool_name})
+	return ToolManager.ToolResult.rejected({errors = [TIMED_OUT_MESSAGE % p_tool_name]})
 
 
 func get_decision(p_tool_name: String) -> Decision:

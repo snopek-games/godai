@@ -28,11 +28,11 @@ class EditorGetSettings extends DefaultTool:
 
 		for name in names:
 			if GodaiEditorSettings.is_godai_setting(name):
-				return ToolResult.rejected({error = GODAI_SETTING_MESSAGE % name})
+				return ToolResult.rejected({errors = [GODAI_SETTING_MESSAGE % name]})
 
 		var result := Utils.get_settings_map(EditorInterface.get_editor_settings(), names, include_defaults)
 		if result.has('error'):
-			return ToolResult.rejected({error = result['error']})
+			return ToolResult.rejected({errors = [result['error']]})
 
 		# Only has anything to do when 'names' was empty, since named Godai
 		# settings are rejected above.
@@ -50,13 +50,13 @@ class EditorSetSettings extends DefaultTool:
 
 		for name in settings:
 			if GodaiEditorSettings.is_godai_setting(name):
-				return ToolResult.rejected({error = GODAI_SETTING_MESSAGE % name})
+				return ToolResult.rejected({errors = [GODAI_SETTING_MESSAGE % name]})
 
 		var editor_settings := EditorInterface.get_editor_settings()
 
 		var result := Utils.decode_settings(editor_settings, settings)
-		if result.has('error'):
-			return ToolResult.rejected({error = result['error']})
+		if result.has('errors'):
+			return ToolResult.rejected({errors = result['errors']})
 
 		# The editor has no API to force editor settings to disk; it persists
 		# them itself (e.g. on shutdown). set_setting takes effect immediately.
@@ -100,7 +100,7 @@ class EditorRestart extends DefaultTool:
 		# Both the cancel button and closing the dialog (Escape / window close)
 		# count as declining the restart.
 		var on_canceled := func () -> void:
-			result.reject({error = "The user declined to restart the editor"})
+			result.reject({errors = ["The user declined to restart the editor"]})
 		dialog.canceled.connect(on_canceled)
 		dialog.close_requested.connect(on_canceled)
 		# Clean up the dialog once it's dismissed, however that happened.
@@ -169,7 +169,7 @@ class EditorClose extends DefaultTool:
 		# Both the cancel button and closing the dialog (Escape / window close)
 		# count as declining to close the editor.
 		var on_canceled := func () -> void:
-			result.reject({error = "The user declined to close the editor"})
+			result.reject({errors = ["The user declined to close the editor"]})
 		dialog.canceled.connect(on_canceled)
 		dialog.close_requested.connect(on_canceled)
 		# Clean up the dialog once it's dismissed, however that happened.
@@ -257,11 +257,11 @@ func __user_code() -> Error:
 
 		var main_loop = Engine.get_main_loop()
 		if not main_loop is SceneTree:
-			return ToolResult.rejected({error = "No scene tree"})
+			return ToolResult.rejected({errors = ["No scene tree"]})
 
 		var root_node: Node = main_loop.get_root()
 		if not root_node:
-			return ToolResult.rejected({error = "No root node"})
+			return ToolResult.rejected({errors = ["No root node"]})
 
 		var full_source = SCRIPT_TEMPLATE.replace('{user_code}', _process_user_code(code))
 
@@ -272,7 +272,7 @@ func __user_code() -> Error:
 
 		var script_error = script.reload()
 		if script_error != OK:
-			return ToolResult.rejected({error = "Script failed to parse", output = logger.stop()})
+			return ToolResult.rejected({errors = ["Script failed to parse"], output = logger.stop()})
 
 		var script_node = Node.new()
 		script_node.name = "EditorScriptNode"
@@ -281,7 +281,7 @@ func __user_code() -> Error:
 
 		if not script_node.has_method("__run") or not script_node.has_signal("__run_completed"):
 			script_node.queue_free()
-			return ToolResult.rejected({error = "Script parsed but is malformed"})
+			return ToolResult.rejected({errors = ["Script parsed but is malformed"]})
 
 		var result := ToolResult.new()
 
@@ -329,6 +329,6 @@ func __user_code() -> Error:
 		if p_success:
 			p_result.resolve({success = true, output = logger.stop()})
 		else:
-			p_result.reject({error = "Failed to execute script", output = logger.stop()})
+			p_result.reject({errors = ["Failed to execute script"], output = logger.stop()})
 
 		p_script_node.queue_free()

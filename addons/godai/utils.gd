@@ -55,9 +55,56 @@ static func decode_property_value(p_raw: Variant, p_expected_type: int) -> Dicti
 		if p_expected_type == TYPE_NIL:
 			# Variant or unknown property type: fall back to the raw string.
 			return { value = string_value }
-		return { error = 'Cannot parse "%s" as a Godot variant. Examples of valid values: 5, 2.5, true, Vector2(1, 2), Color(1, 0, 0, 1), Resource("res://path/to/file.tres"), Object(SphereMesh,"radius":2.0)' % string_value }
+		var prefix_error := _unknown_type_prefix_error(string_value)
+		if not prefix_error.is_empty():
+			return { error = prefix_error }
+		return { error = 'Cannot parse "%s" as a Godot variant. Examples of valid values: 5, 2.5, true, Vector2(1, 2), Color(1, 0, 0, 1), Resource("res://path/to/file.tres"), Object(SphereMesh,"radius":2.0). Packed arrays take a flat list of components, so: PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1) is two colors (r,g,b,a, r,g,b,a)' % string_value }
 
 	return { value = parsed }
+
+
+## Includes the Object/Resource forms decode_property_value adds on top of variant syntax.
+const _VARIANT_TYPE_PREFIXES := [
+	"Vector2", "Vector2i", "Vector3", "Vector3i", "Vector4", "Vector4i",
+	"Rect2", "Rect2i", "Transform2D", "Plane", "Quaternion", "AABB",
+	"Basis", "Transform3D", "Projection", "Color", "NodePath", "StringName",
+	"PackedByteArray", "PackedInt32Array", "PackedInt64Array",
+	"PackedFloat32Array", "PackedFloat64Array", "PackedStringArray",
+	"PackedVector2Array", "PackedVector3Array", "PackedColorArray",
+	"PackedVector4Array",
+	"Object", "Resource",
+]
+
+## Returns "" when the prefix is a valid variant type (or there is none).
+static func _unknown_type_prefix_error(p_value: String) -> String:
+	# Compiled here rather than kept in a static var: a script reload resets
+	# statics without re-running their initializers, leaving them null.
+	var type_prefix_regex := RegEx.create_from_string("^([A-Za-z_][A-Za-z0-9_]*)\\s*\\(")
+	var m := type_prefix_regex.search(p_value.strip_edges())
+	if not m:
+		return ""
+	var prefix := m.get_string(1)
+	if prefix in _VARIANT_TYPE_PREFIXES:
+		return ""
+
+	# Negated score, so the plain ascending sort is best-first with ties
+	# broken by declaration order.
+	var scored := []
+	for i in range(_VARIANT_TYPE_PREFIXES.size()):
+		var candidate: String = _VARIANT_TYPE_PREFIXES[i]
+		scored.append([-candidate.similarity(prefix), i, candidate])
+	scored.sort()
+
+	var suggestions := PackedStringArray()
+	for s in scored:
+		if -s[0] >= 0.5 and suggestions.size() < 3:
+			suggestions.append(s[2])
+
+	var msg := '"%s" is not a variant type.' % prefix
+	if not suggestions.is_empty():
+		msg += " Did you mean %s?" % " or ".join(suggestions)
+	msg += " Valid types: %s" % ", ".join(_VARIANT_TYPE_PREFIXES)
+	return msg
 
 
 ## Godot's variant parser wants a comma after the class name of an `Object(...)`,
@@ -76,14 +123,63 @@ static func _add_object_comma(p_value: String) -> String:
 	return "Object(%s,)" % object_class
 
 
+const _ARRAY_TYPES := [TYPE_ARRAY, TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_STRING_ARRAY, TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_COLOR_ARRAY, TYPE_PACKED_VECTOR4_ARRAY]
+
+
+## Compares two property values, tolerating the float noise a value picks up on
+## its way through variant syntax and float32 storage.
+static func values_equal_approx(p_a: Variant, p_b: Variant) -> bool:
+	var type_a := typeof(p_a)
+	var type_b := typeof(p_b)
+
+	if type_a == TYPE_INT and type_b == TYPE_INT:
+		return p_a == p_b
+
+	# set() coerces numbers into bool properties, so a correct set of a bool
+	# property with "1" reads back as true.
+	if TYPE_BOOL in [type_a, type_b] and type_a in [TYPE_BOOL, TYPE_INT, TYPE_FLOAT] and type_b in [TYPE_BOOL, TYPE_INT, TYPE_FLOAT]:
+		return float(p_a) == float(p_b)
+
+	if type_a in [TYPE_INT, TYPE_FLOAT] and type_b in [TYPE_INT, TYPE_FLOAT]:
+		return is_equal_approx(p_a, p_b)
+
+	if type_a in _ARRAY_TYPES and type_b in _ARRAY_TYPES:
+		if p_a.size() != p_b.size():
+			return false
+		for i in range(p_a.size()):
+			if not values_equal_approx(p_a[i], p_b[i]):
+				return false
+		return true
+
+	if type_a != type_b:
+		if type_a in [TYPE_STRING, TYPE_STRING_NAME] and type_b in [TYPE_STRING, TYPE_STRING_NAME]:
+			return str(p_a) == str(p_b)
+		return false
+
+	match type_a:
+		TYPE_VECTOR2, TYPE_VECTOR3, TYPE_VECTOR4, TYPE_QUATERNION, TYPE_COLOR, TYPE_RECT2, TYPE_PLANE, TYPE_AABB, TYPE_BASIS, TYPE_TRANSFORM2D, TYPE_TRANSFORM3D:
+			return p_a.is_equal_approx(p_b)
+		TYPE_DICTIONARY:
+			if p_a.size() != p_b.size():
+				return false
+			for key in p_a:
+				if not p_b.has(key) or not values_equal_approx(p_a[key], p_b[key]):
+					return false
+			return true
+		_:
+			return p_a == p_b
+
+
 ## Resolves a colon-separated property path (e.g. "mesh:radius") on an object,
 ## validating each segment along the way.
+##
+## Pass the same p_prop_cache Dictionary for every path in a request so each object's property list is fetched only once.
 ##
 ## Returns a Dictionary with 'value' (the current value at the path) and
 ## 'expected_type' (the declared Variant.Type of the final property, or
 ## TYPE_NIL if unknown) keys, or an 'error' key with a message that can be
 ## sent back to the AI.
-static func resolve_property_path(p_object: Object, p_path: String) -> Dictionary:
+static func resolve_property_path(p_object: Object, p_path: String, p_prop_cache: Dictionary = {}) -> Dictionary:
 	var segments := p_path.split(":")
 	var walked := ""
 
@@ -103,31 +199,62 @@ static func resolve_property_path(p_object: Object, p_path: String) -> Dictionar
 				expected_type = TYPE_NIL,
 			}
 
-		var expected_type := TYPE_NIL
-		var found := false
-		for prop in current.get_property_list():
-			if prop['usage'] & (PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SUBGROUP | PROPERTY_USAGE_CATEGORY):
-				continue
-			if prop['name'] == seg:
-				expected_type = prop['type']
-				found = true
-				break
+		var props := _object_property_types(current, p_prop_cache)
 
 		# Metadata properties only appear in the property list once set, so
 		# allow setting new ones.
-		if not found and not (is_last and seg.begins_with("metadata/")):
-			return { error = "%s has no property named '%s'" % [current.get_class(), seg] }
+		if not props.has(seg) and not (is_last and seg.begins_with("metadata/")):
+			return { error = "%s has no property named '%s'%s" % [current.get_class(), seg, _property_suggestion(seg, props)] }
 
 		if is_last:
 			return {
 				value = current.get(seg),
-				expected_type = expected_type,
+				expected_type = props.get(seg, TYPE_NIL),
 			}
 
 		current = current.get(seg)
 		walked = seg if walked.is_empty() else walked + ":" + seg
 
 	return { error = "Empty property path" }
+
+
+## Maps the object's property names to their declared types, skipping the
+## grouping pseudo-properties. Cached in p_cache by instance ID.
+static func _object_property_types(p_object: Object, p_cache: Dictionary) -> Dictionary:
+	var id := p_object.get_instance_id()
+	if p_cache.has(id):
+		return p_cache[id]
+
+	var props := {}
+	for prop in p_object.get_property_list():
+		if prop['usage'] & (PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SUBGROUP | PROPERTY_USAGE_CATEGORY):
+			continue
+		if not props.has(prop['name']):
+			props[prop['name']] = prop['type']
+
+	p_cache[id] = props
+	return props
+
+
+## A " - did you mean ...?" suffix with the property names most similar to
+## p_name, or "" when nothing comes close.
+static func _property_suggestion(p_name: String, p_props: Dictionary) -> String:
+	var scored := []
+	var index := 0
+	for candidate in p_props:
+		if not candidate.begins_with("_"):
+			scored.append([-candidate.similarity(p_name), index, candidate])
+		index += 1
+	scored.sort()
+
+	var suggestions := PackedStringArray()
+	for s in scored:
+		if -s[0] >= 0.5 and suggestions.size() < 3:
+			suggestions.append("'%s'" % s[2])
+
+	if suggestions.is_empty():
+		return ""
+	return " - did you mean %s?" % " or ".join(suggestions)
 
 
 ## Builds a map of property name to encoded value for the given object,
@@ -213,7 +340,7 @@ static func is_setting_modified(p_settings: Object, p_name: String) -> bool:
 ## whole batch.
 ##
 ## Returns a Dictionary with either a 'values' key (the decoded name -> Variant
-## map), or an 'error' key with a message that can be sent back to the AI.
+## map), or an 'errors' key with messages that can be sent back to the AI.
 static func decode_settings(p_settings: Object, p_values: Dictionary) -> Dictionary:
 	var decoded := {}
 	var errors := PackedStringArray()
@@ -232,7 +359,7 @@ static func decode_settings(p_settings: Object, p_values: Dictionary) -> Diction
 			decoded[name] = result['value']
 
 	if not errors.is_empty():
-		return { error = "Nothing was changed, due to the following errors:\n" + "\n".join(errors) }
+		return { errors = errors }
 
 	return { values = decoded }
 

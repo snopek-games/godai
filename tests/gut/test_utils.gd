@@ -96,6 +96,59 @@ func test_decode_property_value() -> void:
 	decoded = Utils.decode_property_value("not a variant", TYPE_NIL)
 	assert_eq(decoded.get("value"), "not a variant")
 
+	decoded = Utils.decode_property_value("PackedFloatArray(0, 1)", TYPE_PACKED_FLOAT32_ARRAY)
+	assert_string_contains(decoded.get("error", ""), '"PackedFloatArray" is not a variant type')
+	assert_string_contains(decoded.get("error", ""), "Did you mean PackedFloat32Array")
+
+	decoded = Utils.decode_property_value("Frobnicate(1)", TYPE_VECTOR2)
+	assert_string_contains(decoded.get("error", ""), '"Frobnicate" is not a variant type')
+	assert_string_contains(decoded.get("error", ""), "Valid types:")
+
+	decoded = Utils.decode_property_value("Vector2(1 2)", TYPE_VECTOR2)
+	assert_string_contains(decoded.get("error", ""), "Cannot parse")
+
+	decoded = Utils.decode_property_value("PackedFloatArray(0, 1)", TYPE_NIL)
+	assert_eq(decoded.get("value"), "PackedFloatArray(0, 1)")
+
+
+func test_values_equal_approx() -> void:
+	# Numbers compare across int/float, with float32 round-trip noise tolerated.
+	assert_true(Utils.values_equal_approx(1, 1.0))
+	assert_true(Utils.values_equal_approx(0.1, 0.100000001490116))
+	assert_false(Utils.values_equal_approx(0.1, 0.11))
+
+	# Two ints compare exactly: the approximate comparison is relative, so at
+	# large magnitudes it would call genuinely different ints equal.
+	assert_true(Utils.values_equal_approx(10000000, 10000000))
+	assert_false(Utils.values_equal_approx(10000000, 10000007))
+
+	# Strings and StringNames compare by content; a string is never a number.
+	assert_true(Utils.values_equal_approx("Hello", &"Hello"))
+	assert_false(Utils.values_equal_approx("1", 1))
+
+	assert_true(Utils.values_equal_approx(true, 1))
+	assert_true(Utils.values_equal_approx(0, false))
+	assert_true(Utils.values_equal_approx(true, 1.0))
+	assert_false(Utils.values_equal_approx(true, 2))
+	assert_false(Utils.values_equal_approx(false, 1))
+
+	assert_true(Utils.values_equal_approx(Vector2(0.1, 0.2), Vector2(0.100000001, 0.200000003)))
+	assert_false(Utils.values_equal_approx(Vector2(1, 2), Vector2(1, 3)))
+	assert_true(Utils.values_equal_approx(Color(0.5, 0.25, 0.125), Color(0.5, 0.25, 0.125)))
+
+	assert_true(Utils.values_equal_approx(PackedFloat32Array([0.1, 0.2]), [0.100000001490116, 0.2]))
+	assert_false(Utils.values_equal_approx([1, 2], [1, 2, 3]))
+
+	assert_true(Utils.values_equal_approx({a = 0.1}, {a = 0.100000001490116}))
+	assert_false(Utils.values_equal_approx({a = 1}, {b = 1}))
+
+	# Objects compare by reference.
+	var mesh := SphereMesh.new()
+	assert_true(Utils.values_equal_approx(mesh, mesh))
+	assert_false(Utils.values_equal_approx(mesh, SphereMesh.new()))
+	assert_false(Utils.values_equal_approx(mesh, null))
+	assert_true(Utils.values_equal_approx(null, null))
+
 
 func test_resolve_property_path() -> void:
 	var resolved: Dictionary
@@ -116,6 +169,16 @@ func test_resolve_property_path() -> void:
 	# An unknown property is an error.
 	resolved = Utils.resolve_property_path(node, "no_such_prop")
 	assert_string_contains(resolved.get("error", ""), "no property named 'no_such_prop'")
+
+	resolved = Utils.resolve_property_path(node, "positon")
+	assert_string_contains(resolved.get("error", ""), "no property named 'positon'")
+	assert_string_contains(resolved.get("error", ""), "did you mean 'position'")
+
+	var cache := {}
+	Utils.resolve_property_path(node, "position", cache)
+	assert_eq(cache.size(), 1)
+	Utils.resolve_property_path(node, "rotation", cache)
+	assert_eq(cache.size(), 1)
 
 	# ... including in the middle of a path.
 	resolved = Utils.resolve_property_path(node, "no_such_prop:x")

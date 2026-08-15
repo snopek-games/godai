@@ -17,6 +17,7 @@ func TestToolResultForError(t *testing.T) {
 	is.True(r.IsError)
 	is.Equal(len(r.Content), 1)
 	is.Equal(r.Content[0].Text, "nope")
+	is.Equal(string(r.StructuredContent), `{"errors":["nope"]}`)
 
 	// With solutions: a second block listing each one.
 	r = toolResultForError(core.NewUserError("nope", nil, []string{"do X", "do Y"}))

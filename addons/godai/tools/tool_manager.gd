@@ -281,7 +281,7 @@ func execute_tool(p_name: String, p_input) -> ToolResult:
 
 	var input_error := tool_obj.check_input(p_input)
 	if not input_error.is_empty():
-		return ToolResult.rejected({error = input_error})
+		return ToolResult.rejected({errors = [input_error]})
 
 	if not _current:
 		var result: ToolResult = tool_obj.execute(p_input)

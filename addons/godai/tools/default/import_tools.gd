@@ -32,7 +32,7 @@ class ImportReimport extends DefaultTool:
 			resolved_paths.append(path)
 
 		if not errors.is_empty():
-			return ToolResult.rejected({error = "Nothing was reimported, due to the following errors:\n" + "\n".join(errors)})
+			return ToolResult.rejected({errors = errors})
 
 		EditorInterface.get_resource_filesystem().reimport_files(resolved_paths)
 
@@ -45,13 +45,13 @@ class ImportGetSettings extends DefaultTool:
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
+			return ToolResult.rejected({errors = ["'file_path' must be inside the project (res://)"]})
 		if not FileAccess.file_exists(file_path):
-			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
+			return ToolResult.rejected({errors = ["'%s' doesn't exist" % file_path]})
 
 		var import_path := file_path + ".import"
 		if not FileAccess.file_exists(import_path):
-			return ToolResult.rejected({error = "'%s' has no import settings (it isn't an imported asset)" % file_path})
+			return ToolResult.rejected({errors = ["'%s' has no import settings (it isn't an imported asset)" % file_path]})
 
 		# Re-import the file, which should update the .import file to include all options.
 		EditorInterface.get_resource_filesystem().reimport_files(PackedStringArray([file_path]))
@@ -59,7 +59,7 @@ class ImportGetSettings extends DefaultTool:
 		var cfg := ConfigFile.new()
 		var err := cfg.load(import_path)
 		if err != OK:
-			return ToolResult.rejected({error = "Failed to read import settings: %s" % error_string(err)})
+			return ToolResult.rejected({errors = ["Failed to read import settings: %s" % error_string(err)]})
 
 		var importer := ""
 		if cfg.has_section_key("remap", "importer"):
@@ -84,13 +84,13 @@ class ImportSetSettings extends DefaultTool:
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
+			return ToolResult.rejected({errors = ["'file_path' must be inside the project (res://)"]})
 		if not FileAccess.file_exists(file_path):
-			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
+			return ToolResult.rejected({errors = ["'%s' doesn't exist" % file_path]})
 
 		var import_path := file_path + ".import"
 		if not FileAccess.file_exists(import_path):
-			return ToolResult.rejected({error = "'%s' has no import settings (it isn't an imported asset)" % file_path})
+			return ToolResult.rejected({errors = ["'%s' has no import settings (it isn't an imported asset)" % file_path]})
 
 		# Re-import the file, which should update the .import file to include all options.
 		EditorInterface.get_resource_filesystem().reimport_files(PackedStringArray([file_path]))
@@ -98,14 +98,14 @@ class ImportSetSettings extends DefaultTool:
 		var cfg := ConfigFile.new()
 		var err := cfg.load(import_path)
 		if err != OK:
-			return ToolResult.rejected({error = "Failed to read import settings: %s" % error_string(err)})
+			return ToolResult.rejected({errors = ["Failed to read import settings: %s" % error_string(err)]})
 
 		if not importer.is_empty():
 			cfg.set_value("remap", "importer", importer)
 
 		for key in options:
 			if not cfg.has_section_key("params", key):
-				return ToolResult.rejected({error = "unknown import setting '%s'" % key})
+				return ToolResult.rejected({errors = ["unknown import setting '%s'" % key]})
 
 			# The expected type isn't known here, so fall back to the raw
 			# string when the value isn't valid variant syntax.
@@ -114,7 +114,7 @@ class ImportSetSettings extends DefaultTool:
 
 		err = cfg.save(import_path)
 		if err != OK:
-			return ToolResult.rejected({error = "Failed to write import settings: %s" % error_string(err)})
+			return ToolResult.rejected({errors = ["Failed to write import settings: %s" % error_string(err)]})
 
 		EditorInterface.get_resource_filesystem().reimport_files(PackedStringArray([file_path]))
 

@@ -48,11 +48,11 @@ class ProjectGetSettings extends DefaultTool:
 
 		for name in names:
 			if GodaiEditorSettings.is_godai_project_setting(name):
-				return ToolResult.rejected({error = GODAI_SETTING_MESSAGE % name})
+				return ToolResult.rejected({errors = [GODAI_SETTING_MESSAGE % name]})
 
 		var result := Utils.get_settings_map(ProjectSettings, names, include_defaults)
 		if result.has('error'):
-			return ToolResult.rejected({error = result['error']})
+			return ToolResult.rejected({errors = [result['error']]})
 
 		# Only has anything to do when 'names' was empty, since named Godai
 		# overrides are rejected above.
@@ -70,11 +70,11 @@ class ProjectSetSettings extends DefaultTool:
 
 		for name in settings:
 			if GodaiEditorSettings.is_godai_project_setting(name):
-				return ToolResult.rejected({error = GODAI_SETTING_MESSAGE % name})
+				return ToolResult.rejected({errors = [GODAI_SETTING_MESSAGE % name]})
 
 		var result := Utils.decode_settings(ProjectSettings, settings)
-		if result.has('error'):
-			return ToolResult.rejected({error = result['error']})
+		if result.has('errors'):
+			return ToolResult.rejected({errors = result['errors']})
 
 		var values: Dictionary = result['values']
 		for name in values:
@@ -82,7 +82,7 @@ class ProjectSetSettings extends DefaultTool:
 
 		var err := ProjectSettings.save()
 		if err != OK:
-			return ToolResult.rejected({error = "Failed to save project settings: %s" % error_string(err)})
+			return ToolResult.rejected({errors = ["Failed to save project settings: %s" % error_string(err)]})
 
 		return ToolResult.resolved({success = true})
 
@@ -95,18 +95,18 @@ class ProjectRun extends DefaultTool:
 		if scene.is_empty() or scene == "main":
 			var main_scene: String = ProjectSettings.get_setting("application/run/main_scene", "")
 			if main_scene.is_empty():
-				return ToolResult.rejected({error = "No main scene is configured; pass 'scene' set to 'current' or a scene path"})
+				return ToolResult.rejected({errors = ["No main scene is configured; pass 'scene' set to 'current' or a scene path"]})
 			play = EditorInterface.play_main_scene
 		elif scene == "current":
 			if not EditorInterface.get_edited_scene_root():
-				return ToolResult.rejected({error = "No scene open"})
+				return ToolResult.rejected({errors = ["No scene open"]})
 			play = EditorInterface.play_current_scene
 		else:
 			var scene_path := Utils.to_res_path(scene)
 			if scene_path.is_empty():
-				return ToolResult.rejected({error = "'scene' must be inside the project (res://)"})
+				return ToolResult.rejected({errors = ["'scene' must be inside the project (res://)"]})
 			if not FileAccess.file_exists(scene_path):
-				return ToolResult.rejected({error = "'%s' doesn't exist" % scene_path})
+				return ToolResult.rejected({errors = ["'%s' doesn't exist" % scene_path]})
 			play = EditorInterface.play_custom_scene.bind(scene_path)
 
 		if bool(p_input.get('clear_log_messages', false)):

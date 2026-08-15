@@ -4,6 +4,9 @@ const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolResult = ToolManager.ToolResult
 const DefaultTool = ToolManager.DefaultTool
 const Utils = preload("res://addons/godai/utils.gd")
+const VerifiedPropertyTool = preload("res://addons/godai/tools/default/verified_property_tool.gd")
+
+const UNSAVED_SCENE_NOTE := "the scene has unsaved changes - call save_scene once you're done editing to persist them"
 
 
 static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
@@ -28,12 +31,12 @@ class NodeGetProperties extends DefaultTool:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		# Resolve all the nodes up front: if any node path is missing, we reject
 		# the whole call.
 		var targets := []
-		var missing := PackedStringArray()
+		var errors := PackedStringArray()
 
 		for node_path in node_paths:
 			# The node path can carry a colon-separated property path (e.g.
@@ -46,7 +49,7 @@ class NodeGetProperties extends DefaultTool:
 
 			var node := edited_scene_root.get_node_or_null(base_path)
 			if not node:
-				missing.append(node_path)
+				errors.append("Cannot find node in 'node_paths': %s" % node_path)
 				continue
 
 			targets.append({
@@ -55,10 +58,11 @@ class NodeGetProperties extends DefaultTool:
 				property_path = property_path,
 			})
 
-		if not missing.is_empty():
-			return ToolResult.rejected({error = "Cannot find node(s) in 'node_paths': " + ", ".join(missing)})
+		if not errors.is_empty():
+			return ToolResult.rejected({errors = errors})
 
 		var results := {}
+		var prop_cache := {}
 
 		for target in targets:
 			var node_path: String = target['node_path']
@@ -68,7 +72,7 @@ class NodeGetProperties extends DefaultTool:
 				results[node_path] = Utils.get_property_map(target['node'], modified_only)
 				continue
 
-			var resolved := Utils.resolve_property_path(target['node'], property_path)
+			var resolved := Utils.resolve_property_path(target['node'], property_path, prop_cache)
 			if resolved.has("error"):
 				results[node_path] = { error = resolved['error'] }
 			elif resolved['value'] is Object:
@@ -79,21 +83,28 @@ class NodeGetProperties extends DefaultTool:
 		return ToolResult.resolved(results)
 
 
-class NodeSetProperties extends DefaultTool:
+class NodeSetProperties extends VerifiedPropertyTool:
+	func get_properties_tool_name() -> String:
+		return "get_node_properties"
+
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		var action: String = p_input.get('action', '')
 		var edits: Dictionary = p_input.get('nodes', {})
 
 		var errors := PackedStringArray()
+		var warnings := PackedStringArray()
 		var ops := []
+		var prop_cache := {}
 
-		# Resolve and decode everything up front: if any node path or property is
-		# invalid, we reject the whole call without changing anything.
+		logger.start()
+
+		# Each property is prepared and set independently: one bad property
+		# doesn't stop the others from being attempted.
 		for node_path in edits:
 			var props = edits[node_path]
 			if not props is Dictionary:
@@ -116,33 +127,18 @@ class NodeSetProperties extends DefaultTool:
 			for prop_name in props:
 				var full_path: String = prop_name if path_prefix.is_empty() else path_prefix + ":" + prop_name
 
-				var resolved := Utils.resolve_property_path(node, full_path)
-				if resolved.has("error"):
-					errors.append("%s / %s: %s" % [node_path, prop_name, resolved['error']])
+				var prepared := prepare_property_op(node, full_path, props[prop_name], prop_cache)
+				if prepared.has("error"):
+					errors.append("%s / %s: %s" % [node_path, prop_name, prepared['error']])
 					continue
 
-				var decoded := Utils.decode_property_value(props[prop_name], resolved['expected_type'])
-				if decoded.has("error"):
-					errors.append("%s / %s: %s" % [node_path, prop_name, decoded['error']])
-					continue
+				var op: Dictionary = prepared['op']
+				op['object'] = node
+				op['label'] = "%s / %s" % [node_path, prop_name]
+				ops.append(op)
 
-				# Setting 'script' is another way to attach one, so it gets the
-				# same check attach_script makes.
-				if full_path == "script":
-					var script_error := Utils.check_script_for_node(node, decoded['value'])
-					if not script_error.is_empty():
-						errors.append("%s / %s: %s" % [node_path, prop_name, script_error])
-						continue
-
-				ops.append({
-					node = node,
-					path = full_path,
-					value = decoded['value'],
-					old_value = resolved['value'],
-				})
-
-		if not errors.is_empty():
-			return ToolResult.rejected({error = "Nothing was changed, due to the following errors:\n" + "\n".join(errors)})
+		if ops.is_empty() and not errors.is_empty():
+			return ToolResult.rejected(build_rejection(errors))
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
 		undo_redo.create_action("%s (Godai)" % action)
@@ -151,22 +147,29 @@ class NodeSetProperties extends DefaultTool:
 			if op['path'].contains(":"):
 				# A colon path: UndoRedo's do/undo properties use plain set(),
 				# so go through set_indexed() instead.
-				undo_redo.add_do_method(op['node'], "set_indexed", op['path'], op['value'])
-				undo_redo.add_undo_method(op['node'], "set_indexed", op['path'], op['old_value'])
+				undo_redo.add_do_method(op['object'], "set_indexed", op['path'], op['value'])
+				undo_redo.add_undo_method(op['object'], "set_indexed", op['path'], op['old_value'])
 			else:
-				undo_redo.add_do_property(op['node'], op['path'], op['value'])
-				undo_redo.add_undo_property(op['node'], op['path'], op['old_value'])
+				undo_redo.add_do_property(op['object'], op['path'], op['value'])
+				undo_redo.add_undo_property(op['object'], op['path'], op['old_value'])
 
 		undo_redo.commit_action()
 
-		return ToolResult.resolved({success = true})
+		verify_property_ops(ops, errors, warnings)
+
+		return ToolResult.resolved(build_result({
+			notes = [UNSAVED_SCENE_NOTE],
+		}, errors, warnings))
 
 
-class NodeAdd extends DefaultTool:
+class NodeAdd extends VerifiedPropertyTool:
+	func get_properties_tool_name() -> String:
+		return "get_node_properties"
+
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		var parent_path: String = p_input.get('parent_path', '')
 		var node_type: String = p_input.get('node_type', '')
@@ -174,36 +177,35 @@ class NodeAdd extends DefaultTool:
 
 		var parent = edited_scene_root.get_node_or_null(parent_path)
 		if not parent:
-			return ToolResult.rejected({error = "Cannot find node at 'parent_path': %s" % parent_path})
+			return ToolResult.rejected({errors = ["Cannot find node at 'parent_path': %s" % parent_path]})
 
 		var node = ClassDB.instantiate(node_type)
 		if not node:
-			return ToolResult.rejected({error = "Failed to create '%s'" % node_type})
+			return ToolResult.rejected({errors = ["Failed to create '%s'" % node_type]})
 		if not node is Node:
 			if not node is RefCounted:
 				node.free()
-			return ToolResult.rejected({error = "'%s' is not a Node type" % node_type})
+			return ToolResult.rejected({errors = ["'%s' is not a Node type" % node_type]})
 
-		# Resolve and decode all the property values before touching the
-		# scene: if any property is invalid, we reject the whole call.
+		logger.start()
+
+		# The node is created even when a property fails: each one is prepared
+		# and set independently. Property problems are warnings, not errors, so
+		# 'success' reflects the node's creation - retrying the whole call would
+		# create a duplicate node.
 		var ops := []
-		var errors := PackedStringArray()
+		var warnings := PackedStringArray()
+		var prop_cache := {}
 		for prop_name in props:
-			var resolved := Utils.resolve_property_path(node, prop_name)
-			if resolved.has("error"):
-				errors.append("%s: %s" % [prop_name, resolved['error']])
+			var prepared := prepare_property_op(node, prop_name, props[prop_name], prop_cache)
+			if prepared.has("error"):
+				warnings.append("%s: %s" % [prop_name, prepared['error']])
 				continue
 
-			var decoded := Utils.decode_property_value(props[prop_name], resolved['expected_type'])
-			if decoded.has("error"):
-				errors.append("%s: %s" % [prop_name, decoded['error']])
-				continue
-
-			ops.append({path = prop_name, value = decoded['value']})
-
-		if not errors.is_empty():
-			node.free()
-			return ToolResult.rejected({error = "Node wasn't created, due to the following errors:\n" + "\n".join(errors)})
+			var op: Dictionary = prepared['op']
+			op['object'] = node
+			op['label'] = prop_name
+			ops.append(op)
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
 		undo_redo.create_action("Create %s node (Godai)" % node_type)
@@ -217,26 +219,28 @@ class NodeAdd extends DefaultTool:
 
 		undo_redo.commit_action()
 
-		return ToolResult.resolved({
-			success = true,
+		verify_property_ops(ops, warnings, warnings)
+
+		return ToolResult.resolved(build_result({
 			node_path = str(edited_scene_root.get_path_to(node)),
-		})
+			notes = [UNSAVED_SCENE_NOTE],
+		}, PackedStringArray(), warnings))
 
 
 class NodeRemove extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		var node_path: String = p_input.get('node_path', '')
 
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:
-			return ToolResult.rejected({error = "Cannot find node at 'node_path': %s" % node_path})
+			return ToolResult.rejected({errors = ["Cannot find node at 'node_path': %s" % node_path]})
 
 		if node == edited_scene_root:
-			return ToolResult.rejected({error = "Cannot remove scene root"})
+			return ToolResult.rejected({errors = ["Cannot remove scene root"]})
 
 		var parent = node.get_parent()
 
@@ -255,14 +259,14 @@ class NodeAddToGroup extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		var node_path: String = p_input.get('node_path', '')
 		var groups: Array = p_input.get('groups', [])
 
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:
-			return ToolResult.rejected({error = "Cannot find node at 'node_path': %s" % node_path})
+			return ToolResult.rejected({errors = ["Cannot find node at 'node_path': %s" % node_path]})
 
 		# Only add groups the node isn't already in, so undo doesn't remove a
 		# pre-existing membership.
@@ -289,14 +293,14 @@ class NodeRemoveFromGroup extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		var node_path: String = p_input.get('node_path', '')
 		var groups: Array = p_input.get('groups', [])
 
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:
-			return ToolResult.rejected({error = "Cannot find node at 'node_path': %s" % node_path})
+			return ToolResult.rejected({errors = ["Cannot find node at 'node_path': %s" % node_path]})
 
 		# Only remove groups the node is actually in.
 		var to_remove := []
@@ -322,21 +326,21 @@ class NodeGetGroups extends DefaultTool:
 
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		# Resolve all the nodes up front: if any node path is missing, we reject
 		# the whole call.
 		var nodes := []
-		var missing := PackedStringArray()
+		var errors := PackedStringArray()
 		for node_path in node_paths:
 			var node = edited_scene_root.get_node_or_null(node_path)
 			if not node:
-				missing.append(node_path)
+				errors.append("Cannot find node in 'node_paths': %s" % node_path)
 				continue
 			nodes.append(node)
 
-		if not missing.is_empty():
-			return ToolResult.rejected({error = "Cannot find node(s) in 'node_paths': " + ", ".join(missing)})
+		if not errors.is_empty():
+			return ToolResult.rejected({errors = errors})
 
 		var results := {}
 		for i in range(node_paths.size()):
@@ -357,7 +361,7 @@ class NodeConnectSignal extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		var from_path: String = p_input.get('from_node', '')
 		var signal_name: String = p_input.get('signal', '')
@@ -366,19 +370,19 @@ class NodeConnectSignal extends DefaultTool:
 
 		var from_node = edited_scene_root.get_node_or_null(from_path)
 		if not from_node:
-			return ToolResult.rejected({error = "Cannot find 'from_node': %s" % from_path})
+			return ToolResult.rejected({errors = ["Cannot find 'from_node': %s" % from_path]})
 		var to_node = edited_scene_root.get_node_or_null(to_path)
 		if not to_node:
-			return ToolResult.rejected({error = "Cannot find 'to_node': %s" % to_path})
+			return ToolResult.rejected({errors = ["Cannot find 'to_node': %s" % to_path]})
 
 		if not from_node.has_signal(signal_name):
-			return ToolResult.rejected({error = "%s has no signal named '%s'" % [from_node.get_class(), signal_name]})
+			return ToolResult.rejected({errors = ["%s has no signal named '%s'" % [from_node.get_class(), signal_name]]})
 		if not to_node.has_method(method):
-			return ToolResult.rejected({error = "%s has no method named '%s'" % [to_node.get_class(), method]})
+			return ToolResult.rejected({errors = ["%s has no method named '%s'" % [to_node.get_class(), method]]})
 
 		var callable := Callable(to_node, method)
 		if from_node.is_connected(signal_name, callable):
-			return ToolResult.rejected({error = "'%s' is already connected to %s.%s" % [signal_name, to_path, method]})
+			return ToolResult.rejected({errors = ["'%s' is already connected to %s.%s" % [signal_name, to_path, method]]})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
 		undo_redo.create_action("Connect signal '%s' (Godai)" % signal_name)
@@ -394,7 +398,7 @@ class NodeDisconnectSignal extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		var from_path: String = p_input.get('from_node', '')
 		var signal_name: String = p_input.get('signal', '')
@@ -403,14 +407,14 @@ class NodeDisconnectSignal extends DefaultTool:
 
 		var from_node = edited_scene_root.get_node_or_null(from_path)
 		if not from_node:
-			return ToolResult.rejected({error = "Cannot find 'from_node': %s" % from_path})
+			return ToolResult.rejected({errors = ["Cannot find 'from_node': %s" % from_path]})
 		var to_node = edited_scene_root.get_node_or_null(to_path)
 		if not to_node:
-			return ToolResult.rejected({error = "Cannot find 'to_node': %s" % to_path})
+			return ToolResult.rejected({errors = ["Cannot find 'to_node': %s" % to_path]})
 
 		var callable := Callable(to_node, method)
 		if not from_node.is_connected(signal_name, callable):
-			return ToolResult.rejected({error = "'%s' is not connected to %s.%s" % [signal_name, to_path, method]})
+			return ToolResult.rejected({errors = ["'%s' is not connected to %s.%s" % [signal_name, to_path, method]]})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
 		undo_redo.create_action("Disconnect signal '%s' (Godai)" % signal_name)
@@ -425,28 +429,28 @@ class NodeAttachScript extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		var node_path: String = p_input.get('node_path', '')
 		var script_path: String = p_input.get('script_path', '')
 
 		script_path = Utils.to_res_path(script_path)
 		if script_path.is_empty():
-			return ToolResult.rejected({error = "'script_path' must be inside the project (res://)"})
+			return ToolResult.rejected({errors = ["'script_path' must be inside the project (res://)"]})
 
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:
-			return ToolResult.rejected({error = "Cannot find node at 'node_path': %s" % node_path})
+			return ToolResult.rejected({errors = ["Cannot find node at 'node_path': %s" % node_path]})
 		if not FileAccess.file_exists(script_path):
-			return ToolResult.rejected({error = "'%s' doesn't exist" % script_path})
+			return ToolResult.rejected({errors = ["'%s' doesn't exist" % script_path]})
 
 		var script = load(script_path)
 		if not script is Script:
-			return ToolResult.rejected({error = "'%s' is not a script" % script_path})
+			return ToolResult.rejected({errors = ["'%s' is not a script" % script_path]})
 
 		var script_error := Utils.check_script_for_node(node, script)
 		if not script_error.is_empty():
-			return ToolResult.rejected({error = script_error})
+			return ToolResult.rejected({errors = [script_error]})
 
 		var old_script = node.get_script()
 
@@ -463,17 +467,17 @@ class NodeDetachScript extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
-			return ToolResult.rejected({error = "No scene open"})
+			return ToolResult.rejected({errors = ["No scene open"]})
 
 		var node_path: String = p_input.get('node_path', '')
 
 		var node = edited_scene_root.get_node_or_null(node_path)
 		if not node:
-			return ToolResult.rejected({error = "Cannot find node at 'node_path': %s" % node_path})
+			return ToolResult.rejected({errors = ["Cannot find node at 'node_path': %s" % node_path]})
 
 		var old_script = node.get_script()
 		if not old_script:
-			return ToolResult.rejected({error = "Node '%s' has no script attached" % node_path})
+			return ToolResult.rejected({errors = ["Node '%s' has no script attached" % node_path]})
 
 		var undo_redo = EditorInterface.get_editor_undo_redo()
 		undo_redo.create_action("Detach script (Godai)")

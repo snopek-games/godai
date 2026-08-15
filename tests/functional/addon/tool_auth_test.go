@@ -121,9 +121,10 @@ func requireDenied(t *testing.T, result *ToolCallResult, tool string) {
 	if err != nil {
 		t.Fatalf("tools/call %s: %v", tool, err)
 	}
-	errMsg, _ := structured["error"].(string)
+	errs, _ := structured["errors"].([]any)
+	errMsg := strings.Join(asStrings(errs), "\n")
 	if !strings.Contains(errMsg, denialMessage(tool)) {
-		t.Fatalf("tools/call %s error %q does not report a denial", tool, errMsg)
+		t.Fatalf("tools/call %s errors %q do not report a denial", tool, errMsg)
 	}
 }
 

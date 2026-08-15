@@ -44,7 +44,9 @@ const GodaiMcpInstructions string = `Open and control the Godot editor: inspect 
 
 Every tool needs the absolute project_path, so that a tool can never be aimed at the wrong project: pass the path of the project you were asked about. Start with open_godot_project, which is safe to call when the project is already open - you do not need to check first.
 
-Before any add/remove/edit, read get_current_scene_tree and only use node paths you've seen there. Node and scene edits are in-memory until save_scene; scripts, resources, and project settings persist on their own (for an open script, use save_script). Most edits use the editor's undo/redo, so batch related changes into one call.`
+Before any add/remove/edit, read get_current_scene_tree and only use node paths you've seen there. Node and scene edits are in-memory until save_scene; scripts, resources, and project settings persist on their own (for an open script, use save_script). Most edits use the editor's undo/redo, so batch related changes into one call.
+
+A failed call returns isError with an 'errors' array and changed nothing, so fix the input and retry. A successful call may carry 'errors' and 'warnings' for the parts that had issues - warnings never affect 'success', and neither means that the whole call should be retried; address the listed items instead.`
 
 const TooManyToolCallsErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode - 0
 const RequestQueueFullErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode - 1
@@ -86,6 +88,7 @@ type toolResult struct {
 }
 
 func toolResultForError(err *core.UserError) *toolResult {
+	structured, _ := json.Marshal(map[string]any{"errors": []string{err.Message}})
 	result := toolResult{
 		Content: []toolTextContent{
 			{
@@ -93,7 +96,8 @@ func toolResultForError(err *core.UserError) *toolResult {
 				Text: err.Message,
 			},
 		},
-		IsError: true,
+		StructuredContent: structured,
+		IsError:           true,
 	}
 	if len(err.Solutions) > 0 {
 		sb := strings.Builder{}

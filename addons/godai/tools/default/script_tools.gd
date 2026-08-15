@@ -22,9 +22,9 @@ class ScriptCreate extends DefaultTool:
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
+			return ToolResult.rejected({errors = ["'file_path' must be inside the project (res://)"]})
 		if FileAccess.file_exists(file_path):
-			return ToolResult.rejected({error = "'%s' already exists" % file_path})
+			return ToolResult.rejected({errors = ["'%s' already exists" % file_path]})
 
 		if content.is_empty():
 			content = "extends %s\n" % base_class
@@ -33,11 +33,11 @@ class ScriptCreate extends DefaultTool:
 		if not DirAccess.dir_exists_absolute(dir_path):
 			var dir_err = DirAccess.make_dir_recursive_absolute(dir_path)
 			if dir_err != OK:
-				return ToolResult.rejected({error = "Failed to make parent directory '%s': %s" % [dir_path, error_string(dir_err)]})
+				return ToolResult.rejected({errors = ["Failed to make parent directory '%s': %s" % [dir_path, error_string(dir_err)]]})
 
 		var fa := FileAccess.open(file_path, FileAccess.WRITE)
 		if not fa:
-			return ToolResult.rejected({error = "Failed to open '%s' for writing: %s" % [file_path, error_string(FileAccess.get_open_error())]})
+			return ToolResult.rejected({errors = ["Failed to open '%s' for writing: %s" % [file_path, error_string(FileAccess.get_open_error())]]})
 		fa.store_string(content)
 		fa.close()
 
@@ -56,13 +56,13 @@ class ScriptOpen extends DefaultTool:
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
+			return ToolResult.rejected({errors = ["'file_path' must be inside the project (res://)"]})
 		if not FileAccess.file_exists(file_path):
-			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
+			return ToolResult.rejected({errors = ["'%s' doesn't exist" % file_path]})
 
 		var script = load(file_path)
 		if not script is Script:
-			return ToolResult.rejected({error = "'%s' is not a script" % file_path})
+			return ToolResult.rejected({errors = ["'%s' is not a script" % file_path]})
 
 		EditorInterface.edit_script(script)
 
@@ -75,15 +75,15 @@ class ScriptRead extends DefaultTool:
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
+			return ToolResult.rejected({errors = ["'file_path' must be inside the project (res://)"]})
 		if not FileAccess.file_exists(file_path):
-			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
+			return ToolResult.rejected({errors = ["'%s' doesn't exist" % file_path]})
 
 		# This returns the live editor buffer when the script is open, so the
 		# AI sees (and is tracked against) any unsaved changes too.
 		var result := Utils.read_script_content(file_path)
 		if result.has("error"):
-			return ToolResult.rejected({error = result['error']})
+			return ToolResult.rejected({errors = [result['error']]})
 
 		# Remember what the AI saw, so write_script can detect later changes.
 		Utils.record_script_read(file_path, result['content'])
@@ -101,19 +101,19 @@ class ScriptWrite extends DefaultTool:
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
+			return ToolResult.rejected({errors = ["'file_path' must be inside the project (res://)"]})
 		if not FileAccess.file_exists(file_path):
-			return ToolResult.rejected({error = "'%s' doesn't exist - use create_script to make a new script" % file_path})
+			return ToolResult.rejected({errors = ["'%s' doesn't exist - use create_script to make a new script" % file_path]})
 
 		# Refuse to overwrite changes the AI hasn't seen: the current content
 		# (the editor buffer if open, otherwise the file) must match what was
 		# last read (or written) through these tools.
 		var current := Utils.read_script_content(file_path)
 		if current.has("error"):
-			return ToolResult.rejected({error = current['error']})
+			return ToolResult.rejected({errors = [current['error']]})
 		var writable := Utils.check_script_writable(file_path, current['content'])
 		if writable.has("error"):
-			return ToolResult.rejected({error = writable['error']})
+			return ToolResult.rejected({errors = [writable['error']]})
 
 		# If the script is open in the editor, update its buffer rather than
 		# writing the file out from under it (which would clobber unsaved
@@ -131,7 +131,7 @@ class ScriptWrite extends DefaultTool:
 
 		var fa := FileAccess.open(file_path, FileAccess.WRITE)
 		if not fa:
-			return ToolResult.rejected({error = "Failed to open '%s' for writing: %s" % [file_path, error_string(FileAccess.get_open_error())]})
+			return ToolResult.rejected({errors = ["Failed to open '%s' for writing: %s" % [file_path, error_string(FileAccess.get_open_error())]]})
 		fa.store_string(content)
 		fa.close()
 
@@ -151,9 +151,9 @@ class ScriptSave extends DefaultTool:
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
-			return ToolResult.rejected({error = "'file_path' must be inside the project (res://)"})
+			return ToolResult.rejected({errors = ["'file_path' must be inside the project (res://)"]})
 		if not FileAccess.file_exists(file_path):
-			return ToolResult.rejected({error = "'%s' doesn't exist" % file_path})
+			return ToolResult.rejected({errors = ["'%s' doesn't exist" % file_path]})
 
 		# Only an open script can have unsaved changes to flush.
 		var editor := Utils.get_open_script_editor(file_path)
@@ -167,7 +167,7 @@ class ScriptSave extends DefaultTool:
 
 		var fa := FileAccess.open(file_path, FileAccess.WRITE)
 		if not fa:
-			return ToolResult.rejected({error = "Failed to open '%s' for writing: %s" % [file_path, error_string(FileAccess.get_open_error())]})
+			return ToolResult.rejected({errors = ["Failed to open '%s' for writing: %s" % [file_path, error_string(FileAccess.get_open_error())]]})
 		fa.store_string(content)
 		fa.close()
 

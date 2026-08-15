@@ -117,7 +117,7 @@ func TestProjectSettings(t *testing.T) {
 			"settings": map[string]any{
 				"display/window/size/viewport_width": "not_a_number",
 			},
-		}, "Nothing was changed")
+		}, "Cannot parse")
 	})
 
 	t.Run("set_empty", func(t *testing.T) {

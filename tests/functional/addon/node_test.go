@@ -96,18 +96,46 @@ func TestAddNode(t *testing.T) {
 	})
 
 	t.Run("invalid_property_value", func(t *testing.T) {
-		callToolErr(t, "add_node", map[string]any{
+		is := is.New(t)
+
+		structured := callToolOK(t, "add_node", map[string]any{
 			"parent_path": ".",
 			"node_type":   "Node2D",
 			"properties": map[string]any{
-				"name":     "NotCreated",
+				"name":     "PartiallyCreated",
 				"position": "Vector2(1 2)",
 			},
-		}, "Cannot parse")
+		})
+		is.Equal(structured["success"], true)
+		warnings, _ := structured["warnings"].([]any)
+		is.Equal(len(warnings), 1)
+		is.True(strings.Contains(asStrings(warnings)[0], "Cannot parse"))
 
-		callToolErr(t, "get_node_properties", map[string]any{
-			"node_paths": []string{"NotCreated"},
-		}, "Cannot find node(s) in 'node_paths'")
+		props := callToolOK(t, "get_node_properties", map[string]any{
+			"node_paths": []string{"PartiallyCreated"},
+		})
+		nodeProps, _ := props["PartiallyCreated"].(map[string]any)
+		is.Equal(nodeProps["name"], "PartiallyCreated")
+	})
+
+	t.Run("duplicate_name_warns", func(t *testing.T) {
+		is := is.New(t)
+
+		// "MyChild" already exists, so Godot renames the new node; that must
+		// come back as a warning carrying the actual name.
+		structured := callToolOK(t, "add_node", map[string]any{
+			"parent_path": ".",
+			"node_type":   "Node2D",
+			"properties":  map[string]any{"name": "MyChild"},
+		})
+		is.Equal(structured["success"], true)
+		warnings, _ := structured["warnings"].([]any)
+		is.Equal(len(warnings), 1)
+		is.True(strings.Contains(asStrings(warnings)[0], "name"))
+
+		nodePath, _ := structured["node_path"].(string)
+		is.True(nodePath != "MyChild")
+		is.True(strings.Contains(asStrings(warnings)[0], nodePath))
 	})
 }
 
@@ -179,34 +207,38 @@ func TestNodeProperties(t *testing.T) {
 		}, "NoSuchNode: cannot find node")
 	})
 
-	t.Run("set_one_nonexistent_node_changes_nothing", func(t *testing.T) {
+	t.Run("set_one_nonexistent_node_still_sets_others", func(t *testing.T) {
 		is := is.New(t)
 
-		callToolErr(t, "set_node_properties", map[string]any{
+		structured := callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Move nodes",
 			"nodes": map[string]any{
 				"MyChild":    map[string]any{"position": "Vector2(99, 99)"},
 				"NoSuchNode": map[string]any{"position": "Vector2(1, 1)"},
 			},
-		}, "NoSuchNode: cannot find node")
+		})
+		is.Equal(structured["success"], false)
+		errs, _ := structured["errors"].([]any)
+		is.Equal(len(errs), 1)
+		is.True(strings.Contains(asStrings(errs)[0], "NoSuchNode: cannot find node"))
 
 		props := callToolOK(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
-		is.Equal(nodeProps["position"], "Vector2(42, 24)")
+		is.Equal(nodeProps["position"], "Vector2(99, 99)")
 	})
 
 	t.Run("get_nonexistent_node", func(t *testing.T) {
 		callToolErr(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"NoSuchNode"},
-		}, "Cannot find node(s) in 'node_paths'")
+		}, "Cannot find node in 'node_paths'")
 	})
 
 	t.Run("get_one_nonexistent_node", func(t *testing.T) {
 		callToolErr(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyChild", "NoSuchNode"},
-		}, "Cannot find node(s) in 'node_paths'")
+		}, "Cannot find node in 'node_paths'")
 	})
 
 	t.Run("get_multiple_nodes", func(t *testing.T) {
@@ -369,18 +401,10 @@ func TestNodeProperties(t *testing.T) {
 		is.Equal(props["MyLabel:label_settings:font_size"], "32")
 	})
 
-	t.Run("invalid_value_changes_nothing", func(t *testing.T) {
+	t.Run("invalid_value_still_sets_others", func(t *testing.T) {
 		is := is.New(t)
 
-		callToolOK(t, "set_node_properties", map[string]any{
-			"action": "Move node",
-			"nodes": map[string]any{
-				"MyChild": map[string]any{"position": "Vector2(5, 5)"},
-			},
-		})
-
-		// One invalid value rejects the whole call; the valid one must NOT be applied.
-		callToolErr(t, "set_node_properties", map[string]any{
+		structured := callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Move node",
 			"nodes": map[string]any{
 				"MyChild": map[string]any{
@@ -388,22 +412,34 @@ func TestNodeProperties(t *testing.T) {
 					"rotation": "garbage(",
 				},
 			},
-		}, "Cannot parse")
+		})
+		is.Equal(structured["success"], false)
+		errs, _ := structured["errors"].([]any)
+		is.Equal(len(errs), 1)
+		is.True(strings.Contains(asStrings(errs)[0], `MyChild / rotation: "garbage" is not a variant type`))
 
 		props := callToolOK(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
-		is.Equal(nodeProps["position"], "Vector2(5, 5)")
+		is.Equal(nodeProps["position"], "Vector2(9, 9)")
 	})
 
 	t.Run("unknown_property", func(t *testing.T) {
-		callToolErr(t, "set_node_properties", map[string]any{
+		is := is.New(t)
+
+		// An unknown property is attempted anyway (a script could handle it
+		// dynamically), so the failure comes from verification.
+		structured := callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Set unknown property",
 			"nodes": map[string]any{
 				"MyChild": map[string]any{"no_such_prop": "1"},
 			},
-		}, "has no property named 'no_such_prop'")
+		})
+		is.Equal(structured["success"], false)
+		errs, _ := structured["errors"].([]any)
+		is.Equal(len(errs), 1)
+		is.True(strings.Contains(asStrings(errs)[0], "has no property named 'no_such_prop'"))
 	})
 
 	t.Run("get_bad_property_path", func(t *testing.T) {
@@ -522,7 +558,7 @@ func TestRemoveNode(t *testing.T) {
 
 		callToolErr(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyChild"},
-		}, "Cannot find node(s) in 'node_paths'")
+		}, "Cannot find node in 'node_paths'")
 	})
 }
 
@@ -581,13 +617,13 @@ func TestNodeGroups(t *testing.T) {
 	t.Run("get_missing_node", func(t *testing.T) {
 		callToolErr(t, "get_node_groups", map[string]any{
 			"node_paths": []string{"NoSuchNode"},
-		}, "Cannot find node(s) in 'node_paths'")
+		}, "Cannot find node in 'node_paths'")
 	})
 
 	t.Run("get_one_missing_node", func(t *testing.T) {
 		callToolErr(t, "get_node_groups", map[string]any{
 			"node_paths": []string{"MyChild", "NoSuchNode"},
-		}, "Cannot find node(s) in 'node_paths'")
+		}, "Cannot find node in 'node_paths'")
 	})
 
 	t.Run("get_missing_node_paths", func(t *testing.T) {

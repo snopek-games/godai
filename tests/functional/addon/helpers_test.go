@@ -50,9 +50,10 @@ func callToolErr(t *testing.T, name string, args map[string]any, wantSubstr stri
 	if err != nil {
 		t.Fatalf("tools/call %s: %v", name, err)
 	}
-	errMsg, _ := structured["error"].(string)
+	errs, _ := structured["errors"].([]any)
+	errMsg := strings.Join(asStrings(errs), "\n")
 	if !strings.Contains(errMsg, wantSubstr) {
-		t.Fatalf("tools/call %s error %q does not contain %q", name, errMsg, wantSubstr)
+		t.Fatalf("tools/call %s errors %q do not contain %q", name, errMsg, wantSubstr)
 	}
 	return structured
 }

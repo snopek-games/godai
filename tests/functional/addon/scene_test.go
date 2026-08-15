@@ -451,9 +451,38 @@ func TestSaveSceneAs(t *testing.T) {
 		is.Equal(saved["scene_path"], "res://scenes/save_as_dest.tscn")
 	})
 
+	t.Run("current_path_saves_in_place", func(t *testing.T) {
+		is := is.New(t)
+
+		callToolOK(t, "create_scene", map[string]any{
+			"file_path":      "res://scenes/save_as_in_place.tscn",
+			"root_node_type": "Node2D",
+		})
+		callToolOK(t, "add_node", map[string]any{
+			"parent_path": ".",
+			"node_type":   "Node2D",
+			"properties":  map[string]any{"name": "InPlaceChild"},
+		})
+
+		// The scene's own path isn't a collision: it saves like save_scene.
+		structured := callToolOK(t, "save_scene_as", map[string]any{
+			"file_path": "res://scenes/save_as_in_place.tscn",
+		})
+		is.Equal(structured["success"], true)
+		is.Equal(structured["scene_path"], "res://scenes/save_as_in_place.tscn")
+
+		if content := readProjectFile(t, "scenes/save_as_in_place.tscn"); content != "" {
+			is.True(strings.Contains(content, `name="InPlaceChild"`))
+		}
+	})
+
 	t.Run("already_exists", func(t *testing.T) {
 		callToolOK(t, "create_scene", map[string]any{
 			"file_path":      "res://scenes/save_as_existing.tscn",
+			"root_node_type": "Node2D",
+		})
+		callToolOK(t, "create_scene", map[string]any{
+			"file_path":      "res://scenes/save_as_other.tscn",
 			"root_node_type": "Node2D",
 		})
 		callToolErr(t, "save_scene_as", map[string]any{

@@ -78,8 +78,8 @@ func TestToolResultErrorMessage(t *testing.T) {
 
 	// The editor sends the whole structured result as the text content too.
 	result := ToolResult{
-		Content:           []TextContent{{Type: "text", Text: `{"error":"No scene open"}`}},
-		StructuredContent: json.RawMessage(`{"error":"No scene open"}`),
+		Content:           []TextContent{{Type: "text", Text: `{"errors":["No scene open"]}`}},
+		StructuredContent: json.RawMessage(`{"errors":["No scene open"]}`),
 		IsError:           true,
 	}
 	is.Equal(result.ErrorMessage(), "No scene open")

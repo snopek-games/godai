@@ -136,11 +136,11 @@ func (r *ToolResult) Text() string {
 // serialized, so the message worth showing has to come out of the structure.
 func (r *ToolResult) ErrorMessage() string {
 	var structured struct {
-		Error string `json:"error"`
+		Errors []string `json:"errors"`
 	}
 	if len(r.StructuredContent) > 0 {
-		if err := json.Unmarshal(r.StructuredContent, &structured); err == nil && structured.Error != "" {
-			return structured.Error
+		if err := json.Unmarshal(r.StructuredContent, &structured); err == nil && len(structured.Errors) > 0 {
+			return strings.Join(structured.Errors, "\n")
 		}
 	}
 	return r.Text()

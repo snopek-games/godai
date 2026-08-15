@@ -85,7 +85,7 @@ func TestEditorSettings(t *testing.T) {
 			"settings": map[string]any{
 				editorSettingName: "not_a_number",
 			},
-		}, "Nothing was changed")
+		}, "Cannot parse")
 	})
 
 	t.Run("set_empty", func(t *testing.T) {

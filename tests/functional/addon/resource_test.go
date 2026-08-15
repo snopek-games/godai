@@ -70,20 +70,29 @@ func TestCreateResource(t *testing.T) {
 		}, "already exists")
 	})
 
-	t.Run("invalid_property_value", func(t *testing.T) {
+	t.Run("invalid_property_still_creates_resource", func(t *testing.T) {
 		requireManagedProject(t)
 		is := is.New(t)
 
-		callToolErr(t, "create_resource", map[string]any{
-			"file_path":     "res://resources/not_created.tres",
+		// The resource is created and saved anyway, so a property problem is a
+		// warning: an error (success = false) could push an agent into retrying
+		// the whole call, which would fail on the already-existing file.
+		structured := callToolOK(t, "create_resource", map[string]any{
+			"file_path":     "res://resources/still_created.tres",
 			"resource_type": "LabelSettings",
 			"properties": map[string]any{
 				"font_size": "garbage(",
 			},
-		}, "Cannot parse")
+		})
+		is.Equal(structured["success"], true)
+		_, hasErrors := structured["errors"]
+		is.True(!hasErrors)
+		warnings, _ := structured["warnings"].([]any)
+		is.Equal(len(warnings), 1)
+		is.True(strings.Contains(asStrings(warnings)[0], `font_size: "garbage" is not a variant type`))
 
-		_, err := os.Stat(filepath.Join(projectDir, "resources", "not_created.tres"))
-		is.True(os.IsNotExist(err))
+		_, err := os.Stat(filepath.Join(projectDir, "resources", "still_created.tres"))
+		is.NoErr(err)
 	})
 
 	t.Run("global_script_class", func(t *testing.T) {
@@ -292,31 +301,43 @@ return OK`)
 		}, "must point at just the file")
 	})
 
-	t.Run("set_invalid_value_changes_nothing", func(t *testing.T) {
+	t.Run("set_one_bad_value_still_sets_others", func(t *testing.T) {
 		is := is.New(t)
 
-		callToolErr(t, "set_resource_properties", map[string]any{
+		structured := callToolOK(t, "set_resource_properties", map[string]any{
 			"action":    "Change material",
 			"file_path": materialPath,
 			"properties": map[string]any{
 				"metallic":  "0.75",
 				"roughness": "garbage(",
 			},
-		}, "Cannot parse")
+		})
+		is.Equal(structured["success"], false)
+		errs, _ := structured["errors"].([]any)
+		is.Equal(len(errs), 1)
+		is.True(strings.Contains(asStrings(errs)[0], `roughness: "garbage" is not a variant type`))
 
-		structured := callToolOK(t, "get_resource_properties", map[string]any{
+		props := callToolOK(t, "get_resource_properties", map[string]any{
 			"file_path":  materialPath,
 			"properties": []string{"metallic"},
 		})
-		is.Equal(structured["metallic"], "0.5")
+		is.Equal(props["metallic"], "0.75")
 	})
 
 	t.Run("set_unknown_property", func(t *testing.T) {
-		callToolErr(t, "set_resource_properties", map[string]any{
+		is := is.New(t)
+
+		// An unknown property is attempted anyway (a script could handle it
+		// dynamically), so the failure comes from verification.
+		structured := callToolOK(t, "set_resource_properties", map[string]any{
 			"action":     "Set unknown property",
 			"file_path":  materialPath,
 			"properties": map[string]any{"no_such_prop": "1"},
-		}, "has no property named 'no_such_prop'")
+		})
+		is.Equal(structured["success"], false)
+		errs, _ := structured["errors"].([]any)
+		is.Equal(len(errs), 1)
+		is.True(strings.Contains(asStrings(errs)[0], "has no property named 'no_such_prop'"))
 	})
 
 	t.Run("set_not_a_saveable_file", func(t *testing.T) {
@@ -332,6 +353,94 @@ return OK`)
 			"file_path":  materialPath,
 			"properties": map[string]any{"metallic": "0.5"},
 		}, "'action' is required")
+	})
+}
+
+// A Resource script with setters that clamp, reject, and print, so
+// set_resource_properties verification can be exercised the same way as the
+// node tools.
+const verifyResourceFixtureScript = `@tool
+extends Resource
+
+var plain_value := 0.0
+
+var clamped_value := 0.0:
+	set(v):
+		clamped_value = clampf(v, 0.0, 10.0)
+
+var rejecting_value := 1.0:
+	set(v):
+		if v < 0.0:
+			push_error("rejecting_value cannot be negative")
+			return
+		rejecting_value = v
+`
+
+func TestSetResourcePropertiesVerification(t *testing.T) {
+	writeProjectFileFromEditor(t, "res://scripts/verify_res_fixture.gd", verifyResourceFixtureScript)
+	writeProjectFileFromEditor(t, "res://resources/verify_res_fixture.tres", `[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/verify_res_fixture.gd" id="1_fix"]
+
+[resource]
+script = ExtResource("1_fix")
+`)
+	fixturePath := "res://resources/verify_res_fixture.tres"
+
+	setProps := func(t *testing.T, props map[string]any) map[string]any {
+		t.Helper()
+		return callToolOK(t, "set_resource_properties", map[string]any{
+			"action":     "Verification test",
+			"file_path":  fixturePath,
+			"properties": props,
+		})
+	}
+
+	t.Run("plain_set", func(t *testing.T) {
+		is := is.New(t)
+
+		structured := setProps(t, map[string]any{"plain_value": "3.5"})
+		is.Equal(structured["success"], true)
+		_, hasErrors := structured["errors"]
+		is.True(!hasErrors)
+		_, hasWarnings := structured["warnings"]
+		is.True(!hasWarnings)
+	})
+
+	t.Run("clamping_setter_warns", func(t *testing.T) {
+		is := is.New(t)
+
+		structured := setProps(t, map[string]any{"clamped_value": "50.0"})
+		is.Equal(structured["success"], true)
+		warnings, _ := structured["warnings"].([]any)
+		is.Equal(len(warnings), 1)
+		is.True(strings.Contains(asStrings(warnings)[0], "clamped_value"))
+		is.True(strings.Contains(asStrings(warnings)[0], "only to 10.0"))
+	})
+
+	t.Run("rejecting_setter_errors_with_output", func(t *testing.T) {
+		is := is.New(t)
+
+		structured := setProps(t, map[string]any{"rejecting_value": "-5.0"})
+		is.Equal(structured["success"], false)
+		errs, _ := structured["errors"].([]any)
+		is.Equal(len(errs), 1)
+		is.True(strings.Contains(asStrings(errs)[0], "rejecting_value"))
+		is.True(strings.Contains(asStrings(errs)[0], "read back unchanged"))
+
+		output, _ := structured["output"].([]any)
+		is.True(anyLineContains(output, "rejecting_value cannot be negative"))
+	})
+
+	t.Run("indexing_into_non_object_hints_discovery", func(t *testing.T) {
+		is := is.New(t)
+
+		structured := setProps(t, map[string]any{"plain_value:0": "1.0"})
+		is.Equal(structured["success"], false)
+		errs, _ := structured["errors"].([]any)
+		is.Equal(len(errs), 1)
+		is.True(strings.Contains(asStrings(errs)[0], "the property may not exist"))
+		is.True(strings.Contains(asStrings(errs)[0], `get_resource_properties with "include_defaults": true`))
 	})
 }
 

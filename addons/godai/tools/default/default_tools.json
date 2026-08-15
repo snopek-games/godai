@@ -28,9 +28,10 @@
 						"type": "string",
 						"description": "The version of Godot this editor is running, for example: `4.5.stable.official`, or `4.4.1.stable.mono.official` for a .NET build"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			},
@@ -77,9 +78,10 @@
 							"type": "string"
 						}
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -124,9 +126,10 @@
 						"type": "boolean",
 						"description": "True if the settings were changed and the project was saved"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -154,9 +157,10 @@
 						"type": "string",
 						"description": "The name of the root Node"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -196,9 +200,10 @@
 							"$ref": "#"
 						}
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -236,9 +241,10 @@
 						"type": "boolean",
 						"description": "True if the scene was created and opened"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -269,9 +275,10 @@
 						"type": "boolean",
 						"description": "True if the scene was opened"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -289,6 +296,7 @@
 				"Property values are strings in Godot variant syntax:",
 				"- String properties are returned raw, without quotes",
 				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
+				"- Packed arrays take a flat list of components, so: `PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1)` is two colors (r,g,b,a, r,g,b,a), `PackedVector2Array(1, 2, 3, 4)` is two vectors",
 				"- A property referencing a saved resource is returned as `Resource(\"res://path/to/file.tres\")`",
 				"- A property holding an embedded resource is summarized as `Object(ClassName)`, e.g. `Object(SphereMesh)`",
 				"",
@@ -323,9 +331,10 @@
 				"type": "object",
 				"description": "Maps each requested node path to its result.",
 				"properties": {
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				},
 				"additionalProperties": {
@@ -351,12 +360,13 @@
 			"description": [
 				"Sets the values of properties on specific nodes in the current scene.",
 				"",
-				"Only pass the properties you wish to change.",
+				"Only pass the properties you wish to change. To discover the properties a node supports (and their current values), call get_node_properties with \"include_defaults\": true.",
 				"EXAMPLE: {\"action\": \"Move node\", \"nodes\": {\"path/to/node\": {\"position\": \"Vector2(1, 2)\"}}}",
 				"",
 				"Property values are strings in Godot variant syntax:",
 				"- String properties take the raw string, with NO extra quotes (e.g. \"text\": \"Hello\")",
 				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`, `NodePath(\"../Other\")`",
+				"- Packed arrays take a flat list of components, so: `PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1)` is two colors (r,g,b,a, r,g,b,a), `PackedVector2Array(1, 2, 3, 4)` is two vectors",
 				"- To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
 				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`, or `Object(SphereMesh)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
 				"- Careful: `Object(ClassName)` is also how an existing embedded resource reads back, so passing that in replaces it with a new one, losing whatever it held.",
@@ -367,9 +377,13 @@
 				"",
 				"This uses the Godot editor's undo/redo system to set the properties, so as many set operations as possible should be done in a single call, so they can all be undone at once.",
 				"",
-				"On error, nothing is changed.",
+				"Like all scene edits, the changes are in-memory until save_scene: call it once you're done editing, or they are lost.",
 				"",
-				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
+				"Every property is verified by reading it back after setting. Properties are set independently: when one fails, the rest are still applied. Properties that could not be set are reported in 'errors', and properties that ended up with a different value than requested (e.g. clamped by their setter) are reported in 'warnings', along with the actual resulting value. Anything Godot printed while setting is returned in 'output'.",
+				"",
+				"If none of the properties can even be attempted, the call fails and nothing is changed.",
+				"",
+				"Note: verification happens immediately after setting, so a property the engine adjusts later (e.g. the position of a Control inside a container) can still end up with a different value."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -404,13 +418,29 @@
 			"outputSchema": {
 				"type": "object",
 				"properties": {
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Reminders that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
+					},
 					"success": {
 						"type": "boolean",
-						"description": "True if the properties were set. Note: this doesn't guarantee every property took the requested value."
+						"description": "True if every property was verified to have taken the requested value (a property that only triggered a warning still counts as success)"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "When the call failed, the errors that made it fail (nothing was changed). Otherwise, properties that could not be set; any property not listed here or in 'warnings' was set to the requested value"
+					},
+					"warnings": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Properties that were changed, but ended up with a different value than requested"
+					},
+					"output": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Messages Godot printed while the properties were being set"
 					}
 				}
 			}
@@ -424,10 +454,13 @@
 				"Property values are strings in Godot variant syntax:",
 				"- String properties take the raw string, with NO extra quotes (e.g. \"name\": \"MyNode\")",
 				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`, `NodePath(\"../Other\")`",
+				"- Packed arrays take a flat list of components, so: `PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1)` is two colors (r,g,b,a, r,g,b,a), `PackedVector2Array(1, 2, 3, 4)` is two vectors",
 				"- To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
 				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`, or `Object(SphereMesh)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
 				"",
-				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
+				"Like all scene edits, the new node is in-memory until save_scene: call it once you're done editing, or it is lost.",
+				"",
+				"Every property is verified by reading it back after setting, like set_node_properties. The node is still created even when a property fails: properties that could not be set, or that ended up with a different value than requested, are reported in 'warnings' (with anything Godot printed in 'output'), and 'node_path' says where the node ended up. Do NOT retry the call over a warning - that would create a second node; fix the property with set_node_properties instead."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -462,17 +495,33 @@
 			"outputSchema": {
 				"type": "object",
 				"properties": {
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Reminders that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
+					},
 					"success": {
 						"type": "boolean",
-						"description": "True if the node was created"
+						"description": "True if the node was created; property problems are reported in 'warnings' and do not affect this - do NOT retry the call for them, fix them with set_node_properties instead"
 					},
 					"node_path": {
 						"type": "string",
 						"description": "The path of the new node, relative to the scene root"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"warnings": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Properties that could not be set, or ended up with a different value than requested; any property not listed here was set to the requested value"
+					},
+					"output": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Messages Godot printed while the node was being created"
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did, in which case the node was NOT created"
 					}
 				}
 			}
@@ -505,9 +554,10 @@
 						"type": "boolean",
 						"description": "True if the node was removed"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -523,8 +573,11 @@
 				"Property values are strings in Godot variant syntax:",
 				"- String properties take the raw string, with NO extra quotes (e.g. \"resource_name\": \"My Resource\")",
 				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
+				"- Packed arrays take a flat list of components, so: `PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1)` is two colors (r,g,b,a, r,g,b,a), `PackedVector2Array(1, 2, 3, 4)` is two vectors",
 				"- To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
-				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`, or `Object(SphereMesh)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files."
+				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`, or `Object(SphereMesh)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
+				"",
+				"Every property is verified by reading it back after setting, like set_resource_properties. The resource is still created and saved even when a property fails: properties that could not be set, or that ended up with a different value than requested, are reported in 'warnings' (with anything Godot printed in 'output'). Do NOT retry the call over a warning - the file now exists; fix the property with set_resource_properties instead."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -561,11 +614,22 @@
 				"properties": {
 					"success": {
 						"type": "boolean",
-						"description": "True if the resource was created and saved"
+						"description": "True if the resource was created and saved; property problems are reported in 'warnings' and do not affect this - do NOT retry the call for them, fix them with set_resource_properties instead"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"warnings": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Properties that could not be set, or ended up with a different value than requested; any property not listed here was set to the requested value"
+					},
+					"output": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Messages Godot printed while the resource was being created"
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did, in which case the resource was NOT created"
 					}
 				}
 			}
@@ -596,9 +660,10 @@
 						"type": "boolean",
 						"description": "True if the resource was opened in the inspector"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -616,6 +681,7 @@
 				"Property values are strings in Godot variant syntax:",
 				"- String properties are returned raw, without quotes",
 				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
+				"- Packed arrays take a flat list of components, so: `PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1)` is two colors (r,g,b,a, r,g,b,a), `PackedVector2Array(1, 2, 3, 4)` is two vectors",
 				"- A property referencing another saved resource is returned as `Resource(\"res://path/to/file.tres\")`",
 				"- A property holding an embedded resource is summarized as `Object(ClassName)`, e.g. `Object(FastNoiseLite)`",
 				"",
@@ -655,9 +721,10 @@
 				"type": "object",
 				"description": "If 'properties' was omitted, a map of all the resource's property names to values. If 'properties' was given, a map of each requested property path to its result.",
 				"properties": {
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				},
 				"additionalProperties": {
@@ -683,12 +750,13 @@
 			"description": [
 				"Sets the values of properties on a saved resource file (.tres or .res), and saves the changes to the file.",
 				"",
-				"Only pass the properties you wish to change.",
+				"Only pass the properties you wish to change. To discover the properties a resource supports (and their current values), call get_resource_properties with \"include_defaults\": true.",
 				"EXAMPLE: {\"action\": \"Change color\", \"file_path\": \"res://thing.tres\", \"properties\": {\"albedo_color\": \"Color(1, 0, 0, 1)\"}}",
 				"",
 				"Property values are strings in Godot variant syntax:",
 				"- String properties take the raw string, with NO extra quotes (e.g. \"resource_name\": \"My Resource\")",
 				"- Other types use Godot syntax, e.g. `0.5`, `true`, `Vector2(1, 2)`, `Color(1, 0, 0, 1)`",
+				"- Packed arrays take a flat list of components, so: `PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1)` is two colors (r,g,b,a, r,g,b,a), `PackedVector2Array(1, 2, 3, 4)` is two vectors",
 				"- To reference another saved resource: `Resource(\"res://path/to/file.tres\")`",
 				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(FastNoiseLite,\"frequency\":0.1)`, or `Object(FastNoiseLite)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
 				"- Careful: `Object(ClassName)` is also how an existing embedded resource reads back, so passing that in replaces it with a new one, losing whatever it held.",
@@ -699,9 +767,9 @@
 				"",
 				"This uses the Godot editor's undo/redo system to set the properties, so as many set operations as possible should be done in a single call, so they can all be undone at once (undo also re-saves the file).",
 				"",
-				"On error, nothing is changed.",
+				"Every property is verified by reading it back after setting, like set_node_properties. Properties are set independently: when one fails, the rest are still applied and saved. Properties that could not be set are reported in 'errors', and properties that ended up with a different value than requested (e.g. clamped by their setter) are reported in 'warnings', along with the actual resulting value. Anything Godot printed while setting is returned in 'output'.",
 				"",
-				"Note: Just because this returns successfully, doesn't mean all properties were able to be set to the requested value. Always check that the properties have the correct value afterwards."
+				"If none of the properties can even be attempted, the call fails and nothing is changed."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -738,11 +806,22 @@
 				"properties": {
 					"success": {
 						"type": "boolean",
-						"description": "True if the properties were set and the file was saved. Note: this doesn't guarantee every property was set to the requested value."
+						"description": "True if every property was verified to have taken the requested value (a property that only triggered a warning still counts as success)"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "When the call failed, the errors that made it fail (nothing was changed). Otherwise, properties that could not be set; any property not listed here or in 'warnings' was set to the requested value"
+					},
+					"warnings": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Properties that were changed, but ended up with a different value than requested"
+					},
+					"output": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Messages Godot printed while the properties were being set"
 					}
 				}
 			}
@@ -769,9 +848,10 @@
 							"type": "string"
 						}
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -817,9 +897,10 @@
 						"type": "string",
 						"description": "The path of the new instance node, relative to the scene root"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -849,9 +930,10 @@
 						"type": "string",
 						"description": "The path the scene was saved to"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -888,9 +970,10 @@
 						"type": "string",
 						"description": "The path the scene was saved to"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -932,9 +1015,10 @@
 						"type": "boolean",
 						"description": "True if the node was added to the groups"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -976,9 +1060,10 @@
 						"type": "boolean",
 						"description": "True if the node was removed from the groups"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1010,9 +1095,10 @@
 				"type": "object",
 				"description": "Maps each requested node path to an array of its group names (internal engine groups omitted).",
 				"properties": {
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				},
 				"additionalProperties": {
@@ -1070,9 +1156,10 @@
 						"type": "boolean",
 						"description": "True if the signal was connected"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1120,9 +1207,10 @@
 						"type": "boolean",
 						"description": "True if the signal was disconnected"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1166,9 +1254,10 @@
 						"type": "boolean",
 						"description": "True if the script was attached"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1201,9 +1290,10 @@
 						"type": "boolean",
 						"description": "True if the script was detached"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1250,9 +1340,10 @@
 						"type": "boolean",
 						"description": "True if the script file was created"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1283,9 +1374,10 @@
 						"type": "boolean",
 						"description": "True if the script was opened in the script editor"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1326,9 +1418,10 @@
 						"type": "boolean",
 						"description": "True if the script was open and its contents were written to disk; false if it wasn't open (nothing to save)"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1367,9 +1460,10 @@
 						"type": "boolean",
 						"description": "True if the script is currently open in the editor (so 'content' is the live buffer)"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1422,9 +1516,10 @@
 						"type": "boolean",
 						"description": "True if the new contents were written to disk; false if only the editor buffer was updated (call save_script to flush it)"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1463,9 +1558,10 @@
 						"type": "boolean",
 						"description": "True if the project started running"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1487,9 +1583,10 @@
 						"type": "boolean",
 						"description": "True (the running project, if any, was stopped)"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1532,9 +1629,10 @@
 						"type": "boolean",
 						"description": "True if the assets were reimported"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1576,9 +1674,10 @@
 							"type": "string"
 						}
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1633,9 +1732,10 @@
 						"type": "boolean",
 						"description": "True if the import settings were changed and the asset was reimported"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1683,9 +1783,10 @@
 							"type": "string"
 						}
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1730,9 +1831,10 @@
 						"type": "boolean",
 						"description": "True if the settings were changed"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1770,9 +1872,10 @@
 							"type": "string"
 						}
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1798,9 +1901,10 @@
 						"type": "boolean",
 						"description": "True if the captured log messages were cleared"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1856,9 +1960,10 @@
 							"type": "string"
 						}
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1897,9 +2002,10 @@
 						"type": "boolean",
 						"description": "True once the editor has restarted and reconnected"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}
@@ -1938,9 +2044,10 @@
 						"type": "boolean",
 						"description": "True once the user has accepted and the editor is closing"
 					},
-					"error": {
-						"type": "string",
-						"description": "Why the call failed; present instead of the other properties when it did"
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
 				}
 			}

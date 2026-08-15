@@ -34,9 +34,13 @@
 							},
 							"required": ["project_path"]
 						}
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["projects"]
+				}
 			}
 		},
 		"open_godot_project": {
@@ -84,9 +88,13 @@
 					"already_open": {
 						"type": "boolean",
 						"description": "True if an editor was already running for this project, in which case headless was ignored and godot_version, if it was given, matched what that editor is running"
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success", "already_open"]
+				}
 			}
 		},
 		"list_open_projects": {
@@ -125,9 +133,13 @@
 							},
 							"required": ["project_path", "headless"]
 						}
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["projects"]
+				}
 			}
 		},
 		"list_installed_godot_versions": {
@@ -181,9 +193,13 @@
 							},
 							"required": ["version", "path", "linked", "default"]
 						}
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["versions"]
+				}
 			}
 		},
 		"search_available_godot_versions": {
@@ -232,9 +248,13 @@
 							},
 							"required": ["version", "installed"]
 						}
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["versions"]
+				}
 			}
 		},
 		"install_godot_version": {
@@ -302,9 +322,13 @@
 					"became_default": {
 						"type": "boolean",
 						"description": "True if there was no default version of Godot before, so this one became it"
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["engine", "became_default"]
+				}
 			}
 		},
 		"remove_godot_version": {
@@ -350,9 +374,13 @@
 					"default_cleared": {
 						"type": "boolean",
 						"description": "True if this was the default version of Godot, so there is no default now"
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["version", "linked", "templates_removed", "default_cleared"]
+				}
 			}
 		},
 		"pin_project_to_godot_version": {
@@ -393,9 +421,13 @@
 					"godot_version": {
 						"type": "string",
 						"description": "The version the project is now pinned to"
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success", "godot_version"]
+				}
 			}
 		},
 		"unpin_project_from_godot_version": {
@@ -428,9 +460,13 @@
 					"was_pinned": {
 						"type": "boolean",
 						"description": "True if the project was pinned to begin with"
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success", "was_pinned"]
+				}
 			}
 		},
 		"get_godai_settings": {
@@ -457,9 +493,13 @@
 					"project_base_path": {
 						"type": "string",
 						"description": "The base path where the user's Godot projects live; always empty unless MCP is running with --global"
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["godot_version", "project_base_path"]
+				}
 			}
 		},
 		"set_godai_settings": {
@@ -497,9 +537,13 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the settings were changed and saved"
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"required": ["success"]
+				}
 			}
 		}
 	}
