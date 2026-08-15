@@ -7,12 +7,9 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- MCP: Reduce the number of tools? toolsets? `search_tools()` tool?
-  - See: https://github.com/github/github-mcp-server/issues/275
 - MCP: Verity properties are set successfully in set_node_properties
   - We could check a before/after to see if it changes at all, and do a get after to see if it's the desired value
 - MCP: Check properties in set_project_settings (and give a warning when the project needs to be restarted)
-- CLI: How to make the descriptions for `editor-tool` more CLI-friendly?
 - CLI: Remove the prompt/elicitation for project_base_path
   - It's never required, and the godot_path one is gone with the setting
 - CLI: Add command to create a new project
@@ -92,6 +89,7 @@ For a 1.0
 Backlog
 -------
 
+- CLI: How to make the descriptions for `editor-tool` more CLI-friendly?
 - Make a Godot plugin in the Claude marketplace (which includes the .mcp.json)
   - Users do `/plugin marketplace add snopek-games/godai` or `claude plugin install ...`
   - See: https://claude.com/blog/claude-code-plugins

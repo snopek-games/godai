@@ -3,6 +3,7 @@
 	"tools": {
 		"get_current_project": {
 			"title": "Get Current Project",
+			"toolsets": ["project"],
 			"description": "Gets information about the project that is currently opened in the Godot editor.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -37,6 +38,7 @@
 		},
 		"get_project_settings": {
 			"title": "Get Project Settings",
+			"toolsets": ["project"],
 			"description": [
 				"Gets settings from the project (the values stored in 'project.godot', e.g. 'application/config/name' or 'display/window/size/viewport_width').",
 				"",
@@ -84,6 +86,7 @@
 		},
 		"set_project_settings": {
 			"title": "Set Project Settings",
+			"toolsets": ["project"],
 			"description": [
 				"Changes settings in the project and saves 'project.godot'.",
 				"",
@@ -130,6 +133,7 @@
 		},
 		"get_current_scene": {
 			"title": "Get Current Scene",
+			"toolsets": ["scene"],
 			"description": "Gets information about the scene that is currently opened in the Godot editor.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -159,6 +163,7 @@
 		},
 		"get_current_scene_tree": {
 			"title": "Get Scene Tree",
+			"toolsets": ["scene"],
 			"description": "Gets the tree for the scene that is currently opened in the Godot editor.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -200,6 +205,7 @@
 		},
 		"create_scene": {
 			"title": "Create Scene",
+			"toolsets": ["scene"],
 			"description": "Creates a new scene and opens it in the editor.",
 			"inputSchema": {
 				"type": "object",
@@ -239,6 +245,7 @@
 		},
 		"open_scene": {
 			"title": "Open Scene",
+			"toolsets": ["scene"],
 			"description": "Opens a scene in the editor.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -271,6 +278,7 @@
 		},
 		"get_node_properties": {
 			"title": "Get Node Properties",
+			"toolsets": ["scene"],
 			"description": [
 				"Gets the values of properties on specific nodes in the current scene.",
 				"",
@@ -339,6 +347,7 @@
 		},
 		"set_node_properties": {
 			"title": "Set Node Properties",
+			"toolsets": ["scene"],
 			"description": [
 				"Sets the values of properties on specific nodes in the current scene.",
 				"",
@@ -408,6 +417,7 @@
 		},
 		"add_node": {
 			"title": "Add Node",
+			"toolsets": ["scene"],
 			"description": [
 				"Creates a new node in the current scene, with the given properties set.",
 				"",
@@ -469,6 +479,7 @@
 		},
 		"remove_node": {
 			"title": "Remove Node",
+			"toolsets": ["scene"],
 			"description": "Removes the given node (and all its children) from the current scene.",
 			"annotations": {
 				"readOnlyHint": false,
@@ -503,6 +514,7 @@
 		},
 		"create_resource": {
 			"title": "Create Resource",
+			"toolsets": ["resource"],
 			"description": [
 				"Creates a new resource.",
 				"",
@@ -560,6 +572,7 @@
 		},
 		"open_resource": {
 			"title": "Open Resource",
+			"toolsets": ["resource"],
 			"description": "Opens a resource in the inspector.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -592,6 +605,7 @@
 		},
 		"get_resource_properties": {
 			"title": "Get Resource Properties",
+			"toolsets": ["resource"],
 			"description": [
 				"Gets the values of properties on a saved resource file (e.g. a .tres file).",
 				"",
@@ -665,6 +679,7 @@
 		},
 		"set_resource_properties": {
 			"title": "Set Resource Properties",
+			"toolsets": ["resource"],
 			"description": [
 				"Sets the values of properties on a saved resource file (.tres or .res), and saves the changes to the file.",
 				"",
@@ -734,6 +749,7 @@
 		},
 		"get_selected_nodes": {
 			"title": "Get Selected Nodes",
+			"toolsets": ["scene"],
 			"description": [
 				"Gets the nodes currently selected in the editor for the current scene.",
 				"",
@@ -762,6 +778,7 @@
 		},
 		"instantiate_scene": {
 			"title": "Instantiate Scene",
+			"toolsets": ["scene"],
 			"description": "Instantiates a saved scene (.tscn/.scn) as a child node in the current scene, like adding an instanced scene in the editor.",
 			"annotations": {
 				"readOnlyHint": false,
@@ -809,6 +826,7 @@
 		},
 		"save_scene": {
 			"title": "Save Scene",
+			"toolsets": ["scene"],
 			"description": [
 				"Saves the scene currently open in the editor to its file.",
 				"",
@@ -840,6 +858,7 @@
 		},
 		"save_scene_as": {
 			"title": "Save Scene As",
+			"toolsets": ["scene"],
 			"description": "Saves the scene currently open in the editor to the given path, changing the path of the current scene, such that subsequent save_scene calls would save to the new path.",
 			"annotations": {
 				"readOnlyHint": false,
@@ -878,6 +897,7 @@
 		},
 		"add_to_group": {
 			"title": "Add Node to Groups",
+			"toolsets": ["scene"],
 			"description": "Adds a node in the current scene to one or more groups.",
 			"annotations": {
 				"readOnlyHint": false,
@@ -921,6 +941,7 @@
 		},
 		"remove_from_group": {
 			"title": "Remove Node from Groups",
+			"toolsets": ["scene"],
 			"description": "Removes a node in the current scene from one or more groups.",
 			"annotations": {
 				"readOnlyHint": false,
@@ -964,6 +985,7 @@
 		},
 		"get_node_groups": {
 			"title": "Get Node Groups",
+			"toolsets": ["scene"],
 			"description": "Gets the groups that nodes in the current scene belong to.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -1003,6 +1025,7 @@
 		},
 		"connect_signal": {
 			"title": "Connect Signal",
+			"toolsets": ["scene"],
 			"description": [
 				"Connects a signal on one node to a method on another node, in the current scene.",
 				"",
@@ -1056,6 +1079,7 @@
 		},
 		"disconnect_signal": {
 			"title": "Disconnect Signal",
+			"toolsets": ["scene"],
 			"description": "Disconnects a previously-connected signal between two nodes in the current scene.",
 			"annotations": {
 				"readOnlyHint": false,
@@ -1105,6 +1129,7 @@
 		},
 		"attach_script": {
 			"title": "Attach Script",
+			"toolsets": ["scene"],
 			"description": [
 				"Attaches an existing script file to a node in the current scene.",
 				"",
@@ -1150,6 +1175,7 @@
 		},
 		"detach_script": {
 			"title": "Detach Script",
+			"toolsets": ["scene"],
 			"description": "Removes the script attached to a node in the current scene.",
 			"annotations": {
 				"readOnlyHint": false,
@@ -1184,6 +1210,7 @@
 		},
 		"create_script": {
 			"title": "Create Script",
+			"toolsets": ["script"],
 			"description": [
 				"Creates a new GDScript file.",
 				"",
@@ -1232,6 +1259,7 @@
 		},
 		"open_script": {
 			"title": "Open Script",
+			"toolsets": ["script"],
 			"description": "Opens a script file in the editor's script editor.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -1264,6 +1292,7 @@
 		},
 		"save_script": {
 			"title": "Save Script",
+			"toolsets": ["script"],
 			"description": [
 				"Saves a script's unsaved changes from the editor to its file.",
 				"",
@@ -1306,6 +1335,7 @@
 		},
 		"read_script": {
 			"title": "Read Script",
+			"toolsets": ["script"],
 			"description": [
 				"Reads the contents of a script file.",
 				"",
@@ -1346,6 +1376,7 @@
 		},
 		"write_script": {
 			"title": "Write Script",
+			"toolsets": ["script"],
 			"description": [
 				"Replaces the entire contents of an existing script file.",
 				"",
@@ -1400,6 +1431,7 @@
 		},
 		"run_project": {
 			"title": "Run Project",
+			"toolsets": ["project"],
 			"description": [
 				"Runs the project from the editor.",
 				"",
@@ -1440,6 +1472,7 @@
 		},
 		"stop_project": {
 			"title": "Stop Project",
+			"toolsets": ["project"],
 			"description": "Stops the running project, if any.",
 			"annotations": {
 				"readOnlyHint": false,
@@ -1463,6 +1496,7 @@
 		},
 		"reimport": {
 			"title": "Reimport Assets",
+			"toolsets": ["import"],
 			"description": [
 				"Reimports one or more asset files (e.g. after changing the source file or its import settings).",
 				"",
@@ -1507,6 +1541,7 @@
 		},
 		"get_import_settings": {
 			"title": "Get Import Settings",
+			"toolsets": ["import"],
 			"description": [
 				"Gets the import settings for an imported asset (e.g. a texture or audio file).",
 				"",
@@ -1550,6 +1585,7 @@
 		},
 		"set_import_settings": {
 			"title": "Set Import Settings",
+			"toolsets": ["import"],
 			"description": [
 				"Changes the import settings for an imported asset, and reimports it.",
 				"",
@@ -1606,6 +1642,7 @@
 		},
 		"get_editor_settings": {
 			"title": "Get Editor Settings",
+			"toolsets": ["editor"],
 			"description": [
 				"Gets settings from the Godot editor itself (the values stored in the global editor configuration, e.g. 'text_editor/behavior/indent/size' or 'text_editor/appearance/whitespace/draw_tabs'). These are editor-wide preferences, not project settings.",
 				"",
@@ -1655,6 +1692,7 @@
 		},
 		"set_editor_settings": {
 			"title": "Set Editor Settings",
+			"toolsets": ["editor"],
 			"description": [
 				"Changes settings in the Godot editor itself (editor-wide preferences, not project settings).",
 				"",
@@ -1701,6 +1739,7 @@
 		},
 		"get_log_messages": {
 			"title": "Get Log Messages",
+			"toolsets": ["editor"],
 			"description": [
 				"Gets recent log output from the editor (print() output, warnings, and errors) captured since the editor started.",
 				"",
@@ -1767,6 +1806,7 @@
 		},
 		"execute_editor_script": {
 			"title": "Execute Editor Script",
+			"toolsets": ["editor"],
 			"description": [
 				"Executes the given GDScript code in the editor, in the context of a Node that is a child of the scene currently being edited.",
 				"",
@@ -1824,6 +1864,7 @@
 		},
 		"restart_editor": {
 			"title": "Restart Editor",
+			"toolsets": ["editor"],
 			"description": [
 				"Restarts the Godot editor for the project.",
 				"",
@@ -1864,6 +1905,7 @@
 		},
 		"close_editor": {
 			"title": "Close Editor",
+			"toolsets": ["editor"],
 			"description": [
 				"Closes the Godot editor for the project.",
 				"",

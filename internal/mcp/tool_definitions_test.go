@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"path"
+	"slices"
 	"testing"
 
 	"github.com/matryer/is"
@@ -100,6 +101,58 @@ func TestToolOutputSchemasCompile(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestToolsetsAreKnown(t *testing.T) {
+	toolsPerToolset := map[string]int{}
+	for fileName, b := range toolsJSONFiles(t) {
+		defs, err := core.LoadToolDefinitions(b)
+		if err != nil {
+			t.Fatalf("unable to parse %s: %v", fileName, err)
+		}
+
+		for name, def := range defs {
+			if len(def.Toolsets) == 0 {
+				t.Errorf("%s has no toolsets", name)
+			}
+			for _, toolset := range def.Toolsets {
+				if !slices.Contains(core.ToolsetNames, toolset) {
+					t.Errorf("%s is in unknown toolset %q", name, toolset)
+				}
+				toolsPerToolset[toolset]++
+			}
+		}
+	}
+
+	for _, toolset := range core.ToolsetNames {
+		if toolsPerToolset[toolset] == 0 {
+			t.Errorf("toolset %s has no tools", toolset)
+		}
+	}
+}
+
+// The schema's enum and core.ToolsetNames both list the valid toolsets; this
+// keeps them from drifting apart.
+func TestToolsetsSchemaEnumMatches(t *testing.T) {
+	is := is.New(t)
+
+	var schema struct {
+		Properties struct {
+			Tools struct {
+				AdditionalProperties struct {
+					Properties struct {
+						Toolsets struct {
+							Items struct {
+								Enum []string `json:"enum"`
+							} `json:"items"`
+						} `json:"toolsets"`
+					} `json:"properties"`
+				} `json:"additionalProperties"`
+			} `json:"tools"`
+		} `json:"properties"`
+	}
+	is.NoErr(json.Unmarshal(readAddonFile(t, toolsSchemaPath), &schema))
+	is.Equal(schema.Properties.Tools.AdditionalProperties.Properties.Toolsets.Items.Enum, core.ToolsetNames)
 }
 
 // The '$schema' key is what points an editor at the schema; a stale relative

@@ -48,9 +48,17 @@
 					"doNotForward": {
 						"type": "boolean",
 						"default": "false"
+					},
+					"toolsets": {
+						"type": "array",
+						"items": {
+							"enum": ["project", "scene", "resource", "script", "import", "editor", "engine", "config"]
+						},
+						"minItems": 1,
+						"uniqueItems": true
 					}
 				},
-				"required": ["title", "description", "annotations", "outputSchema"],
+				"required": ["title", "description", "annotations", "outputSchema", "toolsets"],
 				"additionalProperties": false
 			}
 		}

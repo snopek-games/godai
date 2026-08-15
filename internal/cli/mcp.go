@@ -5,6 +5,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"slices"
+	"strings"
 	"time"
 
 	"gitlab.com/snopek-games/godai/internal/core"
@@ -32,6 +34,13 @@ func mcpCommand(configPath string) *cli.Command {
 				Name:  "auto-approve",
 				Usage: "run tools in any launched editors without asking for approval",
 			},
+			&cli.StringSliceFlag{
+				Name:  "toolsets",
+				Usage: "the toolsets to expose as MCP tools (see 'godai mcp toolsets'; default: all except engine)",
+			},
+		},
+		Commands: []*cli.Command{
+			mcpToolsetsCommand(),
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			return runServer(ctx, cmd, configPath)
@@ -39,9 +48,75 @@ func mcpCommand(configPath string) *cli.Command {
 	}
 }
 
+func mcpToolsetsCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "toolsets",
+		Usage: "list the toolsets that --toolsets can select, and the tools in each",
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			if err := rejectArgs(cmd); err != nil {
+				return err
+			}
+
+			type toolsetListing struct {
+				Name      string   `json:"name"`
+				InDefault bool     `json:"in_default"`
+				Tools     []string `json:"tools"`
+			}
+
+			byToolset := map[string][]string{}
+			for name, def := range mcp.AllToolDefinitions() {
+				for _, toolset := range def.Toolsets {
+					byToolset[toolset] = append(byToolset[toolset], name)
+				}
+			}
+
+			defaultToolsets := core.DefaultToolsets()
+			listings := make([]toolsetListing, 0, len(core.ToolsetNames))
+			for _, toolset := range core.ToolsetNames {
+				tools := byToolset[toolset]
+				slices.Sort(tools)
+				listings = append(listings, toolsetListing{
+					Name:      toolset,
+					InDefault: slices.Contains(defaultToolsets, toolset),
+					Tools:     tools,
+				})
+			}
+
+			out := printer(cmd)
+			return out.Value(struct {
+				Toolsets []toolsetListing `json:"toolsets"`
+			}{listings}, func(io.Writer) error {
+				for _, listing := range listings {
+					out.Printf("%s:\n", listing.Name)
+					for _, tool := range listing.Tools {
+						out.Printf("  %s\n", tool)
+					}
+				}
+				out.Printf("\ndefault = %s (everything except %s)\n", strings.Join(defaultToolsets, ", "), strings.Join(nonDefault(defaultToolsets), ", "))
+				return nil
+			})
+		},
+	}
+}
+
+func nonDefault(defaultToolsets []string) []string {
+	names := []string{}
+	for _, name := range core.ToolsetNames {
+		if !slices.Contains(defaultToolsets, name) {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 	if err := rejectArgs(cmd); err != nil {
 		return err
+	}
+
+	toolsets := cmd.StringSlice("toolsets")
+	if _, err := core.ExpandToolsets(toolsets); err != nil {
+		return newUsageError("%v", err)
 	}
 
 	if err := setupServerLogging(cmd); err != nil {
@@ -91,7 +166,7 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 		return err
 	}
 
-	return mcp.NewServer(session).Run(ctx)
+	return mcp.NewServer(session, toolsets).Run(ctx)
 }
 
 func setupServerLogging(cmd *cli.Command) error {

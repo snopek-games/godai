@@ -3,6 +3,7 @@
 	"tools": {
 		"list_projects": {
 			"title": "List Godot Projects",
+			"toolsets": ["project"],
 			"description": [
 				"Lists the Godot projects that are available to open.",
 				"",
@@ -40,6 +41,7 @@
 		},
 		"open_godot_project": {
 			"title": "Open Godot Project",
+			"toolsets": ["project"],
 			"description": [
 				"Opens a Godot project in a new Godot editor instance, if it isn't already open.",
 				"",
@@ -89,6 +91,7 @@
 		},
 		"list_open_projects": {
 			"title": "List Open Godot Projects",
+			"toolsets": ["project"],
 			"description": "Lists the projects currently open in a Godot editor, which version of Godot each one is open in, and whether that editor is headless.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -129,6 +132,7 @@
 		},
 		"list_installed_godot_versions": {
 			"title": "List Installed Godot Versions",
+			"toolsets": ["engine"],
 			"description": [
 				"Lists the versions of Godot that Godai can run: the ones it installed, and the custom builds that were linked with a name.",
 				"",
@@ -184,6 +188,7 @@
 		},
 		"search_available_godot_versions": {
 			"title": "Search Available Godot Versions",
+			"toolsets": ["engine"],
 			"description": [
 				"Searches the versions of Godot that are available to install, newest first.",
 				"",
@@ -234,6 +239,7 @@
 		},
 		"install_godot_version": {
 			"title": "Install Godot Version",
+			"toolsets": ["engine"],
 			"description": [
 				"Downloads and installs a version of Godot.",
 				"",
@@ -303,6 +309,7 @@
 		},
 		"remove_godot_version": {
 			"title": "Remove Godot Version",
+			"toolsets": ["engine"],
 			"description": "Removes a version of Godot that Godai installed, or forgets a custom build that was linked with a name.",
 			"inputSchema": {
 				"type": "object",
@@ -350,6 +357,7 @@
 		},
 		"pin_project_to_godot_version": {
 			"title": "Pin Project to Godot Version",
+			"toolsets": ["project"],
 			"description": [
 				"Records in the project which version of Godot it is built with, so that Godai always opens it with that version.",
 				"",
@@ -392,6 +400,7 @@
 		},
 		"unpin_project_from_godot_version": {
 			"title": "Unpin Project from Godot Version",
+			"toolsets": ["project"],
 			"description": "Removes the version of Godot recorded in the project's .godai.json config file, leaving Godai to work out which version to open it with from the project itself.",
 			"inputSchema": {
 				"type": "object",
@@ -426,6 +435,7 @@
 		},
 		"get_godai_settings": {
 			"title": "Get Godai Settings",
+			"toolsets": ["config"],
 			"description": [
 				"Gets Godai's own settings, which configure Godai itself rather than anything inside the Godot project or editor.",
 				"",
@@ -454,6 +464,7 @@
 		},
 		"set_godai_settings": {
 			"title": "Set Godai Settings",
+			"toolsets": ["config"],
 			"description": [
 				"Changes Godai's own settings, which configure Godai itself rather than anything inside the Godot project or editor.",
 				"",

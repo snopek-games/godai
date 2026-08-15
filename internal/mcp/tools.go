@@ -33,6 +33,23 @@ type unpinResult struct {
 	WasPinned bool `json:"was_pinned"`
 }
 
+// The CLI validates the toolset names before starting the server, so an
+// invalid name here is a programming error.
+func computeEnabledTools(toolsets []string) map[string]bool {
+	enabledToolsets, err := core.ExpandToolsets(toolsets)
+	if err != nil {
+		panic(err)
+	}
+
+	enabled := map[string]bool{}
+	for name, def := range AllToolDefinitions() {
+		if def.InAnyToolset(enabledToolsets) {
+			enabled[name] = true
+		}
+	}
+	return enabled
+}
+
 func (s *Server) setupLocalTools() {
 	s.addLocalTool("list_projects", s.toolListProjects)
 	s.addLocalTool("open_godot_project", s.toolOpenGodotProject)
@@ -330,6 +347,9 @@ func (s *Server) rpcListTools(ctx context.Context, rawParams json.RawMessage) (a
 			// This is a local "override", so the definition will come from the remote definitions.
 			continue
 		}
+		if !s.enabledTools[name] {
+			continue
+		}
 		def := tool.Definition
 		list = append(list, core.ToolListing{
 			Name:         name,
@@ -341,7 +361,11 @@ func (s *Server) rpcListTools(ctx context.Context, rawParams json.RawMessage) (a
 		})
 	}
 
-	list = append(list, core.RemoteToolListing()...)
+	for _, listing := range core.RemoteToolListing() {
+		if s.enabledTools[listing.Name] {
+			list = append(list, listing)
+		}
+	}
 
 	var resp struct {
 		Tools []core.ToolListing `json:"tools"`
@@ -355,6 +379,10 @@ func (s *Server) rpcCallTool(ctx context.Context, rawParams json.RawMessage) (an
 	var params callToolParams
 	if err := json.Unmarshal(rawParams, &params); err != nil {
 		return nil, jsonrpc.NewError(jsonrpc.InvalidParamsErrorCode, "Invalid parameters", nil)
+	}
+
+	if !s.enabledTools[params.Name] {
+		return nil, jsonrpc.NewError(jsonrpc.InvalidParamsErrorCode, "Unknown tool: "+params.Name, nil)
 	}
 
 	if tool, ok := s.localTools[params.Name]; ok {

@@ -148,6 +148,7 @@ func testMain(m *testing.M) int {
 		"--editor-instances-path", instancesDir,
 		"--editor-scan-interval", "1",
 		"--editor-retry-delay", "1",
+		"--toolsets", "default,engine",
 	}, []string{
 		"GODAI_MCP_TRANSPORT=websocket",
 		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", port),

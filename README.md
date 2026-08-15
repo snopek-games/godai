@@ -265,7 +265,8 @@ Run `godai` with no arguments to see the commands, and `godai <command> --help` 
 | `godai editor-tool <tool>` | Run one of the tools a running editor provides (`--help` lists them) |
 | `godai editor list` | List the projects currently open in an editor |
 | `godai editor restart` \| `close` | Control a running editor |
-| `godai mcp` | Run the MCP server on stdio |
+| `godai mcp [--toolsets=...]` | Run the MCP server on stdio, optionally limiting the toolsets it advertises |
+| `godai mcp toolsets` | List the toolsets and the tools in each |
 | `godai self-update` | Update the binary in place |
 
 Each editor tool is its own subcommand with flags built from that tool's schema, so you can discover
@@ -445,6 +446,9 @@ Two important notes:
   use the [MCP Roots feature](https://modelcontextprotocol.io/specification/2025-11-25/client/roots)
   if your client supports it. If not, it'll use the current directory it was spawned from as its
   root. If you want to manually specify the allowed roots, add one or more `--root PATH` arguments.
+- The tools for installing and removing Godot versions (the `engine` toolset) aren't advertised by
+  default. Add `--toolsets=default,engine` to expose them, or pick just the toolsets you want, like
+  `--toolsets=scene,project`. `godai mcp toolsets` lists the toolsets and the tools in each.
 
 Updating the Godai CLI
 ----------------------

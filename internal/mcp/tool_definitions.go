@@ -3,6 +3,7 @@ package mcp
 import (
 	"embed"
 	"fmt"
+	"maps"
 	"sync"
 
 	"gitlab.com/snopek-games/godai/internal/core"
@@ -22,3 +23,10 @@ var GetLocalToolDefinitions = sync.OnceValue(func() map[string]*core.ToolDefinit
 	}
 	return tools
 })
+
+func AllToolDefinitions() map[string]*core.ToolDefinition {
+	all := map[string]*core.ToolDefinition{}
+	maps.Copy(all, GetLocalToolDefinitions())
+	maps.Copy(all, core.RemoteToolDefinitions())
+	return all
+}

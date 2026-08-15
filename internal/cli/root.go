@@ -46,7 +46,7 @@ func Root() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:  "godot-version",
-				Usage: "version of Godot to use (see godai engine list), overriding whatever version a project asks for",
+				Usage: "version of Godot to use (see 'godai engine list'), overriding whatever version a project asks for",
 				Value: godotVersion,
 			},
 			// GODOT is read in loadDefaults() rather than declared as a source,

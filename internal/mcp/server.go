@@ -142,11 +142,12 @@ type Server struct {
 	toolQueueCh        chan *jsonrpc.Request
 	requestQueueCh     chan *jsonrpc.Request
 	localTools         map[string]*Tool
+	enabledTools       map[string]bool
 	roots              []string
 	rootsMutex         sync.RWMutex
 }
 
-func NewServer(session *core.Session) *Server {
+func NewServer(session *core.Session, toolsets []string) *Server {
 	d := jsonrpc.NewDispatcher()
 
 	s := &Server{
@@ -157,6 +158,7 @@ func NewServer(session *core.Session) *Server {
 		toolQueueCh:       make(chan *jsonrpc.Request, 4),
 		requestQueueCh:    make(chan *jsonrpc.Request, 16),
 		localTools:        make(map[string]*Tool),
+		enabledTools:      computeEnabledTools(toolsets),
 		roots:             session.Config().RootPaths,
 	}
 
