@@ -1,0 +1,36 @@
+class Godai < Formula
+  desc "Automate the Godot editor from the command-line or via MCP"
+  homepage "https://gitlab.com/snopek-games/godai"
+  version "@VERSION@"
+  license "MIT"
+
+  on_macos do
+    on_arm do
+      url "https://gitlab.com/api/v4/projects/snopek-games%2Fgodai/packages/generic/release-packages/v@VERSION@/godai-cli-macos-arm64-v@VERSION@.zip"
+      sha256 "@SHA256_MACOS_ARM64@"
+    end
+    on_intel do
+      url "https://gitlab.com/api/v4/projects/snopek-games%2Fgodai/packages/generic/release-packages/v@VERSION@/godai-cli-macos-x86_64-v@VERSION@.zip"
+      sha256 "@SHA256_MACOS_X86_64@"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "https://gitlab.com/api/v4/projects/snopek-games%2Fgodai/packages/generic/release-packages/v@VERSION@/godai-cli-linux-arm64-v@VERSION@.zip"
+      sha256 "@SHA256_LINUX_ARM64@"
+    end
+    on_intel do
+      url "https://gitlab.com/api/v4/projects/snopek-games%2Fgodai/packages/generic/release-packages/v@VERSION@/godai-cli-linux-x86_64-v@VERSION@.zip"
+      sha256 "@SHA256_LINUX_X86_64@"
+    end
+  end
+
+  def install
+    bin.install "godai"
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/godai --version")
+  end
+end

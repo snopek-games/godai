@@ -39,7 +39,7 @@ Files in this directory
 - `godai.js` - the launcher script.
 - `README.md` - the README shown on npmjs.com for the main package.
 - `prepare-packages.mjs` - generates the actual publishable packages into
-  `npm/dist/` (gitignored): it stamps the version, creates the platform
+  `packaging/npm/dist/` (gitignored): it stamps the version, creates the platform
   packages, and copies in the binaries from `dist/cli/` (the artifacts of the
   `cli-build` CI job).
 
@@ -100,14 +100,14 @@ Adding a new platform
 
 1. Add the build variant to the `cli-build` matrix in `.gitlab-ci.yml`.
 2. Add `@snopek-games/godai-<process.platform>-<process.arch>` to
-   `optionalDependencies` in `npm/package.json` (use Node's names: `darwin`
+   `optionalDependencies` in `packaging/npm/package.json` (use Node's names: `darwin`
    not `macos`, `win32` not `windows`, `x64` not `x86_64`).
 3. Map that package name to the CI variant in `VARIANTS` in
    `prepare-packages.mjs`.
 4. Publish the new platform package manually once - npm won't let you
    configure a trusted publisher on a package that doesn't exist yet.
    Follow "Publishing manually" below, but only run `npm publish` in the
-   *new* package's directory under `npm/dist/platforms/`. Use a version
+   *new* package's directory under `packaging/npm/dist/platforms/`. Use a version
    like `X.Y.Z-dev1` (where `X.Y.Z` is the upcoming release) so it
    can't collide with a real release; the version doesn't matter otherwise,
    since installs always use the exact versions pinned by the main
@@ -140,19 +140,20 @@ CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o d
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-windows-x86_64/godai.exe ./cmd/godai/
 CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-windows-arm64/godai.exe ./cmd/godai/
 CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-macos-arm64/godai ./cmd/godai/
+CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-macos-x86_64/godai ./cmd/godai/
 
 # Generate the npm packages with the right version stamped in
 # (npm never allows re-publishing a version, even a deleted one):
-node npm/prepare-packages.mjs <version>
+node packaging/npm/prepare-packages.mjs <version>
 
 # Log in to npmjs.com (opens a browser; only needed once per machine):
 npm login
 
 # Publish the platform packages first, then the main package:
-for dir in npm/dist/platforms/*/; do
+for dir in packaging/npm/dist/platforms/*/; do
   (cd "$dir" && npm publish --access public)
 done
-(cd npm/dist/godai && npm publish --access public)
+(cd packaging/npm/dist/godai && npm publish --access public)
 
 # Revert the plugin.cfg change, if you made one:
 git checkout -- addons/godai/plugin.cfg
@@ -171,5 +172,5 @@ upgrade to the real release.
 
 To just test the packaging without publishing, run the build and
 prepare-packages steps with a version like `0.0.0-test`, then
-`npm pack` (instead of `npm publish`) in any of the `npm/dist` package
+`npm pack` (instead of `npm publish`) in any of the `packaging/npm/dist` package
 directories produces a .tgz you can inspect or `npm install` directly.

@@ -95,6 +95,10 @@ cli-build:
         GOOS: "darwin"
         GOARCH: "arm64"
         EXT: ""
+      - VARIANT: "macos-x86_64"
+        GOOS: "darwin"
+        GOARCH: "amd64"
+        EXT: ""
   script:
     - mkdir -p dist/cli/${CLI_ASSET_NAME}-${VARIANT}
 
@@ -139,21 +143,45 @@ package-mcpb:
     paths:
       - dist/mcpb/
 
-# Catches packaging breakage before release time.
 package-npm:
   stage: package
   image: node:current
   script:
-    - node npm/prepare-packages.mjs "0.0.0-dev.${CI_COMMIT_SHORT_SHA}"
+    - node packaging/npm/prepare-packages.mjs "0.0.0-dev.${CI_COMMIT_SHORT_SHA}"
     - |
-      for dir in npm/dist/platforms/*/ npm/dist/godai/; do
+      for dir in packaging/npm/dist/platforms/*/ packaging/npm/dist/godai/; do
         (cd "$dir" && npm pack --dry-run)
       done
   artifacts:
     when: always
     expire_in: 1 week
     paths:
-      - npm/dist/
+      - packaging/npm/dist/
+
+package-brew:
+  stage: package
+  image: alpine:latest
+  cache: []
+  before_script:
+    - apk add zip ruby
+  script:
+    - VERSION="0.0.0-dev.${CI_COMMIT_SHORT_SHA}"
+    - mkdir -p dist/brew
+    - |
+      cd dist/cli
+      for d in ${CLI_ASSET_NAME}-macos-* ${CLI_ASSET_NAME}-linux-*; do
+        zip -qr "../brew/$d-v$VERSION.zip" "$d"
+      done
+      cd ../brew
+      sha256sum *.zip > checksums.txt
+      cd ../..
+    - packaging/brew/prepare-formula.sh "$VERSION" dist/brew/checksums.txt dist/brew/godai.rb
+    - ruby -c dist/brew/godai.rb
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - dist/brew/godai.rb
 
 npm-publish:
   stage: release
@@ -168,12 +196,40 @@ npm-publish:
     SIGSTORE_ID_TOKEN:
       aud: "sigstore"
   script:
-    - node npm/prepare-packages.mjs "${CI_COMMIT_TAG#v}"
+    - node packaging/npm/prepare-packages.mjs "${CI_COMMIT_TAG#v}"
     - |
-      for dir in npm/dist/platforms/*/; do
+      for dir in packaging/npm/dist/platforms/*/; do
         (cd "$dir" && npm publish --access public)
       done
-    - (cd npm/dist/godai && npm publish --access public)
+    - (cd packaging/npm/dist/godai && npm publish --access public)
+
+brew-publish:
+  stage: release
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+  needs:
+    - job: release
+      artifacts: true
+  image: alpine:latest
+  cache: []
+  before_script:
+    - apk add git
+  script:
+    - packaging/brew/prepare-formula.sh "${CI_COMMIT_TAG#v}" "dist/release/checksums-${CI_COMMIT_TAG}.txt" godai.rb
+    - git clone "https://x-access-token:${BREW_TAP_GITHUB_TOKEN}@github.com/snopek-games/homebrew-godai.git" tap
+    - mkdir -p tap/Formula
+    - cp godai.rb tap/Formula/godai.rb
+    - cd tap
+    - git config user.name "GitLab CI"
+    - git config user.email "dsnopek@gmail.com"
+    - git add Formula/godai.rb
+    - |
+      if git diff --cached --quiet; then
+        echo "Formula unchanged; nothing to push."
+      else
+        git commit -m "godai ${CI_COMMIT_TAG}"
+        git push origin HEAD
+      fi
 
 release:
   stage: release
@@ -215,6 +271,10 @@ release:
         curl --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file $PKG_FN ${PACKAGE_REGISTRY_URL}/$PKG_FN
       done
       cd ../..
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - dist/release/checksums-*.txt
   release:
     tag_name: $CI_COMMIT_TAG
     name: "Release $CI_COMMIT_TAG"
@@ -231,8 +291,12 @@ release:
           url: "${PACKAGE_REGISTRY_URL}/${CLI_ASSET_NAME}-linux-arm64-${CI_COMMIT_TAG}.zip"
         - name: "${CLI_ASSET_NAME}-macos-arm64-${CI_COMMIT_TAG}.zip"
           url: "${PACKAGE_REGISTRY_URL}/${CLI_ASSET_NAME}-macos-arm64-${CI_COMMIT_TAG}.zip"
+        - name: "${CLI_ASSET_NAME}-macos-x86_64-${CI_COMMIT_TAG}.zip"
+          url: "${PACKAGE_REGISTRY_URL}/${CLI_ASSET_NAME}-macos-x86_64-${CI_COMMIT_TAG}.zip"
         - name: "npm: @snopek-games/godai ${CI_COMMIT_TAG}"
           url: "https://www.npmjs.com/package/@snopek-games/godai"
+        - name: "brew: snopek-games/godai tap"
+          url: "https://github.com/snopek-games/homebrew-godai"
         - name: "${MCPB_NAME}-${CI_COMMIT_TAG}.mcpb"
           url: "${PACKAGE_REGISTRY_URL}/${MCPB_NAME}-${CI_COMMIT_TAG}.mcpb"
         - name: "godai-addon.zip"

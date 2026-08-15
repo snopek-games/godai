@@ -18,6 +18,7 @@ var releaseVariants = map[string]Variant{
 	"windows/amd64": {Name: "windows-x86_64", Ext: ".exe"},
 	"windows/arm64": {Name: "windows-arm64", Ext: ".exe"},
 	"darwin/arm64":  {Name: "macos-arm64", Ext: ""},
+	"darwin/amd64":  {Name: "macos-x86_64", Ext: ""},
 }
 
 func VariantForRuntime() (Variant, error) {

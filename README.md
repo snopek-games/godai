@@ -242,7 +242,12 @@ Quick Start: CLI mode
 ---------------------
 
 Install the `godai` binary from the [latest release](https://gitlab.com/snopek-games/godai/-/releases),
-or run it with `npx -y @snopek-games/godai`.
+run it with `npx -y @snopek-games/godai`, or install it with [Homebrew](https://brew.sh/):
+
+```bash
+brew tap snopek-games/godai
+brew install godai
+```
 
 Run `godai` with no arguments to see the commands, and `godai <command> --help` for any of them.
 
@@ -319,8 +324,15 @@ Then restart Claude Code if it was already running. And that's it!
 <details>
 <summary><strong>Without Node and <code>npx</code></strong></summary>
 
-If you don't have (or don't want to use) Node/`npx`, you can download a standalone binary for your
-platform from the [latest release](https://gitlab.com/snopek-games/godai/-/releases) of Godai,
+If you don't have (or don't want to use) Node/`npx`, you can install with
+[Homebrew](https://brew.sh/) (`brew tap snopek-games/godai && brew install godai`) and run:
+
+```bash
+claude mcp add godai -- godai mcp
+```
+
+Or download a standalone binary for your platform from the
+[latest release](https://gitlab.com/snopek-games/godai/-/releases) of Godai,
 then give the full path to that instead:
 
 ```bash
@@ -466,8 +478,9 @@ kept next to the executable (as `godai.old`), which is what `--rollback` restore
 
 > [!NOTE]
 > If you installed via `npx`/npm, use `npm install -g @snopek-games/godai@latest` instead - npm
-> replaces the executable on its next install, so a self-update wouldn't stick. Claude Desktop
-> extensions (.MCPB) are updated by installing the new .MCPB file.
+> replaces the executable on its next install, so a self-update wouldn't stick. Likewise for
+> Homebrew: use `brew update && brew upgrade godai`. Claude Desktop extensions (.MCPB) are
+> updated by installing the new .MCPB file.
 
 The Godai addon inside your projects doesn't need updating separately: the `godai` binary carries a
 copy of the matching addon, and reinstalls it in your project when the versions don't match.

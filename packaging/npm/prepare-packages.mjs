@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// Generates the publishable npm packages into npm/dist/ from the Go binaries
-// that CI builds into dist/cli/.
+// Generates the publishable npm packages into packaging/npm/dist/ from the Go
+// binaries that CI builds into dist/cli/.
 //
-// Usage: node npm/prepare-packages.mjs <version>
+// Usage: node packaging/npm/prepare-packages.mjs <version>
 //
 // Produces:
-//   npm/dist/godai/                - the main launcher package
-//   npm/dist/platforms/<name>/     - one package per platform binary
+//   packaging/npm/dist/godai/                - the main launcher package
+//   packaging/npm/dist/platforms/<name>/     - one package per platform binary
 //
-// The platform packages listed in npm/package.json's optionalDependencies are
+// The platform packages listed in packaging/npm/package.json's optionalDependencies are
 // the source of truth for which platforms exist; this script maps each one to
 // the corresponding CI build variant via VARIANTS below.
 
@@ -17,7 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const NPM_DIR = path.dirname(fileURLToPath(import.meta.url));
-const ROOT_DIR = path.dirname(NPM_DIR);
+const ROOT_DIR = path.dirname(path.dirname(NPM_DIR));
 const BUILD_DIR = path.join(ROOT_DIR, 'dist', 'cli');
 const OUT_DIR = path.join(NPM_DIR, 'dist');
 
@@ -55,7 +55,7 @@ const optionalDependencies = {};
 for (const packageName of Object.keys(basePackage.optionalDependencies)) {
   const info = VARIANTS[packageName];
   if (!info) {
-    fail(`no VARIANTS entry for "${packageName}" (declared in npm/package.json optionalDependencies)`);
+    fail(`no VARIANTS entry for "${packageName}" (declared in packaging/npm/package.json optionalDependencies)`);
   }
 
   // Package names follow the pattern <scope>/godai-<os>-<cpu>.

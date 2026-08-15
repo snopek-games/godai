@@ -101,9 +101,13 @@ func TestVariantForPlatform(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(variant, Variant{Name: "windows-x86_64", Ext: ".exe"})
 
-	_, err = variantForPlatform("darwin", "amd64")
+	variant, err = variantForPlatform("darwin", "amd64")
+	is.NoErr(err)
+	is.Equal(variant, Variant{Name: "macos-x86_64", Ext: ""})
+
+	_, err = variantForPlatform("freebsd", "amd64")
 	is.True(err != nil)
-	is.True(strings.Contains(err.Error(), "darwin/amd64"))
+	is.True(strings.Contains(err.Error(), "freebsd/amd64"))
 }
 
 func TestVariantByName(t *testing.T) {
