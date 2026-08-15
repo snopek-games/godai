@@ -12,6 +12,9 @@ For a 1.0
 - MCP: Check properties in set_project_settings (and give a warning when the project needs to be restarted)
 - CLI: Remove the prompt/elicitation for project_base_path
   - It's never required, and the godot_path one is gone with the setting
+  - Make into a warning letting the user know they could set "project_base_path"
+  - CLI should check the current directory for a project too
+    - And MCP should check the --roots (if it isn't already)
 - CLI: Add command to create a new project
   ```
   # Will only work on non-existent directories, or empty directories. If no directory is given, use the CWD
