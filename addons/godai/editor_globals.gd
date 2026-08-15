@@ -8,6 +8,7 @@ static var logger: CustomLogger
 static func setup() -> void:
 	logger = CustomLogger.new()
 	logger.max_messages = 1000
+	logger.timestamps = true
 	OS.add_logger(logger)
 	logger.start()
 

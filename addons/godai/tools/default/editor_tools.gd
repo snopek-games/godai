@@ -17,6 +17,7 @@ static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
 	p_tools.register_tool(EditorRestart.new(p_data["restart_editor"]))
 	p_tools.register_tool(EditorClose.new(p_data["close_editor"]))
 	p_tools.register_tool(LogGetMessages.new(p_data["get_log_messages"]))
+	p_tools.register_tool(LogClearMessages.new(p_data["clear_log_messages"]))
 	p_tools.register_tool(EditorScriptExecute.new(p_data["execute_editor_script"]))
 
 
@@ -205,6 +206,12 @@ class LogGetMessages extends DefaultTool:
 			messages = messages.slice(messages.size() - count)
 
 		return ToolResult.resolved({ messages = messages })
+
+
+class LogClearMessages extends DefaultTool:
+	func execute(p_input) -> ToolResult:
+		EditorGlobals.logger.clear()
+		return ToolResult.resolved({ success = true })
 
 
 class EditorScriptExecute extends DefaultTool:

@@ -5,6 +5,7 @@ const ToolResult = ToolManager.ToolResult
 const DefaultTool = ToolManager.DefaultTool
 const Utils = preload("res://addons/godai/utils.gd")
 const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
+const EditorGlobals = preload("res://addons/godai/editor_globals.gd")
 
 const GODAI_SETTING_MESSAGE = "'%s' overrides a Godai setting; those are only accessible to the user, via Editor Settings."
 
@@ -90,22 +91,28 @@ class ProjectRun extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var scene: String = p_input.get('scene', '')
 
+		var play: Callable
 		if scene.is_empty() or scene == "main":
 			var main_scene: String = ProjectSettings.get_setting("application/run/main_scene", "")
 			if main_scene.is_empty():
 				return ToolResult.rejected({error = "No main scene is configured; pass 'scene' set to 'current' or a scene path"})
-			EditorInterface.play_main_scene()
+			play = EditorInterface.play_main_scene
 		elif scene == "current":
 			if not EditorInterface.get_edited_scene_root():
 				return ToolResult.rejected({error = "No scene open"})
-			EditorInterface.play_current_scene()
+			play = EditorInterface.play_current_scene
 		else:
 			var scene_path := Utils.to_res_path(scene)
 			if scene_path.is_empty():
 				return ToolResult.rejected({error = "'scene' must be inside the project (res://)"})
 			if not FileAccess.file_exists(scene_path):
 				return ToolResult.rejected({error = "'%s' doesn't exist" % scene_path})
-			EditorInterface.play_custom_scene(scene_path)
+			play = EditorInterface.play_custom_scene.bind(scene_path)
+
+		if bool(p_input.get('clear_log_messages', false)):
+			EditorGlobals.logger.clear()
+
+		play.call()
 
 		return ToolResult.resolved({success = true})
 

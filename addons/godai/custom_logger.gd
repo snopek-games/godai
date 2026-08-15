@@ -8,6 +8,10 @@ var _mutex := Mutex.new()
 ## (the buffer acts as a ring). Zero means keep everything.
 var max_messages := 0
 
+## When true, each captured line is prefixed with the local time it arrived,
+## as "[HH:MM:SS.mmm] ".
+var timestamps := false
+
 # ANSI escape sequences (terminal colors, etc).
 var _ansi_regex := RegEx.create_from_string("\\x1b\\[[0-9;]*[A-Za-z]")
 # Any remaining control characters, except newline and tab.
@@ -58,8 +62,15 @@ func _add_lines(p_msg: String) -> void:
 	if len(lines) > 1 and lines[len(lines) - 1] == "":
 		lines = lines.slice(0, len(lines) - 1)
 
+	var stamp := ""
+	if timestamps:
+		# One clock sample, so the seconds and milliseconds always agree.
+		var unix := Time.get_unix_time_from_system()
+		var bias: int = Time.get_time_zone_from_system()["bias"]
+		stamp = "[%s.%03d] " % [Time.get_time_string_from_unix_time(int(unix) + bias * 60), int(fmod(unix, 1.0) * 1000)]
+
 	for line in lines:
-		_messages.push_back(line)
+		_messages.push_back(stamp + line)
 
 	# Keep the buffer bounded when a maximum is set.
 	if max_messages > 0 and _messages.size() > max_messages:

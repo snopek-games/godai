@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -87,6 +88,7 @@ func TestListTools(t *testing.T) {
 		"get_import_settings",
 		"set_import_settings",
 		"get_log_messages",
+		"clear_log_messages",
 		"execute_editor_script",
 		"get_editor_settings",
 		"set_editor_settings",
@@ -247,6 +249,12 @@ func TestExecuteEditorScript(t *testing.T) {
 		is.Equal(structured["success"], true)
 		output, _ := json.Marshal(structured["output"])
 		is.True(strings.Contains(string(output), "hello from functional test"))
+
+		// Script output is returned verbatim, without log timestamps.
+		lines, _ := structured["output"].([]any)
+		for _, line := range asStrings(lines) {
+			is.True(!logTimestampRegexp.MatchString(line))
+		}
 	})
 
 	t.Run("spaces_converted_to_tabs", func(t *testing.T) {
@@ -327,6 +335,40 @@ return OK`)
 			"scene": "res://scenes/no_such_scene.tscn",
 		}, "doesn't exist")
 	})
+
+	t.Run("clear_log_messages", func(t *testing.T) {
+		is := is.New(t)
+
+		// Otherwise the game opens a window on a developer's machine.
+		callToolOK(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{"editor/run/main_run_args": "--headless"},
+		})
+
+		t.Cleanup(func() {
+			client.CallTool(testContext(t), "stop_project", map[string]any{})
+		})
+
+		marker := "godai-run-clear-marker-91c4e7"
+		runEditorScript(t, fmt.Sprintf("print(%q)\nreturn OK", marker))
+		is.True(logContainsMarker(t, marker))
+
+		// A rejected run must leave the captured log alone.
+		callToolErr(t, "run_project", map[string]any{
+			"scene":              "res://scenes/no_such_scene.tscn",
+			"clear_log_messages": true,
+		}, "doesn't exist")
+		is.True(logContainsMarker(t, marker))
+
+		structured := callToolOK(t, "run_project", map[string]any{
+			"scene":              "current",
+			"clear_log_messages": true,
+		})
+		is.Equal(structured["success"], true)
+		is.True(!logContainsMarker(t, marker))
+
+		stopped := callToolOK(t, "stop_project", nil)
+		is.Equal(stopped["success"], true)
+	})
 }
 
 func TestGetLogMessages(t *testing.T) {
@@ -345,8 +387,39 @@ func TestGetLogMessages(t *testing.T) {
 	for _, raw := range messages {
 		if line, ok := raw.(string); ok && strings.Contains(line, marker) {
 			found = true
-			break
+			is.True(logTimestampRegexp.MatchString(line))
 		}
 	}
 	is.True(found)
+}
+
+var logTimestampRegexp = regexp.MustCompile(`^\[\d{2}:\d{2}:\d{2}\.\d{3}\] `)
+
+func TestClearLogMessages(t *testing.T) {
+	is := is.New(t)
+
+	marker := "godai-clear-marker-a7f31c"
+	runEditorScript(t, fmt.Sprintf("print(%q)\nreturn OK", marker))
+	is.True(logContainsMarker(t, marker))
+
+	structured := callToolOK(t, "clear_log_messages", nil)
+	is.Equal(structured["success"], true)
+	is.True(!logContainsMarker(t, marker))
+
+	// Capture must keep working after a clear.
+	after := "godai-post-clear-marker-a7f31c"
+	runEditorScript(t, fmt.Sprintf("print(%q)\nreturn OK", after))
+	is.True(logContainsMarker(t, after))
+}
+
+func logContainsMarker(t *testing.T, marker string) bool {
+	t.Helper()
+	structured := callToolOK(t, "get_log_messages", map[string]any{"count": float64(0)})
+	raw, _ := structured["messages"].([]any)
+	for _, line := range asStrings(raw) {
+		if strings.Contains(line, marker) {
+			return true
+		}
+	}
+	return false
 }

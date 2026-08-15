@@ -1417,6 +1417,10 @@
 					"scene": {
 						"type": "string",
 						"description": "What to run: 'main' (default), 'current', or a path to a scene file"
+					},
+					"clear_log_messages": {
+						"type": "boolean",
+						"description": "Clear the captured log messages before running, so get_log_messages only returns output from this run onward (default: false)"
 					}
 				}
 			},
@@ -1700,7 +1704,9 @@
 			"description": [
 				"Gets recent log output from the editor (print() output, warnings, and errors) captured since the editor started.",
 				"",
-				"Messages are sorted oldest first. Includes messages from both the editor and games run via `run_project`."
+				"Messages are sorted oldest first. Includes messages from both the editor and games run via `run_project`.",
+				"",
+				"Each line is prefixed with the local time it was captured, as '[HH:MM:SS.mmm]', so identical lines from different moments can be told apart."
 			],
 			"annotations": {
 				"readOnlyHint": true,
@@ -1724,6 +1730,33 @@
 						"items": {
 							"type": "string"
 						}
+					},
+					"error": {
+						"type": "string",
+						"description": "Why the call failed; present instead of the other properties when it did"
+					}
+				}
+			}
+		},
+		"clear_log_messages": {
+			"title": "Clear Log Messages",
+			"description": [
+				"Clears the log messages captured so far, so subsequent get_log_messages calls only return output from after this point.",
+				"",
+				"This only affects the captured messages; the editor's own Output panel is untouched."
+			],
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "True if the captured log messages were cleared"
 					},
 					"error": {
 						"type": "string",

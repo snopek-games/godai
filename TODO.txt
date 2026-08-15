@@ -7,9 +7,6 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- MCP: Add a way to clear log messages (and/or add timestamps so agents know they are the same messages?)
-  - Both a clear_log_messages()
-  - And a `{clear_log_messages: true}` for run_project()
 - MCP: Reduce the number of tools? toolsets? `search_tools()` tool?
   - See: https://github.com/github/github-mcp-server/issues/275
 - MCP: Verity properties are set successfully in set_node_properties
