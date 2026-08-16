@@ -194,6 +194,7 @@ class SceneInstantiate extends DefaultTool:
 		return ToolResult.resolved({
 			success = true,
 			node_path = str(edited_scene_root.get_path_to(node)),
+			notes = [Utils.UNSAVED_SCENE_NOTE],
 		})
 
 

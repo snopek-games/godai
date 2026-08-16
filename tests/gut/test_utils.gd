@@ -110,6 +110,35 @@ func test_decode_property_value() -> void:
 	decoded = Utils.decode_property_value("PackedFloatArray(0, 1)", TYPE_NIL)
 	assert_eq(decoded.get("value"), "PackedFloatArray(0, 1)")
 
+	# Godot's parser silently drops components that don't fill out a whole
+	# element (2 floats make 0 colors), so that's an error here.
+	decoded = Utils.decode_property_value("PackedColorArray(0.0, 1.0)", TYPE_PACKED_COLOR_ARRAY)
+	assert_string_contains(decoded.get("error", ""), "multiple of 4")
+
+	decoded = Utils.decode_property_value("PackedVector2Array(1, 2, 3)", TYPE_NIL)
+	assert_string_contains(decoded.get("error", ""), "multiple of 2")
+
+	decoded = Utils.decode_property_value("PackedColorArray(0.1, 0.2, 0.6, 1.0, 1.0, 0.7, 0.4, 1.0)", TYPE_PACKED_COLOR_ARRAY)
+	assert_eq(decoded.get("value"), PackedColorArray([Color(0.1, 0.2, 0.6, 1.0), Color(1.0, 0.7, 0.4, 1.0)]))
+
+	# A packed array of the wrong element type zero-fills when set(), so
+	# a mismatch is an error...
+	decoded = Utils.decode_property_value("PackedColorArray(1, 0, 0, 1)", TYPE_PACKED_FLOAT32_ARRAY)
+	assert_string_contains(decoded.get("error", ""), "expects PackedFloat32Array, not PackedColorArray")
+
+	# When the type is wrong AND the count is bad, the type mismatch wins:
+	# fixing the type fixes both.
+	decoded = Utils.decode_property_value("PackedColorArray(0.0, 1.0)", TYPE_PACKED_FLOAT32_ARRAY)
+	assert_string_contains(decoded.get("error", ""), "expects PackedFloat32Array, not PackedColorArray")
+
+	# ... except between the numeric packed arrays, which convert cleanly.
+	decoded = Utils.decode_property_value("PackedFloat64Array(0.25, 0.75)", TYPE_PACKED_FLOAT32_ARRAY)
+	assert_eq(decoded.get("value"), PackedFloat64Array([0.25, 0.75]))
+
+	# A plain array converts on set(), so it stays accepted.
+	decoded = Utils.decode_property_value("[0.0, 1.0]", TYPE_PACKED_FLOAT32_ARRAY)
+	assert_eq(decoded.get("value"), [0.0, 1.0])
+
 
 func test_values_equal_approx() -> void:
 	# Numbers compare across int/float, with float32 round-trip noise tolerated.

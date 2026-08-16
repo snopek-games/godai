@@ -3,6 +3,9 @@ extends RefCounted
 ## Hidden properties that we should report anyway.
 const HIDDEN_PROPERTIES_WORTH_REPORTING := ["name", "scene_file_path", "script"]
 
+const UNSAVED_SCENE_NOTE := "the scene has unsaved changes - call save_scene once you're done editing to persist them"
+const UNSAVED_SCRIPT_NOTE := "the script has unsaved changes - call save_script once you're done editing to persist them"
+
 
 ## Encodes a property value as a string in Godot variant syntax.
 ##
@@ -60,7 +63,53 @@ static func decode_property_value(p_raw: Variant, p_expected_type: int) -> Dicti
 			return { error = prefix_error }
 		return { error = 'Cannot parse "%s" as a Godot variant. Examples of valid values: 5, 2.5, true, Vector2(1, 2), Color(1, 0, 0, 1), Resource("res://path/to/file.tres"), Object(SphereMesh,"radius":2.0). Packed arrays take a flat list of components, so: PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1) is two colors (r,g,b,a, r,g,b,a)' % string_value }
 
+	var packed_error := _packed_array_error(string_value, parsed, p_expected_type)
+	if not packed_error.is_empty():
+		return { error = packed_error }
+
 	return { value = parsed }
+
+
+const _PACKED_ARRAY_INFO := {
+	TYPE_PACKED_BYTE_ARRAY: { name = "PackedByteArray", components = 1 },
+	TYPE_PACKED_INT32_ARRAY: { name = "PackedInt32Array", components = 1 },
+	TYPE_PACKED_INT64_ARRAY: { name = "PackedInt64Array", components = 1 },
+	TYPE_PACKED_FLOAT32_ARRAY: { name = "PackedFloat32Array", components = 1 },
+	TYPE_PACKED_FLOAT64_ARRAY: { name = "PackedFloat64Array", components = 1 },
+	TYPE_PACKED_STRING_ARRAY: { name = "PackedStringArray", components = 1 },
+	TYPE_PACKED_VECTOR2_ARRAY: { name = "PackedVector2Array", components = 2, element = "x,y" },
+	TYPE_PACKED_VECTOR3_ARRAY: { name = "PackedVector3Array", components = 3, element = "x,y,z" },
+	TYPE_PACKED_COLOR_ARRAY: { name = "PackedColorArray", components = 4, element = "r,g,b,a" },
+	TYPE_PACKED_VECTOR4_ARRAY: { name = "PackedVector4Array", components = 4, element = "x,y,z,w" },
+}
+
+const _NUMERIC_PACKED_ARRAY_TYPES := [TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY]
+
+
+## Catches two ways a packed array value would silently corrupt on set() instead of erroring.
+static func _packed_array_error(p_string_value: String, p_parsed: Variant, p_expected_type: int) -> String:
+	var parsed_type := typeof(p_parsed)
+	if not parsed_type in _PACKED_ARRAY_INFO:
+		return ""
+	var info: Dictionary = _PACKED_ARRAY_INFO[parsed_type]
+
+	if p_expected_type in _PACKED_ARRAY_INFO and p_expected_type != parsed_type:
+		var both_numeric: bool = parsed_type in _NUMERIC_PACKED_ARRAY_TYPES and p_expected_type in _NUMERIC_PACKED_ARRAY_TYPES
+		if not both_numeric:
+			return "this property expects %s, not %s" % [_PACKED_ARRAY_INFO[p_expected_type]['name'], info['name']]
+
+	var components: int = info['components']
+	if components > 1:
+		var trimmed := p_string_value.strip_edges()
+		var inner := trimmed.substr(trimmed.find("(") + 1, trimmed.rfind(")") - trimmed.find("(") - 1)
+		var value_count := 0
+		for part in inner.split(","):
+			if not part.strip_edges().is_empty():
+				value_count += 1
+		if value_count % components != 0:
+			return "%s takes a flat list of %s components, so the number of values must be a multiple of %d - got %d, which would silently drop the leftover values" % [info['name'], info['element'], components, value_count]
+
+	return ""
 
 
 ## Includes the Object/Resource forms decode_property_value adds on top of variant syntax.

@@ -40,13 +40,13 @@ var GodaiVersion string = core.Version
 
 const GodaiMcpName string = core.AppName
 const GodaiMcpTitle string = core.AppTitle
-const GodaiMcpInstructions string = `Open and control the Godot editor: inspect and edit the scene tree, node properties, scripts, resources, and project settings. Prefer these tools over editing .tscn/.tres/.gd files on disk - the editor owns that state and direct file edits can be clobbered or rejected.
+const GodaiMcpInstructions string = `Open and control the Godot editor: inspect and edit the scene tree, node properties, scripts, resources, and project settings. Use these tools for editing scenes, scripts, resources, and import settings - DO NOT directly edit .tscn/.tres/.gd/.import files on disk: use read_script/write_script for .gd files, the scene and node tools for .tscn, the resource tools for .tres, get/set_import_settings for .import, and get/set_project_settings for project.godot. These tools validate your changes against the live editor state (invalid properties, node paths, and import options are caught immediately), and the Godot editor may have unsaved changes: direct file reads won't see those, and direct file edits may get overwritten by the editor later. Files with no matching tool (.gdshader, .json, images, docs) are fine to edit directly.
 
 Every tool needs the absolute project_path, so that a tool can never be aimed at the wrong project: pass the path of the project you were asked about. Start with open_godot_project, which is safe to call when the project is already open - you do not need to check first.
 
-Before any add/remove/edit, read get_current_scene_tree and only use node paths you've seen there. Node and scene edits are in-memory until save_scene; scripts, resources, and project settings persist on their own (for an open script, use save_script). Most edits use the editor's undo/redo, so batch related changes into one call.
+Before any add/remove/edit, read get_current_scene_tree and only use node paths you've seen there. Node, scene and script edits are in-memory until save_scene or save_script. Most edits use the editor's undo/redo, so batch related changes into one call.
 
-A failed call returns isError with an 'errors' array and changed nothing, so fix the input and retry. A successful call may carry 'errors' and 'warnings' for the parts that had issues - warnings never affect 'success', and neither means that the whole call should be retried; address the listed items instead.`
+A failed call returns isError with an 'errors' array and changed nothing, so fix the input and retry the tool - do not fall back to editing the file directly. A successful call may carry 'errors' and 'warnings' for the parts that had issues - warnings never affect 'success', and neither means that the whole call should be retried; address the listed items instead.`
 
 const TooManyToolCallsErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode - 0
 const RequestQueueFullErrorCode jsonrpc.ErrorCode = jsonrpc.ServerErrorMinCode - 1

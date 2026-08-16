@@ -149,6 +149,90 @@ func TestImportSettings(t *testing.T) {
 	})
 }
 
+// Options must be validated against the new importer's params, not the old one's.
+func TestImportSettingsChangeImporter(t *testing.T) {
+	requireManagedProject(t)
+
+	// The 'texture' importer has svg/scale but no slices/horizontal; the
+	// '2d_array_texture' importer is the reverse.
+	const assetPath = "res://fixtures/importer_change.svg"
+	createImportedSVG(t, assetPath)
+
+	t.Run("new_importer_option_accepted", func(t *testing.T) {
+		is := is.New(t)
+
+		structured := callToolOK(t, "set_import_settings", map[string]any{
+			"file_path": assetPath,
+			"importer":  "2d_array_texture",
+			"options": map[string]any{
+				"slices/horizontal": "4",
+			},
+		})
+		is.Equal(structured["success"], true)
+
+		after := callToolOK(t, "get_import_settings", map[string]any{
+			"file_path": assetPath,
+		})
+		is.Equal(after["importer"], "2d_array_texture")
+		options, _ := after["options"].(map[string]any)
+		is.Equal(options["slices/horizontal"], "4")
+		_, hasScale := options["svg/scale"]
+		is.True(!hasScale) // the old importer's options must be gone
+	})
+
+	t.Run("switch_back_regenerates_options", func(t *testing.T) {
+		is := is.New(t)
+
+		structured := callToolOK(t, "set_import_settings", map[string]any{
+			"file_path": assetPath,
+			"importer":  "texture",
+			"options":   map[string]any{},
+		})
+		is.Equal(structured["success"], true)
+
+		after := callToolOK(t, "get_import_settings", map[string]any{
+			"file_path": assetPath,
+		})
+		is.Equal(after["importer"], "texture")
+		options, _ := after["options"].(map[string]any)
+		_, hasScale := options["svg/scale"]
+		is.True(hasScale)
+		_, hasSlices := options["slices/horizontal"]
+		is.True(!hasSlices)
+	})
+
+	t.Run("old_importer_option_rejected", func(t *testing.T) {
+		is := is.New(t)
+
+		callToolErr(t, "set_import_settings", map[string]any{
+			"file_path": assetPath,
+			"importer":  "2d_array_texture",
+			"options": map[string]any{
+				"svg/scale": "2.0",
+			},
+		}, "unknown import setting")
+
+		after := callToolOK(t, "get_import_settings", map[string]any{
+			"file_path": assetPath,
+		})
+		is.Equal(after["importer"], "texture") // a rejected call must not change the importer
+	})
+}
+
+// Writes a fresh SVG into the project so the test can modify it without affecting tests that share icon.svg.
+func createImportedSVG(t *testing.T, path string) {
+	t.Helper()
+	writeProjectFileFromEditor(t, path, `<svg width="128" height="128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" fill="#478cbf"/></svg>`)
+	runEditorScript(t, fmt.Sprintf(`var fs := EditorInterface.get_resource_filesystem()
+fs.reimport_files(PackedStringArray([%q]))
+for i in range(300):
+	if FileAccess.file_exists(%q + ".import"):
+		return OK
+	await Engine.get_main_loop().process_frame
+push_error("no .import file was generated for %%s" %% %q)
+return FAILED`, path, path, path))
+}
+
 // Removes an option from a .import file on disk, leaving it in the incomplete
 // state the tools are expected to repair by reimporting before reading/writing.
 func stripImportOption(t *testing.T, importPath, key string) {

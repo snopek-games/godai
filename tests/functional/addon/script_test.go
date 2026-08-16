@@ -71,6 +71,8 @@ func TestScriptFiles(t *testing.T) {
 		is.Equal(structured["success"], true)
 		is.Equal(structured["open_in_editor"], false)
 		is.Equal(structured["saved"], true)
+		_, hasNotes := structured["notes"]
+		is.True(!hasNotes)
 
 		if content := readProjectFile(t, "scripts/sf_closed.gd"); content != "" {
 			is.Equal(content, body)
@@ -110,6 +112,8 @@ func TestScriptFiles(t *testing.T) {
 		})
 		is.Equal(written["open_in_editor"], true)
 		is.Equal(written["saved"], false)
+		notes, _ := written["notes"].([]any)
+		is.True(anyLineContains(notes, "save_script"))
 
 		read = callToolOK(t, "read_script", map[string]any{
 			"file_path": "res://scripts/sf_open.gd",

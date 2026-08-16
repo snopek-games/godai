@@ -7,8 +7,12 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- MCP: Encourage using the script tools in the instructions
-  - Remind agents to save after they've modified a script that's open in the editor
+- MCP: smarter handling of int enum properties
+	- When one is set:
+    - If a string is given, translate from the string to int (and if it doesn't match, add a "did you mean?" and list possible values), or
+    - If an int is given, output a note saying what the string values was (so agents can see it and confirm if they were right)
+  - When getting one, translate to the string value by default (or leave as int if `raw_enum_property: true` is passed)
+    - A note should be shown when returning translated enums pointing at this property
 - CLI: Remove the prompt/elicitation for project_base_path
   - It's never required, and the godot_path one is gone with the setting
   - Make into a warning letting the user know they could set "project_base_path"

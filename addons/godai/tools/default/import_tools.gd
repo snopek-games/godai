@@ -100,13 +100,37 @@ class ImportSetSettings extends DefaultTool:
 		if err != OK:
 			return ToolResult.rejected({errors = ["Failed to read import settings: %s" % error_string(err)]})
 
-		if not importer.is_empty():
+		var importer_changed: bool = not importer.is_empty() and importer != cfg.get_value("remap", "importer", "")
+		var original_import_file := ""
+
+		if importer_changed:
+			# Different importers have different valid options, so switch and re-import before validating them.
+			original_import_file = FileAccess.get_file_as_string(import_path)
+
 			cfg.set_value("remap", "importer", importer)
+			err = cfg.save(import_path)
+			if err != OK:
+				return ToolResult.rejected({error = "Failed to write import settings: %s" % error_string(err)})
+
+			EditorInterface.get_resource_filesystem().reimport_files(PackedStringArray([file_path]))
+
+			# ConfigFile.load() merges into the existing state, so reload into a fresh one to drop the old importer's params.
+			cfg = ConfigFile.new()
+			err = cfg.load(import_path)
+			if err != OK:
+				return ToolResult.rejected({error = "Failed to read import settings: %s" % error_string(err)})
 
 		for key in options:
 			if not cfg.has_section_key("params", key):
+				if importer_changed:
+					var f := FileAccess.open(import_path, FileAccess.WRITE)
+					if f:
+						f.store_string(original_import_file)
+						f.close()
+						EditorInterface.get_resource_filesystem().reimport_files(PackedStringArray([file_path]))
 				return ToolResult.rejected({errors = ["unknown import setting '%s'" % key]})
 
+		for key in options:
 			# The expected type isn't known here, so fall back to the raw
 			# string when the value isn't valid variant syntax.
 			var decoded := Utils.decode_property_value(options[key], TYPE_NIL)

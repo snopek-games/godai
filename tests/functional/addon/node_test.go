@@ -555,6 +555,8 @@ func TestRemoveNode(t *testing.T) {
 			"node_path": "MyChild",
 		})
 		is.Equal(structured["success"], true)
+		notes, _ := structured["notes"].([]any)
+		is.True(anyLineContains(notes, "save_scene"))
 
 		callToolErr(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyChild"},

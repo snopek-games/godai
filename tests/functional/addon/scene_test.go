@@ -301,6 +301,8 @@ func TestInstantiateScene(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 		is.Equal(structured["node_path"], "MyInstance")
+		notes, _ := structured["notes"].([]any)
+		is.True(anyLineContains(notes, "save_scene"))
 
 		props := callToolOK(t, "get_node_properties", map[string]any{
 			"node_paths": []string{"MyInstance"},

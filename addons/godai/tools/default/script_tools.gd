@@ -127,6 +127,7 @@ class ScriptWrite extends DefaultTool:
 				success = true,
 				open_in_editor = true,
 				saved = false,
+				notes = [Utils.UNSAVED_SCRIPT_NOTE],
 			})
 
 		var fa := FileAccess.open(file_path, FileAccess.WRITE)

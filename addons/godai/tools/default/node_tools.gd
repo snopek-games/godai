@@ -6,7 +6,7 @@ const DefaultTool = ToolManager.DefaultTool
 const Utils = preload("res://addons/godai/utils.gd")
 const VerifiedPropertyTool = preload("res://addons/godai/tools/default/verified_property_tool.gd")
 
-const UNSAVED_SCENE_NOTE := "the scene has unsaved changes - call save_scene once you're done editing to persist them"
+const UNSAVED_SCENE_NOTE := Utils.UNSAVED_SCENE_NOTE
 
 
 static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
@@ -252,6 +252,7 @@ class NodeRemove extends DefaultTool:
 
 		return ToolResult.resolved({
 			success = true,
+			notes = [UNSAVED_SCENE_NOTE],
 		})
 
 
@@ -286,7 +287,7 @@ class NodeAddToGroup extends DefaultTool:
 			undo_redo.add_undo_method(node, "remove_from_group", group)
 		undo_redo.commit_action()
 
-		return ToolResult.resolved({success = true})
+		return ToolResult.resolved({success = true, notes = [UNSAVED_SCENE_NOTE]})
 
 
 class NodeRemoveFromGroup extends DefaultTool:
@@ -317,7 +318,7 @@ class NodeRemoveFromGroup extends DefaultTool:
 			undo_redo.add_undo_method(node, "add_to_group", group, true)
 		undo_redo.commit_action()
 
-		return ToolResult.resolved({success = true})
+		return ToolResult.resolved({success = true, notes = [UNSAVED_SCENE_NOTE]})
 
 
 class NodeGetGroups extends DefaultTool:
@@ -391,7 +392,7 @@ class NodeConnectSignal extends DefaultTool:
 		undo_redo.add_undo_method(from_node, "disconnect", signal_name, callable)
 		undo_redo.commit_action()
 
-		return ToolResult.resolved({success = true})
+		return ToolResult.resolved({success = true, notes = [UNSAVED_SCENE_NOTE]})
 
 
 class NodeDisconnectSignal extends DefaultTool:
@@ -422,7 +423,7 @@ class NodeDisconnectSignal extends DefaultTool:
 		undo_redo.add_undo_method(from_node, "connect", signal_name, callable, CONNECT_PERSIST)
 		undo_redo.commit_action()
 
-		return ToolResult.resolved({success = true})
+		return ToolResult.resolved({success = true, notes = [UNSAVED_SCENE_NOTE]})
 
 
 class NodeAttachScript extends DefaultTool:
@@ -460,7 +461,7 @@ class NodeAttachScript extends DefaultTool:
 		undo_redo.add_undo_property(node, "script", old_script)
 		undo_redo.commit_action()
 
-		return ToolResult.resolved({success = true})
+		return ToolResult.resolved({success = true, notes = [UNSAVED_SCENE_NOTE]})
 
 
 class NodeDetachScript extends DefaultTool:
@@ -485,4 +486,4 @@ class NodeDetachScript extends DefaultTool:
 		undo_redo.add_undo_property(node, "script", old_script)
 		undo_redo.commit_action()
 
-		return ToolResult.resolved({success = true})
+		return ToolResult.resolved({success = true, notes = [UNSAVED_SCENE_NOTE]})
