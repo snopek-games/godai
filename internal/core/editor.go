@@ -31,10 +31,44 @@ type CallOptions struct {
 	Wait time.Duration
 }
 
+// Strict equality for now; loosen this function if a protocol-version scheme
+// ever replaces it.
+func AddonCompatible(addonVersion string) bool {
+	return addonVersion == Version
+}
+
+// checkAddonVersion refuses an editor whose addon doesn't match this godai,
+// so protocol drift surfaces as this error instead of subtle tool breakage.
+// Closing stays allowed (see CloseEditor), since it's the way out.
+func (s *Session) checkAddonVersion(editor *Editor) error {
+	if AddonCompatible(editor.AddonVersion) {
+		return nil
+	}
+
+	reported := editor.AddonVersion
+	if reported == "" {
+		reported = "unknown (before " + Version + ")"
+	}
+	return NewUserError(
+		fmt.Sprintf("the editor for '%s' is running godai addon %s, which doesn't match this godai (%s)",
+			editor.ProjectPath, reported, Version),
+		ErrAddonVersionMismatch,
+		[]string{
+			"Relaunch it with the matching addon: `godai editor restart`",
+			"Or close it and open it again: `godai editor close`, then `godai project open`",
+		})
+}
+
 func (s *Session) CallEditorTool(ctx context.Context, projectPath, name string, args Args, opts CallOptions) (*ToolResult, error) {
 	editor, err := s.resolveEditor(ctx, projectPath, opts.Wait)
 	if err != nil {
 		return nil, err
+	}
+
+	if name != "close_editor" {
+		if err := s.checkAddonVersion(editor); err != nil {
+			return nil, err
+		}
 	}
 
 	raw, err := args.Raw()
@@ -133,6 +167,13 @@ func (s *Session) RestartEditor(ctx context.Context, projectPath string, args Ar
 		return err
 	}
 
+	// An editor-side restart relaunches with whatever addon is already in the
+	// project, so a mismatched editor needs the full cycle: close, install the
+	// matching addon, and launch again.
+	if !AddonCompatible(editor.AddonVersion) {
+		return s.stopThenStartEditor(ctx, editor, args)
+	}
+
 	if err := s.callAndHonorRefusal(ctx, editor, "restart_editor", args, "the editor did not restart"); err != nil {
 		return err
 	}
@@ -143,6 +184,34 @@ func (s *Session) RestartEditor(ctx context.Context, projectPath string, args Ar
 		return NewUserError("the editor did not reconnect after restarting", err, nil)
 	}
 
+	return nil
+}
+
+// StopThenStartEditor is the full restart cycle - close, reinstall the addon, launch
+// again - regardless of whether the addon matches.
+func (s *Session) StopThenStartEditor(ctx context.Context, projectPath string, args Args) error {
+	editor, err := s.EditorFor(projectPath)
+	if err != nil {
+		return err
+	}
+	return s.stopThenStartEditor(ctx, editor, args)
+}
+
+func (s *Session) stopThenStartEditor(ctx context.Context, editor *Editor, args Args) error {
+	projectPath := editor.ProjectPath
+	headless := editor.Headless
+
+	slog.Info("the editor's addon doesn't match; closing and reopening it",
+		"projectPath", projectPath, "addonVersion", editor.AddonVersion, "version", Version)
+
+	if err := s.CloseEditor(ctx, projectPath, args); err != nil {
+		return err
+	}
+
+	// OpenProject installs the embedded addon before launching.
+	if _, err := s.OpenProject(ctx, projectPath, OpenProjectOptions{Headless: headless}); err != nil {
+		return err
+	}
 	return nil
 }
 

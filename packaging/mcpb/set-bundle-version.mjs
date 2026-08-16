@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Stamps the given version into bundle/manifest.json, which is committed with
-// a 0.0.0-dev placeholder (the version in addons/godai/plugin.cfg is the
-// single source of truth). CI runs this before `mcpb pack`.
+// Stamps the given version into packaging/mcpb/manifest.json, which is
+// committed with a 0.0.0-dev placeholder (the version in addons/godai/plugin.cfg
+// is the single source of truth). CI runs this before `mcpb pack`.
 //
-// This script is kept out of the packed bundle by bundle/.mcpbignore.
+// This script is kept out of the packed bundle by packaging/mcpb/.mcpbignore.
 //
-// Usage: node bundle/set-bundle-version.mjs <version>
+// Usage: node packaging/mcpb/set-bundle-version.mjs <version>
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,11 +21,11 @@ function fail(message) {
 
 const version = process.argv[2];
 if (!version || !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version)) {
-  fail(`usage: node bundle/set-bundle-version.mjs <version> (got: ${JSON.stringify(version)})`);
+  fail(`usage: node packaging/mcpb/set-bundle-version.mjs <version> (got: ${JSON.stringify(version)})`);
 }
 
 const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
 manifest.version = version;
 fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2) + '\n');
 
-console.log(`set-bundle-version: stamped version ${version} into bundle/manifest.json`);
+console.log(`set-bundle-version: stamped version ${version} into packaging/mcpb/manifest.json`);

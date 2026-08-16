@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -20,6 +21,10 @@ func selfUpdateCommand() *cli.Command {
 			&cli.BoolFlag{
 				Name:  "check",
 				Usage: "only report whether a newer release is available",
+			},
+			&cli.BoolFlag{
+				Name:  "no-cache",
+				Usage: "with --check, ask GitLab even when the release data was fetched within the last day (an actual update always asks)",
 			},
 			&cli.BoolFlag{
 				Name:  "rollback",
@@ -61,6 +66,12 @@ func runSelfUpdate(ctx context.Context, cmd *cli.Command) error {
 		return runRollback(exePath)
 	}
 
+	if !check {
+		if hint := selfupdate.PackageManagerHint(exePath); hint != "" {
+			return errors.New(hint)
+		}
+	}
+
 	if allowUnverified {
 		fmt.Fprintln(os.Stderr,
 			"DANGER: --dangerously-allow-unverified is set, so the download will be installed without checking it against the release checksums")
@@ -74,24 +85,24 @@ func runSelfUpdate(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
+	if check {
+		return runCheck(ctx, cmd, updater, exePath)
+	}
+
 	release, err := updater.DetectLatest(ctx)
 	if err != nil {
+		// No installable release at all means there's nothing newer, the same
+		// way CheckCached treats it - not something to bother the user about.
+		if errors.Is(err, selfupdate.ErrNoRelease) {
+			fmt.Printf("godai %s is up-to-date\n", core.Version)
+			return nil
+		}
 		return err
 	}
 
 	if !updater.IsNewer(release) {
 		fmt.Printf("godai %s is up-to-date\n", core.Version)
 		return nil
-	}
-
-	if check {
-		fmt.Printf("godai %s is available (currently running %s)\n", release.Version, core.Version)
-		fmt.Printf("run '%s self-update' to install it\n", exePath)
-		return nil
-	}
-
-	if hint := selfupdate.PackageManagerHint(exePath); hint != "" {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", hint)
 	}
 
 	fmt.Printf("updating %s to godai %s ...\n", exePath, release.Version)
@@ -103,6 +114,32 @@ func runSelfUpdate(ctx context.Context, cmd *cli.Command) error {
 
 	fmt.Printf("updated %s to godai %s\n", exePath, release.Version)
 	fmt.Printf("the previous version was kept at %s; run '%s self-update --rollback' to restore it\n", backupPath, exePath)
+	return nil
+}
+
+func runCheck(ctx context.Context, cmd *cli.Command, updater *selfupdate.Updater, exePath string) error {
+	cachePath, err := core.GetUpdateCheckCachePath()
+	if err != nil {
+		return err
+	}
+
+	interval := selfupdate.DefaultCheckInterval
+	if cmd.Bool("no-cache") {
+		interval = 0
+	}
+
+	latest, newer, err := updater.CheckCached(ctx, cachePath, interval)
+	if err != nil {
+		return err
+	}
+
+	if !newer {
+		fmt.Printf("godai %s is up-to-date\n", core.Version)
+		return nil
+	}
+
+	fmt.Printf("godai %s is available (currently running %s)\n", latest, core.Version)
+	fmt.Printf("%s\n", selfupdate.InstallInstruction(exePath))
 	return nil
 }
 

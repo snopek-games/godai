@@ -88,6 +88,10 @@ for (const packageName of Object.keys(basePackage.optionalDependencies)) {
   fs.chmodSync(binaryDest, 0o755);
   fs.copyFileSync(licenseSrc, path.join(packageDir, 'LICENSE.txt'));
 
+  // Tells `godai self-update` this install is managed by npm, so it defers to
+  // `npm install` instead of replacing the executable.
+  fs.writeFileSync(path.join(packageDir, 'godai-install-channel'), 'npm\n');
+
   optionalDependencies[packageName] = version;
   console.log(`generated ${packageName}@${version}`);
 }

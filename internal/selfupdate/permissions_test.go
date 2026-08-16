@@ -69,17 +69,6 @@ func TestRollbackWithoutWritePermission(t *testing.T) {
 	is.Equal(readFile(t, exePath), binaryContent("v0.4.0"))
 }
 
-func TestPackageManagerHint(t *testing.T) {
-	is := is.New(t)
-
-	npmPath := filepath.Join("/usr", "lib", "node_modules", "@snopek-games",
-		"godai-linux-x64", "bin", "godai")
-	is.True(strings.Contains(PackageManagerHint(npmPath), "npm install"))
-
-	is.Equal(PackageManagerHint(filepath.Join("/usr", "local", "bin", "godai")), "")
-	is.Equal(PackageManagerHint(filepath.Join("/opt", "node_modules_backup", "godai")), "")
-}
-
 func TestPermissionErrorHint(t *testing.T) {
 	is := is.New(t)
 

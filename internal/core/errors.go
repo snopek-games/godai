@@ -10,6 +10,7 @@ var (
 	ErrNotConfigured         = errors.New("not configured")
 	ErrToolFailed            = errors.New("the editor reported an error")
 	ErrEditorVersionMismatch = errors.New("the editor that's open is a different version of Godot")
+	ErrAddonVersionMismatch  = errors.New("the editor is running a different version of the godai addon")
 )
 
 type UserError struct {

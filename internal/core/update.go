@@ -16,6 +16,7 @@ const updateCheckTimeout = 30 * time.Second
 type updateAvailableParams struct {
 	CurrentVersion string `json:"current_version"`
 	LatestVersion  string `json:"latest_version"`
+	InstallCommand string `json:"install_command,omitempty"`
 }
 
 // CheckForUpdate looks for a newer release in the background and tells the
@@ -49,11 +50,13 @@ func (s *Session) CheckForUpdate(ctx context.Context) {
 		return
 	}
 
+	installCommand := selfupdate.InstallCommandForRuntime()
 	slog.Info("a newer version of godai is available",
-		"latest", latest, "current", Version, "install", "godai self-update")
+		"latest", latest, "current", Version, "install", installCommand)
 
 	s.updateMutex.Lock()
 	s.updateAvailable = latest.String()
+	s.updateInstallCommand = installCommand
 	s.updateMutex.Unlock()
 
 	s.editorsMutex.RLock()
@@ -71,6 +74,7 @@ func (s *Session) CheckForUpdate(ctx context.Context) {
 func (s *Session) sendUpdateNotification(ctx context.Context, conn *godot.Connection) {
 	s.updateMutex.RLock()
 	latest := s.updateAvailable
+	installCommand := s.updateInstallCommand
 	s.updateMutex.RUnlock()
 
 	if latest == "" {
@@ -83,6 +87,7 @@ func (s *Session) sendUpdateNotification(ctx context.Context, conn *godot.Connec
 	err := conn.SendNotification(ctx, updateAvailableNotification, updateAvailableParams{
 		CurrentVersion: Version,
 		LatestVersion:  latest,
+		InstallCommand: installCommand,
 	})
 	if err != nil {
 		slog.Debug("unable to tell the editor that an update is available", "error", err)

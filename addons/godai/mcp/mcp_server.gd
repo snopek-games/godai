@@ -220,6 +220,7 @@ func _rpc_update_available(p_params: Dictionary):
 		_update_available = {
 			current_version = str(p_params.get('current_version', '')),
 			latest_version = latest_version,
+			install_command = str(p_params.get('install_command', '')),
 		}
 	update_available_changed.emit(_update_available)
 
@@ -257,6 +258,15 @@ func _rpc_call_tool(p_params: Dictionary):
 	if not tools.has_tool(name):
 		return JSONRPCDispatcher.ResponseError.new(
 			JSONRPCDispatcher.ErrorCode.INVALID_PARAMS_ERROR, "Unknown tool: %s" % name)
+
+	# A mismatched godai gets to close the editor (the way out of the mismatch)
+	# and to identify it (part of the connection handshake), nothing else.
+	if name not in ["close_editor", "get_current_project"]:
+		var client_version := str(_client_info.get('version', ''))
+		if client_version != GODAI_VERSION:
+			return JSONRPCDispatcher.ResponseError.new(
+				JSONRPCDispatcher.ErrorCode.INVALID_REQUEST_ERROR,
+				"The godai addon in this editor is version %s, but the connected godai is version %s. Run 'godai editor restart' to relaunch the editor with the matching addon, or close it with 'godai editor close' and open it again." % [GODAI_VERSION, client_version])
 
 	_last_tool_id += 1
 	var id: String = "mcp:" + str(_last_tool_id)

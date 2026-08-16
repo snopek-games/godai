@@ -13,12 +13,19 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	code := 0
 	if err := cli.Root().Run(ctx, os.Args); err != nil {
-		if code := cli.ExitCodeFor(err); code != cli.ExitInterrupted {
+		code = cli.ExitCodeFor(err)
+		if code != cli.ExitInterrupted {
 			cli.PrintError(os.Stderr, err, wantsJSON(os.Args))
-			os.Exit(code)
 		}
-		os.Exit(cli.ExitInterrupted)
+	}
+
+	if code != cli.ExitInterrupted {
+		cli.PrintUpdateNotice(os.Stderr)
+	}
+	if code != 0 {
+		os.Exit(code)
 	}
 }
 

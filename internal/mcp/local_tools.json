@@ -494,6 +494,10 @@
 						"type": "string",
 						"description": "The base path where the user's Godot projects live; always empty unless MCP is running with --global"
 					},
+					"update_check": {
+						"type": "string",
+						"description": "Whether godai checks for its own updates: \"on\", \"off\", or empty for the default (on)"
+					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
@@ -528,6 +532,11 @@
 					"project_base_path": {
 						"type": "string",
 						"description": "The base path where the user's Godot projects live; can only be set when MCP is running with --global"
+					},
+					"update_check": {
+						"type": "string",
+						"enum": ["on", "off"],
+						"description": "Whether godai checks for its own updates"
 					}
 				}
 			},

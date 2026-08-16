@@ -7,19 +7,10 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- CLI: Better installation story
-  - Options:
-    - Provide `brew` package (as a "cask", I guess?)
-    - Provide `WinGet` package
-    - Provide `curl | bash` style script for MacOS, Linux and Windows (it would be `irm | WinGet` for Windows)
-- CLI: Add build option to disable `self-update`
-  - Can we make Brew formula actually build from source in order to use it?
-  - Have CI use this option when building `npm` package
 - CLI: Rewrite the README (and move stuff to docs site)
   - Clearer installation story
   - Clearer mode separation (CLI vs Addon)
 - Website:
-  - Allow toggle light/dark mode
   - Front page:
     - Playing terminal showing nice `godai` commands and/or AI agent with MCP
     - Install (with tabs for each install method)

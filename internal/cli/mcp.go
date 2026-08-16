@@ -140,7 +140,7 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 		ForceAutoApprove:       cmd.Bool("auto-approve"),
 		ProjectBasePath:        cmd.String("project-base-path"),
 		X11Display:             cmd.String("x11-display"),
-		UpdateCheckInterval:    updateCheckInterval(cmd.Bool("no-update-check")),
+		UpdateCheckInterval:    updateCheckInterval(cmd.Bool("no-update-check") || core.SavedUpdateCheckOff(configPath)),
 		Debug:                  cmd.Bool("debug"),
 		SavedConfigPath:        configPath,
 		CloseHeadlessOnExit:    true,

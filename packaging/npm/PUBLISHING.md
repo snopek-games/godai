@@ -15,9 +15,11 @@ ecosystem convention (used by esbuild, Biome, Turborepo, etc) is:
   that script, which is what makes `npx @snopek-games/godai` work (when
   a package has a single bin, npx runs it regardless of its name).
 - **One package per platform** (`@snopek-games/godai-linux-x64`,
-  `@snopek-games/godai-darwin-arm64`, etc) containing just the compiled
-  binary. Each declares `os` and `cpu` fields in its package.json, which
-  tell npm "only install me on this platform".
+  `@snopek-games/godai-darwin-arm64`, etc) containing the compiled binary
+  and a `godai-install-channel` file, which makes `godai self-update` defer
+  to npm instead of replacing the executable behind npm's back. Each declares
+  `os` and `cpu` fields in its package.json, which tell npm "only install me
+  on this platform".
 - The main package lists all the platform packages as `optionalDependencies`.
   When a user installs the main package, npm tries to install all of them but
   silently skips the ones whose `os`/`cpu` don't match - so each user only

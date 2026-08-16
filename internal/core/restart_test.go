@@ -16,7 +16,14 @@ func (s *Session) addEditor(projectPath string, conn *godot.Connection) {
 func (s *Session) addEditorWithHeadless(projectPath string, conn *godot.Connection, headless bool) {
 	s.editorsMutex.Lock()
 	defer s.editorsMutex.Unlock()
-	s.editors = append(s.editors, &Editor{ProjectPath: projectPath, conn: conn, Headless: headless})
+	s.editors = append(s.editors, &Editor{ProjectPath: projectPath, conn: conn, Headless: headless, AddonVersion: Version})
+	s.notifyEditorsChanged()
+}
+
+func (s *Session) addEditorWithAddonVersion(projectPath string, conn *godot.Connection, addonVersion string) {
+	s.editorsMutex.Lock()
+	defer s.editorsMutex.Unlock()
+	s.editors = append(s.editors, &Editor{ProjectPath: projectPath, conn: conn, AddonVersion: addonVersion})
 	s.notifyEditorsChanged()
 }
 

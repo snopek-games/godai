@@ -61,9 +61,19 @@ func editorCommand(configPath string) *cli.Command {
 				Name:      "restart",
 				Usage:     "restart the Godot editor and wait for it to come back",
 				ArgsUsage: "[path]",
-				Flags:     []cli.Flag{projectPathFlag()},
+				Flags: []cli.Flag{
+					projectPathFlag(),
+					&cli.BoolFlag{
+						Name:  "full",
+						Usage: "close the editor and launch it again, reinstalling the godai addon in between (this happens on its own when the addon doesn't match)",
+					},
+				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return runEditorAction(ctx, cmd, configPath, editorLifecycleTools["restart_editor"], core.Args{})
+					tool := editorLifecycleTools["restart_editor"]
+					if cmd.Bool("full") {
+						tool = editorLifecycle{"restarted", (*core.Session).StopThenStartEditor}
+					}
+					return runEditorAction(ctx, cmd, configPath, tool, core.Args{})
 				},
 			},
 			{

@@ -18,6 +18,9 @@ type Editor struct {
 	// names versions. Empty when it wouldn't say, or said something that isn't
 	// a version.
 	GodotVersion string
+	// AddonVersion is the godai addon version the editor reported during the
+	// handshake. Empty when the addon predates version reporting.
+	AddonVersion string
 
 	conn *godot.Connection
 }
@@ -51,8 +54,9 @@ type Session struct {
 	clientInfoProvider func() (ClientInfo, map[string]any)
 	providerMutex      sync.RWMutex
 
-	updateAvailable string
-	updateMutex     sync.RWMutex
+	updateAvailable      string
+	updateInstallCommand string
+	updateMutex          sync.RWMutex
 
 	engines         *godot.EngineManager
 	engineErr       error
@@ -226,9 +230,21 @@ func (s *Session) onEditorConnect(conn *godot.Connection) error {
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.EditorTimeout)
 	defer cancel()
 
-	if _, err := conn.CallMethod(ctx, "initialize", params); err != nil {
+	initResp, err := conn.CallMethod(ctx, "initialize", params)
+	if err != nil {
 		return err
 	}
+	var initResult struct {
+		ServerInfo struct {
+			Version string `json:"version"`
+		} `json:"serverInfo"`
+	}
+	if len(initResp.Result) > 0 {
+		if err := json.Unmarshal(initResp.Result, &initResult); err != nil {
+			slog.Debug("unable to parse the editor's initialize result", "error", err)
+		}
+	}
+
 	if err := conn.SendNotification(ctx, "notification/initialized", nil); err != nil {
 		return err
 	}
@@ -254,6 +270,7 @@ func (s *Session) onEditorConnect(conn *godot.Connection) error {
 		ProjectName:  projectInfo.ProjectName,
 		Headless:     projectInfo.Headless,
 		GodotVersion: editorVersionName(projectInfo.GodotVersion),
+		AddonVersion: initResult.ServerInfo.Version,
 	}
 
 	s.editorsMutex.Lock()
@@ -460,6 +477,9 @@ func (s *Session) mergeSavedConfig(update SavedConfig) error {
 		}
 		if update.ProjectBasePath == "" {
 			update.ProjectBasePath = existing.ProjectBasePath
+		}
+		if update.UpdateCheck == "" {
+			update.UpdateCheck = existing.UpdateCheck
 		}
 	}
 

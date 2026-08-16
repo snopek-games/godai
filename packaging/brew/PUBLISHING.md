@@ -28,7 +28,9 @@ A formula normally builds from source, but ours simply downloads the prebuilt
 release zip for the user's OS/arch (the same zips the `release` CI job uploads
 to the GitLab package registry) and installs the `godai` binary from it. The
 formula pins the sha256 of every zip, and brew verifies the download against
-it.
+it. It also writes a `godai-install-channel` file into the keg, which makes
+`godai self-update` defer to `brew upgrade` instead of replacing the
+executable behind brew's back.
 
 Getting a package into Homebrew's *official* repositories means a GitHub pull
 request, notability requirements, and their review process for every update.

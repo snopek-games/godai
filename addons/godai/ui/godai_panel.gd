@@ -205,7 +205,11 @@ func _update_mcp_status_bar() -> void:
 			var update_available := mcp_server.get_update_available()
 			if update_available.size() > 0:
 				status += " (godai %s is available)" % update_available['latest_version']
-				tooltip = "Run 'godai self-update' in a terminal to install godai %s." % update_available['latest_version']
+				var install_command: String = update_available.get('install_command', '')
+				if install_command.is_empty():
+					tooltip = "godai %s is available." % update_available['latest_version']
+				else:
+					tooltip = "Run '%s' in a terminal to install godai %s." % [install_command, update_available['latest_version']]
 
 		mcp_status_label.text = status
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 
+	"gitlab.com/snopek-games/godai/internal/core"
 	"gitlab.com/snopek-games/godai/internal/jsonrpc"
 	"gitlab.com/snopek-games/godai/internal/mcp"
 )
@@ -134,9 +135,11 @@ func (c *MCPClient) InitializeWithVersion(ctx context.Context, protocolVersion s
 	resp, err := c.Call(ctx, "initialize", map[string]any{
 		"protocolVersion": protocolVersion,
 		"capabilities":    capabilities,
+		// The addon refuses tool calls from a godai whose version doesn't
+		// match its own, so the tests have to identify as the real thing.
 		"clientInfo": map[string]any{
 			"name":    "godai-functional-tests",
-			"version": "1.0",
+			"version": core.Version,
 		},
 	})
 	if err != nil {

@@ -17,6 +17,10 @@ const DefaultCheckInterval = 24 * time.Hour
 type checkCache struct {
 	CheckedAt     time.Time `json:"checked_at"`
 	LatestVersion string    `json:"latest_version"`
+	// Notice throttling state, so every command doesn't nag (see notice.go).
+	NotifiedVersion string    `json:"notified_version,omitempty"`
+	NotifiedAt      time.Time `json:"notified_at,omitzero"`
+	WarnedAt        time.Time `json:"warned_at,omitzero"`
 }
 
 // CheckCached reports the newest installable release when it's newer than the
@@ -42,18 +46,27 @@ func (u *Updater) CheckCached(ctx context.Context, cachePath string, interval ti
 	return release.Version, u.IsNewer(release), nil
 }
 
-func (u *Updater) readCheckCache(cachePath string, interval time.Duration) (Version, bool) {
+func loadCheckCache(cachePath string) checkCache {
 	data, err := os.ReadFile(cachePath)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			slog.Debug("unable to read the update check cache", "path", cachePath, "error", err)
 		}
-		return Version{}, false
+		return checkCache{}
 	}
 
 	var cache checkCache
 	if err := json.Unmarshal(data, &cache); err != nil {
 		slog.Debug("unable to parse the update check cache", "path", cachePath, "error", err)
+		return checkCache{}
+	}
+
+	return cache
+}
+
+func (u *Updater) readCheckCache(cachePath string, interval time.Duration) (Version, bool) {
+	cache := loadCheckCache(cachePath)
+	if cache.LatestVersion == "" {
 		return Version{}, false
 	}
 
@@ -72,16 +85,20 @@ func (u *Updater) readCheckCache(cachePath string, interval time.Duration) (Vers
 }
 
 func (u *Updater) writeCheckCache(cachePath string, latest Version) {
-	if err := u.saveCheckCache(cachePath, latest); err != nil {
+	cache := loadCheckCache(cachePath)
+	cache.CheckedAt = time.Now()
+	cache.LatestVersion = latest.String()
+	storeCheckCache(cachePath, cache)
+}
+
+func storeCheckCache(cachePath string, cache checkCache) {
+	if err := saveCheckCache(cachePath, cache); err != nil {
 		slog.Debug("unable to write the update check cache", "path", cachePath, "error", err)
 	}
 }
 
-func (u *Updater) saveCheckCache(cachePath string, latest Version) error {
-	data, err := json.Marshal(checkCache{
-		CheckedAt:     time.Now(),
-		LatestVersion: latest.String(),
-	})
+func saveCheckCache(cachePath string, cache checkCache) error {
+	data, err := json.Marshal(cache)
 	if err != nil {
 		return err
 	}

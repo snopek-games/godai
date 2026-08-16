@@ -149,6 +149,8 @@ func Root() *cli.Command {
 	// Handing them back keeps every exit code and message coming from one place.
 	root.ExitErrHandler = func(context.Context, *cli.Command, error) {}
 
+	root.Before = startUpdateNotice
+
 	setErrorHandlers(root)
 	wrapHelp()
 	trimHelpGlobals()
@@ -250,6 +252,10 @@ func sessionConfig(cmd *cli.Command, configPath string) (core.Config, error) {
 		// The saved default is the flag's value when it isn't given, so IsSet
 		// is what separates "use this one" from "this is my usual one".
 		GodotVersionIsExplicit: cmd.IsSet("godot-version"),
+	}
+
+	if sc, err := core.LoadConfig(configPath); err == nil {
+		config.UpdateCheck = sc.UpdateCheck
 	}
 
 	if cmd.Bool("global") {

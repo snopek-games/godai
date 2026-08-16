@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"runtime"
-	"slices"
-	"strings"
 )
 
 type PermissionError struct {
@@ -33,13 +30,6 @@ func (e *PermissionError) Hint() string {
 		return "re-run this from an Administrator command prompt, or install godai somewhere you own"
 	}
 	return fmt.Sprintf("re-run it as 'sudo %s self-update', or install godai somewhere you own", e.ExePath)
-}
-
-func PackageManagerHint(exePath string) string {
-	if slices.Contains(strings.Split(filepath.ToSlash(exePath), "/"), "node_modules") {
-		return "godai was installed by npm, which will replace this executable again on its next install; update it with 'npm install -g @snopek-games/godai@latest' instead"
-	}
-	return ""
 }
 
 func checkWritable(dir, exePath string) error {

@@ -36,6 +36,7 @@ type Config struct {
 	ProjectBasePath        string
 	X11Display             string
 	UpdateCheckInterval    time.Duration
+	UpdateCheck            string
 	Debug                  bool
 	SavedConfigPath        string
 	CloseHeadlessOnExit    bool
@@ -44,14 +45,21 @@ type Config struct {
 type SavedConfig struct {
 	GodotVersion    string `json:"godot_version"`
 	ProjectBasePath string `json:"project_base_path"`
+	UpdateCheck     string `json:"update_check,omitempty"`
 }
 
 const (
 	SettingGodotVersion    = "godot_version"
 	SettingProjectBasePath = "project_base_path"
+	SettingUpdateCheck     = "update_check"
 )
 
-var SettingNames = []string{SettingGodotVersion, SettingProjectBasePath}
+const (
+	UpdateCheckOn  = "on"
+	UpdateCheckOff = "off"
+)
+
+var SettingNames = []string{SettingGodotVersion, SettingProjectBasePath, SettingUpdateCheck}
 
 func CheckSettingName(name string) error {
 	if slices.Contains(SettingNames, name) {
@@ -64,19 +72,26 @@ func (sc SavedConfig) Setting(name string) (string, error) {
 	if err := CheckSettingName(name); err != nil {
 		return "", err
 	}
-	if name == SettingGodotVersion {
+	switch name {
+	case SettingGodotVersion:
 		return sc.GodotVersion, nil
+	case SettingUpdateCheck:
+		return sc.UpdateCheck, nil
+	default:
+		return sc.ProjectBasePath, nil
 	}
-	return sc.ProjectBasePath, nil
 }
 
 func (sc *SavedConfig) SetSetting(name, value string) error {
 	if err := CheckSettingName(name); err != nil {
 		return err
 	}
-	if name == SettingGodotVersion {
+	switch name {
+	case SettingGodotVersion:
 		sc.GodotVersion = value
-	} else {
+	case SettingUpdateCheck:
+		sc.UpdateCheck = value
+	default:
 		sc.ProjectBasePath = value
 	}
 	return nil
@@ -164,6 +179,11 @@ func LoadConfig(path string) (*SavedConfig, error) {
 	}
 
 	return &config, nil
+}
+
+func SavedUpdateCheckOff(path string) bool {
+	sc, err := LoadConfig(path)
+	return err == nil && sc.UpdateCheck == UpdateCheckOff
 }
 
 // SavedGodotVersion is the default version named in the config file, empty

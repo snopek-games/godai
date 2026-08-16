@@ -28,6 +28,9 @@ class Godai < Formula
 
   def install
     bin.install "godai"
+    # Tells `godai self-update` this install is managed by brew, so it defers
+    # to `brew upgrade` instead of replacing the executable.
+    (prefix/"godai-install-channel").write "brew\n"
   end
 
   test do

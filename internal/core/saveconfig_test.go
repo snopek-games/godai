@@ -36,6 +36,23 @@ func TestSetConfigKeepsTheOtherSetting(t *testing.T) {
 	is.Equal(saved.ProjectBasePath, otherBasePath)
 }
 
+func TestSetConfigValidatesUpdateCheck(t *testing.T) {
+	is := is.New(t)
+
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	s, err := New(Config{SavedConfigPath: configPath})
+	is.NoErr(err)
+
+	is.True(s.SetConfig(SavedConfig{UpdateCheck: "sometimes"}) != nil)
+
+	is.NoErr(s.SetConfig(SavedConfig{UpdateCheck: UpdateCheckOff}))
+	is.Equal(s.GetConfig().UpdateCheck, UpdateCheckOff)
+
+	saved, err := LoadConfig(configPath)
+	is.NoErr(err)
+	is.Equal(saved.UpdateCheck, UpdateCheckOff)
+}
+
 func TestSaveSettingNeverClearsASavedSetting(t *testing.T) {
 	is := is.New(t)
 

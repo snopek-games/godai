@@ -478,14 +478,24 @@ godai self-update --rollback  # go back to the version the last update replaced
 Only stable releases are offered; betas and release candidates are skipped. The previous version is
 kept next to the executable (as `godai.old`), which is what `--rollback` restores.
 
+`--check` reuses release data fetched within the last day; pass `--no-cache` to ask again right
+away. Other commands use the same cached data to mention a newer release when one exists - at most
+once a day, on stderr, and only in a terminal. To turn that reminder off, run
+`godai config --set update_check=off` or set the `GODAI_NO_UPDATE_CHECK` environment variable.
+
 > [!NOTE]
 > If you installed via `npx`/npm, use `npm install -g @snopek-games/godai@latest` instead - npm
 > replaces the executable on its next install, so a self-update wouldn't stick. Likewise for
 > Homebrew: use `brew update && brew upgrade godai`. Claude Desktop extensions (.MCPB) are
-> updated by installing the new .MCPB file.
+> updated by installing the new .MCPB file. `godai self-update` recognizes these installs and
+> points you at the right command instead of updating in place.
 
 The Godai addon inside your projects doesn't need updating separately: the `godai` binary carries a
 copy of the matching addon, and reinstalls it in your project when the versions don't match.
+
+An editor that's already running keeps the addon it launched with, though, so after an update the
+CLI refuses to drive it (closing it is still allowed). `godai editor restart` fixes that: when it
+notices the mismatch, it closes the editor, installs the matching addon, and launches it again.
 
 Quick Start: API mode
 ---------------------

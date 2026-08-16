@@ -117,13 +117,16 @@ package-mcpb:
   before_script:
     - npm install -g @anthropic-ai/mcpb
   script:
-    - mkdir -p bundle/server
+    - mkdir -p packaging/mcpb/server
     - mkdir -p dist/mcpb
 
-    # Only the binaries referenced by bundle/manifest.json.
-    - cp dist/cli/${CLI_ASSET_NAME}-linux-x86_64/${CLI_BIN_NAME} bundle/server/${CLI_BIN_NAME}-linux-x86_64
-    - cp dist/cli/${CLI_ASSET_NAME}-windows-x86_64/${CLI_BIN_NAME}.exe bundle/server/${CLI_BIN_NAME}-windows-x86_64.exe
-    - cp dist/cli/${CLI_ASSET_NAME}-macos-arm64/${CLI_BIN_NAME} bundle/server/${CLI_BIN_NAME}-macos-arm64
+    # Only the binaries referenced by packaging/mcpb/manifest.json.
+    - cp dist/cli/${CLI_ASSET_NAME}-linux-x86_64/${CLI_BIN_NAME} packaging/mcpb/server/${CLI_BIN_NAME}-linux-x86_64
+    - cp dist/cli/${CLI_ASSET_NAME}-windows-x86_64/${CLI_BIN_NAME}.exe packaging/mcpb/server/${CLI_BIN_NAME}-windows-x86_64.exe
+    - cp dist/cli/${CLI_ASSET_NAME}-macos-arm64/${CLI_BIN_NAME} packaging/mcpb/server/${CLI_BIN_NAME}-macos-arm64
+
+    # Tells `godai self-update` this install is managed by the bundle.
+    - printf 'mcpb\n' > packaging/mcpb/server/godai-install-channel
 
     # manifest.json is committed with a placeholder version.
     - |
@@ -132,11 +135,9 @@ package-mcpb:
       else
         BUNDLE_VERSION="0.0.0-dev.${CI_COMMIT_SHORT_SHA}"
       fi
-      node bundle/set-bundle-version.mjs "$BUNDLE_VERSION"
+      node packaging/mcpb/set-bundle-version.mjs "$BUNDLE_VERSION"
 
-    - (cd bundle && mcpb pack)
-
-    - cp bundle/bundle.mcpb dist/mcpb/${MCPB_NAME}.mcpb
+    - mcpb pack packaging/mcpb dist/mcpb/${MCPB_NAME}.mcpb
   artifacts:
     when: always
     expire_in: 1 week

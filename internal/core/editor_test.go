@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -69,6 +70,43 @@ func TestCallEditorToolPassesThroughUnparsableResults(t *testing.T) {
 	is.NoErr(err)
 	is.True(got.Unparsed)
 	is.Equal(string(got.Raw), result)
+}
+
+func TestCallEditorToolRefusesAMismatchedAddon(t *testing.T) {
+	is := is.New(t)
+
+	s, err := New(Config{EditorToolTimeout: 5 * time.Second})
+	is.NoErr(err)
+	s.addEditorWithAddonVersion("/p", replyingEditor(t, `{"content":[]}`), "0.0.1")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err = s.CallEditorTool(ctx, "/p", "some_tool", Args{}, CallOptions{})
+	is.True(errors.Is(err, ErrAddonVersionMismatch))
+	is.True(strings.Contains(err.Error(), "0.0.1"))
+
+	var userErr *UserError
+	is.True(errors.As(err, &userErr))
+	is.True(strings.Contains(strings.Join(userErr.Solutions, " "), "godai editor restart"))
+
+	// Closing is the way out of the mismatch, so it goes through.
+	_, err = s.CallEditorTool(ctx, "/p", "close_editor", Args{}, CallOptions{})
+	is.NoErr(err)
+}
+
+func TestCallEditorToolRefusesAnAddonWithoutAVersion(t *testing.T) {
+	is := is.New(t)
+
+	s, err := New(Config{EditorToolTimeout: 5 * time.Second})
+	is.NoErr(err)
+	s.addEditorWithAddonVersion("/p", replyingEditor(t, `{"content":[]}`), "")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err = s.CallEditorTool(ctx, "/p", "some_tool", Args{}, CallOptions{})
+	is.True(errors.Is(err, ErrAddonVersionMismatch))
 }
 
 func TestCloseHeadlessEditorsClosesOnesWeLaunched(t *testing.T) {

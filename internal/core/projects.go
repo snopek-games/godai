@@ -262,6 +262,9 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 		if err := s.checkEditorVersion(editor, opts); err != nil {
 			return nil, err
 		}
+		if err := s.checkAddonVersion(editor); err != nil {
+			return nil, err
+		}
 
 		return &OpenProjectResult{ProjectPath: realProjectPath, AlreadyOpen: true, Headless: editor.Headless}, nil
 	}
@@ -428,6 +431,7 @@ func (s *Session) GetConfig() SavedConfig {
 	return SavedConfig{
 		GodotVersion:    s.config.GodotVersion,
 		ProjectBasePath: s.config.ProjectBasePath,
+		UpdateCheck:     s.config.UpdateCheck,
 	}
 }
 
@@ -450,6 +454,13 @@ func (s *Session) ResolveSavedConfig(sc SavedConfig) (SavedConfig, error) {
 		resolved.ProjectBasePath = path
 	}
 
+	if sc.UpdateCheck != "" {
+		if sc.UpdateCheck != UpdateCheckOn && sc.UpdateCheck != UpdateCheckOff {
+			return resolved, NewUserError(`invalid update_check - must be "on" or "off"`, nil, nil)
+		}
+		resolved.UpdateCheck = sc.UpdateCheck
+	}
+
 	return resolved, nil
 }
 
@@ -464,6 +475,9 @@ func (s *Session) SetConfig(sc SavedConfig) error {
 	}
 	if resolved.ProjectBasePath != "" {
 		s.config.ProjectBasePath = resolved.ProjectBasePath
+	}
+	if resolved.UpdateCheck != "" {
+		s.config.UpdateCheck = resolved.UpdateCheck
 	}
 
 	return s.mergeSavedConfig(resolved)
@@ -495,6 +509,7 @@ func (s *Session) UnsetConfig(names []string) error {
 
 	s.config.GodotVersion = live.GodotVersion
 	s.config.ProjectBasePath = live.ProjectBasePath
+	s.config.UpdateCheck = live.UpdateCheck
 
 	if s.config.SavedConfigPath == "" {
 		return nil

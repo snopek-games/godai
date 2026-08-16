@@ -4,8 +4,8 @@
 /.nomedia
 
 # Build artifacts
-/bundle/server
-/bundle/*.mcpb
+/packaging/mcpb/server
+/packaging/mcpb/*.mcpb
 /dist/
 
 # Local config
