@@ -183,6 +183,46 @@ package-brew:
     paths:
       - dist/brew/godai.rb
 
+package-install:
+  stage: package
+  image: mcr.microsoft.com/powershell:latest
+  cache: []
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl unzip zip python3 shellcheck
+  script:
+    - shellcheck packaging/install/install.sh
+    - VERSION="0.0.0-dev.${CI_COMMIT_SHORT_SHA}"
+
+    # Lay out a fake package registry the same way the release job would.
+    - mkdir -p fake-registry/v$VERSION
+    - |
+      cd dist/cli
+      for VARIANT in linux-x86_64 windows-x86_64; do
+        mv ${CLI_ASSET_NAME}-$VARIANT ${CLI_ASSET_NAME}-$VARIANT-v$VERSION
+        zip -qr ../../fake-registry/v$VERSION/${CLI_ASSET_NAME}-$VARIANT-v$VERSION.zip ${CLI_ASSET_NAME}-$VARIANT-v$VERSION
+      done
+      cd ../../fake-registry/v$VERSION
+      sha256sum *.zip > checksums-v$VERSION.txt
+      cd ../..
+    - python3 -m http.server --directory fake-registry --bind 127.0.0.1 8919 &
+    - sleep 1
+
+    - |
+      GODAI_VERSION=$VERSION \
+      GODAI_DOWNLOAD_BASE=http://127.0.0.1:8919 \
+      GODAI_INSTALL_DIR=$PWD/test-install/sh \
+      GODAI_NO_MODIFY_PATH=1 \
+      sh packaging/install/install.sh
+    - test-install/sh/godai --version
+
+    - |
+      GODAI_VERSION=$VERSION \
+      GODAI_DOWNLOAD_BASE=http://127.0.0.1:8919 \
+      GODAI_INSTALL_DIR=$PWD/test-install/ps \
+      PROCESSOR_ARCHITECTURE=AMD64 \
+      pwsh -NoProfile -File packaging/install/install.ps1
+    - test -f test-install/ps/godai.exe
+
 npm-publish:
   stage: release
   tags:
@@ -229,6 +269,41 @@ brew-publish:
       else
         git commit -m "godai ${CI_COMMIT_TAG}"
         git push origin HEAD
+      fi
+
+# Keeps https://godai.sh/install and https://godai.sh/install.ps1 up to date:
+# the website serves its src/install-scripts/ directory at the site root.
+website-publish:
+  stage: release
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - packaging/install/**/*
+  needs: []
+  image: alpine:latest
+  cache: []
+  variables:
+    GIT_SSH_COMMAND: "ssh -i $WEBSITE_DEPLOY_KEY -o UserKnownHostsFile=$CI_PROJECT_DIR/known_hosts -o IdentitiesOnly=yes"
+  before_script:
+    - apk add git openssh-client
+    - chmod 600 "$WEBSITE_DEPLOY_KEY"
+    # gitlab.com's published ed25519 host key (fingerprint
+    # SHA256:eUXGGm1YGsMAS7vkcx6JOJdOGHPem5gQp4taiCfCLB8).
+    - echo "gitlab.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf" > known_hosts
+  script:
+    - git clone --depth 1 git@gitlab.com:snopek-games/godai-website.git website
+    - cp packaging/install/install.sh website/src/install-scripts/install
+    - cp packaging/install/install.ps1 website/src/install-scripts/install.ps1
+    - cd website
+    - git config user.name "GitLab CI"
+    - git config user.email "dsnopek@gmail.com"
+    - git add src/install-scripts
+    - |
+      if git diff --cached --quiet; then
+        echo "Install scripts unchanged; nothing to push."
+      else
+        git commit -m "Update install scripts from godai ${CI_COMMIT_SHORT_SHA}"
+        git push origin HEAD:main
       fi
 
 release:
