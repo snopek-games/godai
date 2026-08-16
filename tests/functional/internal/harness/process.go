@@ -5,13 +5,14 @@
 package harness
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"time"
 )
 
@@ -44,13 +45,52 @@ func FindGodot() (string, error) {
 	return "", fmt.Errorf("no Godot binary found (set the GODOT environment variable)")
 }
 
-func FindFreePort() (int, error) {
-	l, err := net.Listen("tcp4", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
+// Below the Linux ephemeral range (32768+) so outbound connections can't steal
+// a port from a slow-starting editor, and clear of the 12120+ window godai and godai-eval use.
+const (
+	MCPPortBase  = 23120
+	MCPPortCount = 64
+)
+
+func MCPPortEnv() []string {
+	return []string{
+		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", MCPPortBase),
+		fmt.Sprintf("GODAI_MCP_PORT_COUNT=%d", MCPPortCount),
 	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+// OpenTimeout returns GODAI_OPEN_TIMEOUT (the same variable godai itself
+// reads) as a duration, or fallback when it's unset or invalid.
+func OpenTimeout(fallback time.Duration) time.Duration {
+	secs, err := strconv.ParseFloat(os.Getenv("GODAI_OPEN_TIMEOUT"), 64)
+	if err != nil || secs <= 0 {
+		return fallback
+	}
+	return time.Duration(secs * float64(time.Second))
+}
+
+func WaitForInstancePort(dir string, timeout time.Duration) (int, error) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		entries, _ := os.ReadDir(dir)
+		for _, entry := range entries {
+			if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+				continue
+			}
+			b, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+			if err != nil {
+				continue
+			}
+			var inst struct {
+				Port int `json:"port"`
+			}
+			if json.Unmarshal(b, &inst) == nil && inst.Port > 0 {
+				return inst.Port, nil
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return 0, fmt.Errorf("no editor instance file with a port appeared in %s", dir)
 }
 
 type ProjectOptions struct {
@@ -126,7 +166,6 @@ script = ExtResource("1_script")
 }
 
 type EditorOptions struct {
-	Port int
 	// "http" or "websocket"/"ws"; empty means the editor default (WebSocket).
 	Transport string
 	// Directory holding per-editor .xdg/<VAR> dirs. Defaults to projectDir.
@@ -154,10 +193,7 @@ func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, s
 	if opts.Transport != "" {
 		env = append(env, "GODAI_MCP_TRANSPORT="+opts.Transport)
 	}
-	env = append(env,
-		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", opts.Port),
-		"GODAI_MCP_PORT_COUNT=1",
-	)
+	env = append(env, MCPPortEnv()...)
 	if !opts.NoAutoApproveTools {
 		// Nobody is there to answer the approval dialog in a headless editor, so
 		// without this every tool that needs approval would be denied.

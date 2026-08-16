@@ -3,6 +3,7 @@ extends RefCounted
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolResult = ToolManager.ToolResult
 const DefaultTool = ToolManager.DefaultTool
+const VerifiedSettingsTool = preload("res://addons/godai/tools/default/verified_settings_tool.gd")
 const Utils = preload("res://addons/godai/utils.gd")
 const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
 const EditorGlobals = preload("res://addons/godai/editor_globals.gd")
@@ -64,27 +65,26 @@ class ProjectGetSettings extends DefaultTool:
 		return ToolResult.resolved({ settings = settings })
 
 
-class ProjectSetSettings extends DefaultTool:
-	func execute(p_input) -> ToolResult:
-		var settings: Dictionary = p_input.get('settings', {})
+class ProjectSetSettings extends VerifiedSettingsTool:
+	func get_properties_tool_name() -> String:
+		return "get_project_settings"
 
-		for name in settings:
-			if GodaiEditorSettings.is_godai_project_setting(name):
-				return ToolResult.rejected({errors = [GODAI_SETTING_MESSAGE % name]})
+	func get_settings_object() -> Object:
+		return ProjectSettings
 
-		var result := Utils.decode_settings(ProjectSettings, settings)
-		if result.has('errors'):
-			return ToolResult.rejected({errors = result['errors']})
+	func check_setting_allowed(p_name: String) -> String:
+		if GodaiEditorSettings.is_godai_project_setting(p_name):
+			return GODAI_SETTING_MESSAGE % p_name
+		return ""
 
-		var values: Dictionary = result['values']
-		for name in values:
-			ProjectSettings.set_setting(name, values[name])
+	func allows_feature_overrides() -> bool:
+		return true
 
+	func save_settings() -> String:
 		var err := ProjectSettings.save()
 		if err != OK:
-			return ToolResult.rejected({errors = ["Failed to save project settings: %s" % error_string(err)]})
-
-		return ToolResult.resolved({success = true})
+			return "Failed to save project settings: %s" % error_string(err)
+		return ""
 
 
 class ProjectRun extends DefaultTool:

@@ -293,8 +293,22 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 	}
 	detachProcess(cmd)
 
-	if err := cmd.Start(); err != nil {
-		return nil, NewUserError("unable to execute godot", err, []string{
+	logFile, logPath, logErr := editorLogFile(realProjectPath)
+	if logErr != nil {
+		slog.Warn("cannot capture editor output", "error", logErr)
+	}
+	if logFile != nil {
+		// Hand the editor a real file, never a pipe: the editor outlives godai,
+		// and its next write to a closed pipe would kill it with SIGPIPE.
+		cmd.Stdout, cmd.Stderr = logFile, logFile
+	}
+
+	startErr := cmd.Start()
+	if logFile != nil {
+		logFile.Close()
+	}
+	if startErr != nil {
+		return nil, NewUserError("unable to execute godot", startErr, []string{
 			"Check which Godot that is: `godai engine which`",
 			"Install it again: `godai engine install <VERSION>`",
 		})
@@ -313,7 +327,7 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 	waitCtx, cancel := context.WithTimeout(ctx, wait)
 	defer cancel()
 	if _, err := s.WaitForEditor(waitCtx, realProjectPath); err != nil {
-		return nil, waitError(waitCtx, "timed out waiting for connection from Godot editor for '"+realProjectPath+"'", err)
+		return nil, waitError(waitCtx, "timed out waiting for connection from Godot editor for '"+realProjectPath+"'"+editorLogTail(logPath), err)
 	}
 
 	return &OpenProjectResult{ProjectPath: realProjectPath, Headless: opts.Headless}, nil

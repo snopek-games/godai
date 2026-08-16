@@ -12,7 +12,7 @@ import (
 func testContext(t *testing.T) context.Context {
 	t.Helper()
 	// Generous: opening a project spawns and imports a real editor.
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), harness.OpenTimeout(60*time.Second))
 	t.Cleanup(cancel)
 	return ctx
 }

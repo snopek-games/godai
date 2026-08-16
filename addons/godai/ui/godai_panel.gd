@@ -150,6 +150,8 @@ func _on_mcp_server_state_changed(p_server_state: MCPServer.ServerState) -> void
 
 
 func _on_mcp_client_state_changed(p_client_state: MCPServer.ClientState) -> void:
+	_log_diagnostic("MCP client %s" % (
+		"connected" if p_client_state == MCPServer.ClientState.CONNECTED else "disconnected"))
 	_update_mcp_status_bar()
 
 	# Must go first: it cancels the request before releasing the approvals that
@@ -337,20 +339,36 @@ func _start_mcp() -> void:
 			msg += "another Godot editor is already running an MCP server for this project"
 		else:
 			msg += "error claiming project: " + error_string(err)
-		_add_error_to_chat(msg)
+		_report_mcp_error(msg)
 		return
 
 	# Actually start the MCP server.
 	err = mcp_server.start_server(_mcp_base_port, _mcp_port_count, _mcp_transport)
 	if err != OK:
-		_add_error_to_chat("Cannot start MCP server: " + error_string(err))
+		_report_mcp_error("Cannot start MCP server (ports %d-%d): %s" % [
+			_mcp_base_port, _mcp_base_port + _mcp_port_count - 1, error_string(err)])
 		return
 
 	# Write the instance file.
 	err = _write_mcp_instance_user_file()
 	if err != OK:
-		_add_error_to_chat("Cannot start MCP server: error writing instance file: " + error_string(err))
+		_report_mcp_error("Cannot start MCP server: error writing instance file: " + error_string(err))
 		return
+
+	_log_diagnostic("MCP server listening on port %d, instance file %s" % [
+		mcp_server.get_port(), _get_mcp_instance_user_file()])
+
+
+# The chat UI is invisible in a headless editor, so failures also go to stderr
+# where captured editor logs can see them.
+func _report_mcp_error(p_msg: String) -> void:
+	printerr("godai: " + p_msg)
+	_add_error_to_chat(p_msg)
+
+
+func _log_diagnostic(p_msg: String) -> void:
+	if OS.has_environment("GODAI_EDITOR_LOG"):
+		print("godai: " + p_msg)
 
 
 func _on_start_mcp_button_pressed() -> void:

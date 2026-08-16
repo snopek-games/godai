@@ -124,7 +124,6 @@ func runMatrix(ctx context.Context, cmd *cli.Command) error {
 	defer h.close()
 
 	base := h.config(cmd)
-	concurrency := int(cmd.Int("concurrency"))
 
 	var results []*eval.Results
 	for _, c := range cells {
@@ -154,7 +153,7 @@ func runMatrix(ctx context.Context, cmd *cli.Command) error {
 			cfg.TranscriptDir = defaultTranscriptDir(out)
 		}
 
-		r, err := runCell(ctx, cfg, specs, concurrency, out)
+		r, err := runCell(ctx, cfg, specs, out)
 		if err != nil {
 			return err
 		}

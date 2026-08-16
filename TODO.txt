@@ -7,8 +7,6 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- MCP: Check properties in set_project_settings (and give a warning when the project needs to be restarted)
-  - Check for PROPERTY_HINT_ENUM and use that to validate values (this should carry over to nodes and resources)
 - MCP: Encourage using the script tools in the instructions
   - Remind agents to save after they've modified a script that's open in the editor
 - CLI: Remove the prompt/elicitation for project_base_path

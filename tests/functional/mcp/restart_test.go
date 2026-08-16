@@ -22,12 +22,7 @@ func editorInstancesDir(xdgBase string) string {
 // connect to. Restart is NOT disabled, so restart_editor genuinely restarts it.
 func launchConnectableEditor(t *testing.T, godotBin, projectDir, xdgBase string) *exec.Cmd {
 	t.Helper()
-	port, err := harness.FindFreePort()
-	if err != nil {
-		t.Fatal(err)
-	}
 	cmd, logPath, err := harness.LaunchEditor(godotBin, projectDir, harness.EditorOptions{
-		Port:      port,
 		Transport: "websocket",
 		XDGBase:   xdgBase,
 		Verbose:   os.Getenv("GODAI_TEST_VERBOSE") != "",
@@ -36,6 +31,7 @@ func launchConnectableEditor(t *testing.T, godotBin, projectDir, xdgBase string)
 		t.Fatalf("launching editor: %v", err)
 	}
 	t.Logf("launched editor (log: %s)", logPath)
+	dumpLogOnFailure(t, "editor log", logPath)
 	return cmd
 }
 
@@ -109,6 +105,7 @@ func TestRestartEditor(t *testing.T) {
 	}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
 	t.Cleanup(func() { stopServer(inst.cmd) })
+	dumpLogOnFailure(t, "server log", inst.logPath)
 	// When the editor restarts itself the relaunched process is orphaned (not the
 	// harness's child), so clean it up by PID from the instances dir.
 	t.Cleanup(func() { killEditorInstances(instancesDir) })
@@ -122,13 +119,13 @@ func TestRestartEditor(t *testing.T) {
 	// The first launch imports the project, which can be slow.
 	editor := launchConnectableEditor(t, godotBin, projectDir, editorXDG)
 	t.Cleanup(func() { harness.StopEditor(editor) })
-	waitForOpenProject(t, inst.client, projectPath, 180*time.Second)
+	waitForOpenProject(t, inst.client, projectPath, harness.OpenTimeout(180*time.Second))
 
 	pidsBefore := getInstancePIDs(t, instancesDir)
 	is.True(len(pidsBefore) > 0) // the editor advertised itself
 
 	// The call returns only once the editor has relaunched and reconnected.
-	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), harness.OpenTimeout(150*time.Second))
 	defer cancel()
 	res, err := inst.client.CallTool(ctx, "restart_editor", map[string]any{"project_path": projectPath})
 	is.NoErr(err)

@@ -81,15 +81,31 @@ func (w *Workspace) ConfigPath() string { return filepath.Join(w.Root, "config")
 func (w *Workspace) DataPath() string { return filepath.Join(w.Root, "data") }
 
 func (w *Workspace) Env() []string {
-	return append(os.Environ(), w.XDGEnv()...)
+	return append(os.Environ(), w.IsolationEnv()...)
 }
 
-func (w *Workspace) XDGEnv() []string {
-	return []string{
+// The window must fit one editor per concurrent attempt, plus slack for
+// stragglers from earlier attempts and the developer's own stock-port editor.
+const (
+	mcpBasePort   = 12120
+	mcpPortBuffer = 10
+)
+
+func (w *Workspace) IsolationEnv() []string {
+	env := []string{
 		"XDG_CACHE_HOME=" + w.CachePath(),
 		"XDG_CONFIG_HOME=" + w.ConfigPath(),
 		"XDG_DATA_HOME=" + w.DataPath(),
+		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", mcpBasePort),
+		fmt.Sprintf("GODAI_MCP_PORT_COUNT=%d", max(w.cfg.Concurrency, 1)+mcpPortBuffer),
+		// Editors log to the workspace cache dir, so a connection timeout
+		// shows what Godot printed instead of nothing.
+		"GODAI_EDITOR_LOG=1",
 	}
+	if w.cfg.OpenTimeout > 0 {
+		env = append(env, fmt.Sprintf("GODAI_OPEN_TIMEOUT=%g", w.cfg.OpenTimeout.Seconds()))
+	}
+	return env
 }
 
 // Copied in only once the agent is done, so it never had the checks it is
@@ -125,8 +141,8 @@ func (w *Workspace) GodaiShim(inject ...string) (string, error) {
 		command = append(command, shellQuote(arg))
 	}
 
-	exports := make([]string, 0, 3)
-	for _, kv := range w.XDGEnv() {
+	exports := make([]string, 0, 5)
+	for _, kv := range w.IsolationEnv() {
 		name, value, _ := strings.Cut(kv, "=")
 		exports = append(exports, name+"="+shellQuote(value))
 	}

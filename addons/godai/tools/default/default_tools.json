@@ -94,7 +94,13 @@
 				"",
 				"Pass 'settings': a map of setting name (e.g. 'display/window/size/viewport_width') to value. Values are strings in Godot variant syntax (e.g. `1280`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
 				"",
-				"Settings that don't exist yet are created.",
+				"Setting names must already exist; unknown names are rejected. Pass \"create_missing\": true to create new settings, e.g. custom game settings, 'autoload/...', 'input/...', 'shader_globals/...' or 'global_group/...'. A feature-tag override of an existing setting (e.g. 'application/config/name.web') counts as existing, and its value is validated against the base setting.",
+				"",
+				"Every setting is verified by reading it back after setting. Settings are set independently: when one fails, the rest are still applied (and saved). Settings that could not be set are reported in 'errors', and settings that ended up with a different value than requested are reported in 'warnings', along with the actual resulting value. Anything Godot printed while setting is returned in 'output'.",
+				"",
+				"Some settings only take effect after the editor restarts; changing one returns a warning, and the restart_editor tool can perform the restart.",
+				"",
+				"If none of the settings can even be attempted, the call fails and nothing is changed.",
 				"",
 				"Use get_project_settings to see the available setting names and their current values."
 			],
@@ -115,6 +121,10 @@
 							"type": "string",
 							"description": "The setting value, as a string in Godot variant syntax"
 						}
+					},
+					"create_missing": {
+						"type": "boolean",
+						"description": "Allow creating settings that don't exist yet; without it, unknown setting names are rejected"
 					}
 				},
 				"required": ["settings"]
@@ -124,12 +134,22 @@
 				"properties": {
 					"success": {
 						"type": "boolean",
-						"description": "True if the settings were changed and the project was saved"
+						"description": "True if every setting was verified to have taken the requested value and the project was saved (a setting that only triggered a warning still counts as success)"
 					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
-						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
+						"description": "When the call failed, the errors that made it fail (nothing was changed). Otherwise, settings that could not be set; any setting not listed here or in 'warnings' was set to the requested value"
+					},
+					"warnings": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Settings that were changed, but ended up with a different value than requested, or that require an editor restart to take effect"
+					},
+					"output": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Messages Godot printed while the settings were being set"
 					}
 				}
 			}
@@ -1799,6 +1819,14 @@
 				"",
 				"Pass 'settings': a map of setting name (e.g. 'text_editor/behavior/indent/size') to value. Values are strings in Godot variant syntax (e.g. `16`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
 				"",
+				"Setting names must already exist; unknown names are rejected. Pass \"create_missing\": true to create a setting that doesn't exist yet (e.g. one belonging to a plugin that isn't currently loaded).",
+				"",
+				"Every setting is verified by reading it back after setting. Settings are set independently: when one fails, the rest are still applied. Settings that could not be set are reported in 'errors', and settings that ended up with a different value than requested are reported in 'warnings', along with the actual resulting value. Anything Godot printed while setting is returned in 'output'.",
+				"",
+				"Some settings only take effect after the editor restarts; changing one returns a warning, and the restart_editor tool can perform the restart.",
+				"",
+				"If none of the settings can even be attempted, the call fails and nothing is changed.",
+				"",
 				"Use get_editor_settings to see the available setting names and their current values.",
 				"",
 				"Settings under 'godai/' are Godai's own configuration and can't be changed; only the user can, via Editor Settings."
@@ -1820,6 +1848,10 @@
 							"type": "string",
 							"description": "The setting value, as a string in Godot variant syntax"
 						}
+					},
+					"create_missing": {
+						"type": "boolean",
+						"description": "Allow creating settings that don't exist yet; without it, unknown setting names are rejected"
 					}
 				},
 				"required": ["settings"]
@@ -1829,12 +1861,22 @@
 				"properties": {
 					"success": {
 						"type": "boolean",
-						"description": "True if the settings were changed"
+						"description": "True if every setting was verified to have taken the requested value (a setting that only triggered a warning still counts as success)"
 					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
-						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
+						"description": "When the call failed, the errors that made it fail (nothing was changed). Otherwise, settings that could not be set; any setting not listed here or in 'warnings' was set to the requested value"
+					},
+					"warnings": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Settings that were changed, but ended up with a different value than requested, or that require an editor restart to take effect"
+					},
+					"output": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Messages Godot printed while the settings were being set"
 					}
 				}
 			}

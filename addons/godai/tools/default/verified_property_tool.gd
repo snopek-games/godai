@@ -26,6 +26,9 @@ func _notification(p_what: int) -> void:
 func prepare_property_op(p_object: Object, p_path: String, p_raw_value, p_prop_cache: Dictionary = {}) -> Dictionary:
 	var resolve_error := ""
 	var expected_type := TYPE_NIL
+	var hint := PROPERTY_HINT_NONE
+	var hint_string := ""
+	var usage := PROPERTY_USAGE_NONE
 	var old_value: Variant = null
 
 	var resolved := Utils.resolve_property_path(p_object, p_path, p_prop_cache)
@@ -36,11 +39,21 @@ func prepare_property_op(p_object: Object, p_path: String, p_raw_value, p_prop_c
 		old_value = p_object.get_indexed(p_path)
 	else:
 		expected_type = resolved['expected_type']
+		hint = resolved['hint']
+		hint_string = resolved['hint_string']
+		usage = resolved['usage']
 		old_value = resolved['value']
 
 	var decoded := Utils.decode_property_value(p_raw_value, expected_type)
 	if decoded.has("error"):
 		return { error = decoded['error'] }
+
+	# Only string enums: an int enum takes numeric values, which the names in
+	# the hint string say nothing about.
+	if hint == PROPERTY_HINT_ENUM and expected_type in [TYPE_STRING, TYPE_STRING_NAME]:
+		var enum_error := Utils.check_enum_value(str(decoded['value']), hint_string)
+		if not enum_error.is_empty():
+			return { error = enum_error }
 
 	# Setting 'script' is another way to attach one, so it gets the
 	# same check attach_script makes.
@@ -54,6 +67,7 @@ func prepare_property_op(p_object: Object, p_path: String, p_raw_value, p_prop_c
 		value = decoded['value'],
 		old_value = old_value,
 		resolve_error = resolve_error,
+		usage = usage,
 	}}
 
 

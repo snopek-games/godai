@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -69,15 +70,7 @@ func testMain(m *testing.M) int {
 		return 1
 	}
 
-	port, err := harness.FindFreePort()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "FAIL: %v\n", err)
-		return 1
-	}
-	client = harness.NewHTTPClient("http://127.0.0.1:" + strconv.Itoa(port))
-
 	cmd, logPath, err := harness.LaunchEditor(godotBin, projectDir, harness.EditorOptions{
-		Port:      port,
 		Transport: "http",
 		Verbose:   os.Getenv("GODAI_TEST_VERBOSE") != "",
 		// Let restart_editor and close_editor run end-to-end without shutting down the editor this harness manages.
@@ -100,8 +93,17 @@ func testMain(m *testing.M) int {
 		}
 	}()
 
-	// The first launch has to import the whole project, which can be slow.
-	if err := waitForEditor(ctx, 180*time.Second); err != nil {
+	// The editor advertises the port it bound once the addon is up, and the
+	// first launch has to import the whole project first, which can be slow.
+	instancesDir := filepath.Join(projectDir, ".xdg", "XDG_CACHE_HOME", "godai", "instances")
+	port, err := harness.WaitForInstancePort(instancesDir, harness.OpenTimeout(180*time.Second))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "FAIL: %v\n", err)
+		return 1
+	}
+	client = harness.NewHTTPClient("http://127.0.0.1:" + strconv.Itoa(port))
+
+	if err := waitForEditor(ctx, 30*time.Second); err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: editor never became ready: %v\n", err)
 		return 1
 	}

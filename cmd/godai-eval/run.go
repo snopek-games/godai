@@ -133,7 +133,7 @@ func run(ctx context.Context, cmd *cli.Command) error {
 		log.Printf("pristine: running %d tasks with no agent; every one of them SHOULD fail", len(specs))
 	}
 
-	results, err := runCell(ctx, cfg, specs, int(cmd.Int("concurrency")), out)
+	results, err := runCell(ctx, cfg, specs, out)
 	if err != nil {
 		return err
 	}

@@ -93,12 +93,6 @@ func testMain(m *testing.M) int {
 		return 1
 	}
 
-	port, err := harness.FindFreePort()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "FAIL: %v\n", err)
-		return 1
-	}
-
 	// The editor writes its instance file under the XDG dirs the harness points
 	// into the project, which is where --editor-instances-path sends the CLI
 	// looking. Nothing touches the real ~/.cache.
@@ -106,7 +100,6 @@ func testMain(m *testing.M) int {
 
 	// WebSocket, because that's the transport the CLI speaks.
 	editor, logPath, err := harness.LaunchEditor(godotBin, projectPath, harness.EditorOptions{
-		Port:      port,
 		Transport: "websocket",
 		Verbose:   os.Getenv("GODAI_TEST_VERBOSE") != "",
 	})
@@ -116,7 +109,7 @@ func testMain(m *testing.M) int {
 	}
 
 	// The first launch has to import the whole project, which can be slow.
-	if err := waitForInstanceFile(180 * time.Second); err != nil {
+	if err := waitForInstanceFile(harness.OpenTimeout(180 * time.Second)); err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: %v (editor log: %s)\n", err, logPath)
 		return 1
 	}

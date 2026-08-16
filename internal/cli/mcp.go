@@ -131,7 +131,7 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 		EditorRetryDelay:       durationFlag(cmd, "editor-retry-delay", serverRetryDelay),
 		EditorTimeout:          durationFlag(cmd, "editor-timeout", editorTimeout),
 		EditorToolTimeout:      durationFlag(cmd, "editor-tool-timeout", editorToolTimeout),
-		OpenProjectTimeout:     serverOpenWait,
+		OpenProjectTimeout:     durationFlag(cmd, "open-timeout", serverOpenWait),
 		GodotPath:              cmd.String("godot-path"),
 		GodotVersion:           cmd.String("godot-version"),
 		GodotVersionIsExplicit: cmd.IsSet("godot-version"),

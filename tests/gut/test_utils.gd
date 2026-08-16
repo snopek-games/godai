@@ -206,6 +206,32 @@ func test_resolve_property_path() -> void:
 	resolved = Utils.resolve_property_path(mesh_instance, "mesh:no_such_prop")
 	assert_string_contains(resolved.get("error", ""), "SphereMesh has no property named 'no_such_prop'")
 
+	# The declared hint and usage come along, e.g. for enum-hinted,
+	# restart-if-changed project settings.
+	resolved = Utils.resolve_property_path(ProjectSettings, "rendering/renderer/rendering_method")
+	assert_eq(resolved.get("expected_type"), TYPE_STRING)
+	assert_eq(resolved.get("hint"), PROPERTY_HINT_ENUM)
+	assert_string_contains(resolved.get("hint_string", ""), "gl_compatibility")
+	assert_true(resolved.get("usage", 0) & PROPERTY_USAGE_RESTART_IF_CHANGED != 0)
+
+
+func test_check_enum_value() -> void:
+	assert_eq(Utils.check_enum_value("gl_compatibility", "forward_plus,mobile,gl_compatibility"), "")
+
+	var error := Utils.check_enum_value("compatibility", "forward_plus,mobile,gl_compatibility")
+	assert_string_contains(error, "'compatibility' is not one of the valid values")
+	assert_string_contains(error, "did you mean 'gl_compatibility'")
+	assert_string_contains(error, "Valid values: forward_plus, mobile, gl_compatibility")
+
+	# Hint strings can pair each name with an explicit value.
+	assert_eq(Utils.check_enum_value("Two", "One:1,Two:2"), "")
+	assert_string_contains(Utils.check_enum_value("Three", "One:1,Two:2"), "Valid values: One, Two")
+
+	# Nothing close enough: no suggestion, just the valid values.
+	error = Utils.check_enum_value("xyz", "forward_plus,mobile,gl_compatibility")
+	assert_false(error.contains("did you mean"))
+	assert_string_contains(error, "Valid values:")
+
 
 func test_get_property_default_value() -> void:
 	assert_eq(Utils.get_default_property_value(autofree(Node2D.new()), "position"), Vector2(0, 0))

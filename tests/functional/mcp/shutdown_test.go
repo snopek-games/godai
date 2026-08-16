@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -50,8 +49,6 @@ func TestCloseHeadlessEditorsOnShutdown(t *testing.T) {
 	// The server spawns the editor inheriting its own XDG_CACHE_HOME, so it
 	// advertises into the server's cache dir.
 	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
-	port, err := harness.FindFreePort()
-	is.NoErr(err)
 
 	// GODAI_DISABLE_CLOSE is deliberately omitted: we want the editor to really
 	// save and quit when the server closes it on shutdown.
@@ -61,19 +58,19 @@ func TestCloseHeadlessEditorsOnShutdown(t *testing.T) {
 		"--editor-instances-path", instances,
 		"--editor-scan-interval", "1",
 		"--editor-retry-delay", "1",
-	}, []string{
+	}, append([]string{
 		"GODAI_MCP_TRANSPORT=websocket",
-		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", port),
-		"GODAI_MCP_PORT_COUNT=1",
 		// Without this the editor denies close_editor, since it's headless and
 		// nobody is there to approve it.
 		"GODAI_AUTO_APPROVE_TOOLS=1",
-	}, os.Getenv("GODAI_TEST_VERBOSE") != "")
+	}, harness.MCPPortEnv()...), os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
 	t.Cleanup(func() {
 		killEditorInstances(instances)
 		stopServer(inst.cmd)
 	})
+	dumpLogOnFailure(t, "server log", inst.logPath)
+	dumpLogOnFailure(t, "editor log", filepath.Join(xdgBase, "cache", "godai", "editor-logs", "*.log"))
 
 	out := callToolOKWith(t, inst.client, "open_godot_project", map[string]any{
 		"project_path": project,
@@ -81,7 +78,10 @@ func TestCloseHeadlessEditorsOnShutdown(t *testing.T) {
 	})
 	is.Equal(out["success"], true)
 
-	waitForOpenProject(t, inst.client, project, 180*time.Second)
+	waitForOpenProject(t, inst.client, project, harness.OpenTimeout(180*time.Second))
+
+	logs, _ := filepath.Glob(filepath.Join(xdgBase, "cache", "godai", "editor-logs", "*.log"))
+	is.True(len(logs) > 0) // GODAI_EDITOR_LOG made the server capture the editor's output
 
 	pids := getInstancePIDs(t, instances)
 	is.True(len(pids) > 0) // the headless editor advertised itself

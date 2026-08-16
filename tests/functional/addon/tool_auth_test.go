@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -57,13 +58,7 @@ func startEditorWithoutAutoApproval(t *testing.T) *harness.MCPClient {
 		t.Fatalf("creating test project: %v", err)
 	}
 
-	port, err := harness.FindFreePort()
-	if err != nil {
-		t.Fatalf("finding a free port: %v", err)
-	}
-
 	cmd, logPath, err := harness.LaunchEditor(godotBin, dir, harness.EditorOptions{
-		Port:               port,
 		Transport:          "http",
 		Verbose:            os.Getenv("GODAI_TEST_VERBOSE") != "",
 		NoAutoApproveTools: true,
@@ -81,10 +76,17 @@ func startEditorWithoutAutoApproval(t *testing.T) *harness.MCPClient {
 		os.RemoveAll(dir)
 	})
 
+	// The editor advertises the port it bound once the addon is up, and the
+	// first launch has to import the whole project first, which can be slow.
+	instancesDir := filepath.Join(dir, ".xdg", "XDG_CACHE_HOME", "godai", "instances")
+	port, err := harness.WaitForInstancePort(instancesDir, harness.OpenTimeout(180*time.Second))
+	if err != nil {
+		t.Fatalf("%v (editor log: %s)", err, logPath)
+	}
+
 	c := harness.NewHTTPClient("http://127.0.0.1:" + strconv.Itoa(port))
 
-	// The first launch has to import the whole project, which can be slow.
-	deadline := time.Now().Add(180 * time.Second)
+	deadline := time.Now().Add(30 * time.Second)
 	var lastErr error
 	for time.Now().Before(deadline) {
 		reqCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

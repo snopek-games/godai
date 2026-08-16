@@ -78,6 +78,7 @@ func TestProjectSettings(t *testing.T) {
 				"godai_test/example": "hello",
 				"godai_test/number":  "42",
 			},
+			"create_missing": true,
 		})
 		is.Equal(structured["success"], true)
 
@@ -118,6 +119,137 @@ func TestProjectSettings(t *testing.T) {
 				"display/window/size/viewport_width": "not_a_number",
 			},
 		}, "Cannot parse")
+	})
+
+	t.Run("set_unknown_requires_create_missing", func(t *testing.T) {
+		callToolErr(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{
+				"godai_test/never_created": "nope",
+			},
+		}, `pass "create_missing": true`)
+
+		callToolErr(t, "get_project_settings", map[string]any{
+			"names": []string{"godai_test/never_created"},
+		}, "No such setting")
+	})
+
+	t.Run("set_misspelled_setting_suggests", func(t *testing.T) {
+		callToolErr(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{
+				"display/window/size/viewport_widht": "1280",
+			},
+		}, "did you mean 'display/window/size/viewport_width'")
+	})
+
+	t.Run("set_feature_override", func(t *testing.T) {
+		is := is.New(t)
+
+		// An override of an existing setting doesn't need create_missing.
+		structured := callToolOK(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{
+				"application/config/name.web": projectName + " Web",
+			},
+		})
+		is.Equal(structured["success"], true)
+
+		after := callToolOK(t, "get_project_settings", map[string]any{
+			"names": []string{"application/config/name.web"},
+		})
+		is.Equal(after["settings"].(map[string]any)["application/config/name.web"], projectName+" Web")
+	})
+
+	t.Run("set_feature_override_checks_base_enum", func(t *testing.T) {
+		callToolErr(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{
+				"rendering/renderer/rendering_method.web": "compatibility",
+			},
+		}, "did you mean 'gl_compatibility'")
+	})
+
+	t.Run("set_enum_rejects_invalid_value", func(t *testing.T) {
+		is := is.New(t)
+
+		before := callToolOK(t, "get_project_settings", map[string]any{
+			"names": []string{"rendering/renderer/rendering_method"},
+		})
+		original := before["settings"].(map[string]any)["rendering/renderer/rendering_method"]
+
+		callToolErr(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{
+				"rendering/renderer/rendering_method": "compatibility",
+			},
+		}, "did you mean 'gl_compatibility'")
+
+		after := callToolOK(t, "get_project_settings", map[string]any{
+			"names": []string{"rendering/renderer/rendering_method"},
+		})
+		is.Equal(after["settings"].(map[string]any)["rendering/renderer/rendering_method"], original)
+	})
+
+	t.Run("set_enum_valid_value", func(t *testing.T) {
+		is := is.New(t)
+
+		structured := callToolOK(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{
+				"rendering/renderer/rendering_method": "gl_compatibility",
+			},
+		})
+		is.Equal(structured["success"], true)
+
+		after := callToolOK(t, "get_project_settings", map[string]any{
+			"names": []string{"rendering/renderer/rendering_method"},
+		})
+		is.Equal(after["settings"].(map[string]any)["rendering/renderer/rendering_method"], "gl_compatibility")
+	})
+
+	t.Run("set_restart_setting_warns", func(t *testing.T) {
+		is := is.New(t)
+
+		// rendering/renderer/rendering_method is flagged restart-if-changed.
+		before := callToolOK(t, "get_project_settings", map[string]any{
+			"names": []string{"rendering/renderer/rendering_method"},
+		})
+		newValue := "mobile"
+		if before["settings"].(map[string]any)["rendering/renderer/rendering_method"] == "mobile" {
+			newValue = "forward_plus"
+		}
+
+		structured := callToolOK(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{"rendering/renderer/rendering_method": newValue},
+		})
+		is.Equal(structured["success"], true)
+		warnings, _ := structured["warnings"].([]any)
+		is.True(anyLineContains(warnings, "restart_editor"))
+
+		// Setting it to the value it already has doesn't need a restart.
+		structured = callToolOK(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{"rendering/renderer/rendering_method": newValue},
+		})
+		is.Equal(structured["success"], true)
+		_, hasWarnings := structured["warnings"]
+		is.True(!hasWarnings)
+	})
+
+	t.Run("set_independently", func(t *testing.T) {
+		is := is.New(t)
+
+		// One bad setting doesn't stop the others from being applied.
+		structured := callToolOK(t, "set_project_settings", map[string]any{
+			"settings": map[string]any{
+				"display/window/size/viewport_width": "not_a_number",
+				"godai_test/independent":             "still_set",
+			},
+			"create_missing": true,
+		})
+		is.Equal(structured["success"], false)
+		errs, _ := structured["errors"].([]any)
+		is.Equal(len(errs), 1)
+		is.True(strings.Contains(asStrings(errs)[0], "Cannot parse"))
+
+		after := callToolOK(t, "get_project_settings", map[string]any{
+			"names": []string{"godai_test/independent"},
+		})
+		is.Equal(after["settings"].(map[string]any)["godai_test/independent"], "still_set")
 	})
 
 	t.Run("set_empty", func(t *testing.T) {

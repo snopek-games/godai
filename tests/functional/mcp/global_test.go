@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -121,8 +120,6 @@ func TestGlobalModeOpenAndConnect(t *testing.T) {
 	mustCreateProject(t, project, "Global Project")
 
 	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
-	port, err := harness.FindFreePort()
-	is.NoErr(err)
 
 	inst, err := startServer(xdgBase, []string{
 		"--global",
@@ -130,18 +127,18 @@ func TestGlobalModeOpenAndConnect(t *testing.T) {
 		"--editor-instances-path", instances,
 		"--editor-scan-interval", "1",
 		"--editor-retry-delay", "1",
-	}, []string{
+	}, append([]string{
 		"GODAI_MCP_TRANSPORT=websocket",
-		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", port),
-		"GODAI_MCP_PORT_COUNT=1",
 		"GODAI_DISABLE_CLOSE=1",
 		"GODAI_AUTO_APPROVE_TOOLS=1",
-	}, os.Getenv("GODAI_TEST_VERBOSE") != "")
+	}, harness.MCPPortEnv()...), os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
 	t.Cleanup(func() {
 		killEditorInstances(instances)
 		stopServer(inst.cmd)
 	})
+	dumpLogOnFailure(t, "server log", inst.logPath)
+	dumpLogOnFailure(t, "editor log", filepath.Join(xdgBase, "cache", "godai", "editor-logs", "*.log"))
 
 	// Succeeds even though the project is under no root: global mode spawns the
 	// editor and the GlobalConnectionScanner connects back to it.

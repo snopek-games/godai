@@ -1,6 +1,7 @@
 package addon
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -86,6 +87,94 @@ func TestEditorSettings(t *testing.T) {
 				editorSettingName: "not_a_number",
 			},
 		}, "Cannot parse")
+	})
+
+	t.Run("set_enum_rejects_invalid_value", func(t *testing.T) {
+		// "text_editor/theme/color_theme" is a string setting with an enum
+		// hint that always includes "Default".
+		callToolErr(t, "set_editor_settings", map[string]any{
+			"settings": map[string]any{
+				"text_editor/theme/color_theme": "Defaul",
+			},
+		}, "did you mean 'Default'")
+	})
+
+	t.Run("set_unknown_requires_create_missing", func(t *testing.T) {
+		callToolErr(t, "set_editor_settings", map[string]any{
+			"settings": map[string]any{
+				"no/such/editor/setting": "1",
+			},
+		}, `pass "create_missing": true`)
+
+		// Unlike project settings, a dotted name is not a feature-tag
+		// override of the base setting.
+		callToolErr(t, "set_editor_settings", map[string]any{
+			"settings": map[string]any{
+				editorSettingName + ".web": "4",
+			},
+		}, `pass "create_missing": true`)
+	})
+
+	t.Run("set_restart_setting_warns", func(t *testing.T) {
+		is := is.New(t)
+
+		// Which settings are flagged restart-if-changed varies by build and
+		// platform, so find a bool one to toggle.
+		out := runEditorScript(t, `var es := EditorInterface.get_editor_settings()
+for prop in es.get_property_list():
+	if prop['usage'] & PROPERTY_USAGE_RESTART_IF_CHANGED and prop['type'] == TYPE_BOOL and es.has_setting(prop['name']):
+		print("RESTART_SETTING:", prop['name'], "=", es.get_setting(prop['name']))
+		return OK
+return OK`)
+
+		var name, original string
+		lines, _ := out["output"].([]any)
+		for _, line := range asStrings(lines) {
+			if rest, found := strings.CutPrefix(line, "RESTART_SETTING:"); found {
+				name, original, _ = strings.Cut(rest, "=")
+			}
+		}
+		if name == "" {
+			t.Skip("no restart-flagged bool editor settings in this build")
+		}
+		t.Cleanup(func() {
+			callToolOK(t, "set_editor_settings", map[string]any{
+				"settings": map[string]any{name: original},
+			})
+		})
+
+		newValue := "true"
+		if original == "true" {
+			newValue = "false"
+		}
+
+		structured := callToolOK(t, "set_editor_settings", map[string]any{
+			"settings": map[string]any{name: newValue},
+		})
+		is.Equal(structured["success"], true)
+		warnings, _ := structured["warnings"].([]any)
+		is.True(anyLineContains(warnings, "restart_editor"))
+	})
+
+	t.Run("set_create_missing", func(t *testing.T) {
+		is := is.New(t)
+
+		const createdSetting = "godai_test/created_by_test"
+		t.Cleanup(func() {
+			runEditorScript(t, fmt.Sprintf(`EditorInterface.get_editor_settings().erase(%q)
+return OK`, createdSetting))
+		})
+
+		structured := callToolOK(t, "set_editor_settings", map[string]any{
+			"settings":       map[string]any{createdSetting: "hello"},
+			"create_missing": true,
+		})
+		is.Equal(structured["success"], true)
+
+		after := callToolOK(t, "get_editor_settings", map[string]any{
+			"names": []string{createdSetting},
+		})
+		is.Equal(after["settings"].(map[string]any)[createdSetting], "hello")
 	})
 
 	t.Run("set_empty", func(t *testing.T) {

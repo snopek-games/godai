@@ -42,6 +42,10 @@ func sharedFlags() []cli.Flag {
 			Usage: "how many attempts to run at once",
 			Value: 1,
 		},
+		&cli.FloatFlag{
+			Name:  "open-timeout",
+			Usage: "how long (in seconds) godai waits for a launched editor to import and connect; raise it with high --concurrency",
+		},
 		&cli.StringFlag{
 			Name:  "godot",
 			Usage: "path to a Godot executable, instead of the one godai would pick",
@@ -144,21 +148,23 @@ func (h *harness) close() {
 
 func (h *harness) config(cmd *cli.Command) eval.Config {
 	return eval.Config{
-		Repeats:   int(cmd.Int("repeats")),
-		GodotBin:  h.godot,
-		ClaudeBin: cmd.String("claude"),
-		GodaiBin:  h.godai,
-		WorkRoot:  cmd.String("work"),
-		KeepWork:  cmd.Bool("keep-work"),
-		Bare:      cmd.Bool("bare"),
-		Verbose:   cmd.Bool("verbose"),
-		LiveOut:   os.Stderr,
+		Repeats:     int(cmd.Int("repeats")),
+		GodotBin:    h.godot,
+		ClaudeBin:   cmd.String("claude"),
+		GodaiBin:    h.godai,
+		WorkRoot:    cmd.String("work"),
+		KeepWork:    cmd.Bool("keep-work"),
+		Bare:        cmd.Bool("bare"),
+		Concurrency: int(cmd.Int("concurrency")),
+		OpenTimeout: time.Duration(cmd.Float("open-timeout") * float64(time.Second)),
+		Verbose:     cmd.Bool("verbose"),
+		LiveOut:     os.Stderr,
 	}
 }
 
-func runCell(ctx context.Context, cfg eval.Config, specs []*eval.Spec, concurrency int, out string) (*eval.Results, error) {
+func runCell(ctx context.Context, cfg eval.Config, specs []*eval.Spec, out string) (*eval.Results, error) {
 	started := time.Now()
-	attempts := runAttempts(ctx, cfg, specs, concurrency)
+	attempts := runAttempts(ctx, cfg, specs)
 
 	results := &eval.Results{
 		File: out, Model: cfg.Model, Surface: cfg.Surface, Repeats: cfg.Repeats, StartedAt: started,
@@ -183,7 +189,7 @@ func runCell(ctx context.Context, cfg eval.Config, specs []*eval.Spec, concurren
 }
 
 // Returns whatever finished, so cancelling partway still writes results.
-func runAttempts(ctx context.Context, cfg eval.Config, specs []*eval.Spec, concurrency int) []*eval.Attempt {
+func runAttempts(ctx context.Context, cfg eval.Config, specs []*eval.Spec) []*eval.Attempt {
 	type job struct {
 		spec   *eval.Spec
 		repeat int
@@ -195,6 +201,7 @@ func runAttempts(ctx context.Context, cfg eval.Config, specs []*eval.Spec, concu
 		}
 	}
 
+	concurrency := max(cfg.Concurrency, 1)
 	log.Printf("%s/%s: %d tasks x %d repeats = %d attempts (concurrency %d)",
 		cfg.Model, cfg.Surface, len(specs), cfg.Repeats, len(jobs), concurrency)
 

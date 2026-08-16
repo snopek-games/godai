@@ -98,6 +98,12 @@ func Root() *cli.Command {
 				Usage: "how long (in seconds) to wait for a Godot editor to connect",
 				Value: cliConnectWait.Seconds(),
 			},
+			&cli.FloatFlag{
+				Name:        "open-timeout",
+				Usage:       "how long (in seconds) to wait for an editor being opened to import its project and connect",
+				Sources:     cli.EnvVars("GODAI_OPEN_TIMEOUT"),
+				DefaultText: secondsText(cliOpenWait),
+			},
 			&cli.StringFlag{
 				Name:    "x11-display",
 				Usage:   "the x11 DISPLAY variable (may be needed on Linux to launch the editor)",
@@ -231,7 +237,7 @@ func sessionConfig(cmd *cli.Command, configPath string) (core.Config, error) {
 		EditorRetryDelay:    durationFlag(cmd, "editor-retry-delay", cliRetryDelay),
 		EditorTimeout:       durationFlag(cmd, "editor-timeout", editorTimeout),
 		EditorToolTimeout:   durationFlag(cmd, "editor-tool-timeout", editorToolTimeout),
-		OpenProjectTimeout:  cliOpenWait,
+		OpenProjectTimeout:  durationFlag(cmd, "open-timeout", cliOpenWait),
 		GodotVersion:        cmd.String("godot-version"),
 		GodotPath:           cmd.String("godot-path"),
 		NoAutoInstall:       cmd.Bool("no-auto-install"),

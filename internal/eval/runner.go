@@ -38,6 +38,14 @@ type Config struct {
 	WorkRoot  string
 	KeepWork  bool
 
+	// Concurrency is how many attempts run at once; it sizes the MCP port
+	// window their editors share.
+	Concurrency int
+
+	// OpenTimeout, when set, becomes GODAI_OPEN_TIMEOUT for every godai the
+	// attempts run, since the stock default undershoots on a loaded machine.
+	OpenTimeout time.Duration
+
 	// Bare runs Claude Code with --bare, which skips hooks, plugins, CLAUDE.md
 	// and auto-memory. It also refuses OAuth, so it needs ANTHROPIC_API_KEY.
 	Bare bool
@@ -299,7 +307,7 @@ func runAgent(ctx context.Context, cfg Config, spec *Spec, work *Workspace) agen
 // MCP servers the developer has configured from changing the result.
 func mcpArgs(cfg Config, work *Workspace) []string {
 	env := map[string]string{}
-	for _, kv := range work.XDGEnv() {
+	for _, kv := range work.IsolationEnv() {
 		name, value, _ := strings.Cut(kv, "=")
 		env[name] = value
 	}

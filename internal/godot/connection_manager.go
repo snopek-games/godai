@@ -242,7 +242,7 @@ func readInstanceFile(path string) (instance, bool) {
 
 func (m *ConnectionManager) connectionLoop(inst instance, stopCh chan struct{}) {
 	instanceID, port := inst.InstanceID, inst.Port
-	slog.Debug("starting connection loop", "instance", instanceID, "port", port)
+	slog.Info("found editor instance file", "instance", instanceID, "port", port)
 
 	wsURL := "ws://localhost:" + strconv.Itoa(port) + "?token=" + url.QueryEscape(inst.Secret)
 	for {

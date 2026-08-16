@@ -3,6 +3,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -136,12 +137,6 @@ func testMain(m *testing.M) int {
 		return 1
 	}
 
-	port, err := harness.FindFreePort()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "FAIL: %v\n", err)
-		return 1
-	}
-
 	inst, err := startServer(base, []string{
 		"--root", rootDir,
 		"--godot-path", godotWrapper,
@@ -149,13 +144,11 @@ func testMain(m *testing.M) int {
 		"--editor-scan-interval", "1",
 		"--editor-retry-delay", "1",
 		"--toolsets", "default,engine",
-	}, []string{
+	}, append([]string{
 		"GODAI_MCP_TRANSPORT=websocket",
-		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", port),
-		"GODAI_MCP_PORT_COUNT=1",
 		"GODAI_DISABLE_CLOSE=1",
 		"GODAI_AUTO_APPROVE_TOOLS=1",
-	}, verbose)
+	}, harness.MCPPortEnv()...), verbose)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: starting godai: %v\n", err)
 		return 1
@@ -197,6 +190,30 @@ type serverInstance struct {
 	logPath string
 }
 
+// Logs under a t.TempDir are deleted with it before the failure is reported, so a failing test keeps a tail of them in its output instead.
+func dumpLogOnFailure(t *testing.T, label, pattern string) {
+	t.Cleanup(func() {
+		if !t.Failed() {
+			return
+		}
+		paths, _ := filepath.Glob(pattern)
+		for _, path := range paths {
+			blob, err := os.ReadFile(path)
+			if err != nil {
+				continue
+			}
+			const maxTail = 4096
+			if len(blob) > maxTail {
+				blob = blob[len(blob)-maxTail:]
+				if i := bytes.IndexByte(blob, '\n'); i >= 0 {
+					blob = blob[i+1:]
+				}
+			}
+			t.Logf("%s tail (%s):\n%s", label, path, blob)
+		}
+	})
+}
+
 func startServer(xdgBase string, args, extraEnv []string, verbose bool) (*serverInstance, error) {
 	return startServerWithClient(xdgBase, args, extraEnv, verbose, harness.ClientConfig{})
 }
@@ -207,6 +224,9 @@ func startServerWithClient(xdgBase string, args, extraEnv []string, verbose bool
 		"XDG_CONFIG_HOME="+filepath.Join(xdgBase, "config"),
 		"XDG_DATA_HOME="+filepath.Join(xdgBase, "data"),
 		"XDG_CACHE_HOME="+filepath.Join(xdgBase, "cache"),
+		// Editors the server spawns log to cache/godai/editor-logs, so a
+		// connection timeout shows what Godot printed instead of nothing.
+		"GODAI_EDITOR_LOG=1",
 	)
 	cmd.Env = append(cmd.Env, extraEnv...)
 	if coverDir != "" {

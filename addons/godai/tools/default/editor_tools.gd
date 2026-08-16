@@ -3,6 +3,7 @@ extends RefCounted
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolResult = ToolManager.ToolResult
 const DefaultTool = ToolManager.DefaultTool
+const VerifiedSettingsTool = preload("res://addons/godai/tools/default/verified_settings_tool.gd")
 const EditorGlobals = preload("res://addons/godai/editor_globals.gd")
 const Utils = preload("res://addons/godai/utils.gd")
 const CustomLogger = preload("res://addons/godai/custom_logger.gd")
@@ -44,27 +45,20 @@ class EditorGetSettings extends DefaultTool:
 		return ToolResult.resolved({ settings = settings })
 
 
-class EditorSetSettings extends DefaultTool:
-	func execute(p_input) -> ToolResult:
-		var settings: Dictionary = p_input.get('settings', {})
+class EditorSetSettings extends VerifiedSettingsTool:
+	func get_properties_tool_name() -> String:
+		return "get_editor_settings"
 
-		for name in settings:
-			if GodaiEditorSettings.is_godai_setting(name):
-				return ToolResult.rejected({errors = [GODAI_SETTING_MESSAGE % name]})
+	func get_settings_object() -> Object:
+		return EditorInterface.get_editor_settings()
 
-		var editor_settings := EditorInterface.get_editor_settings()
+	func check_setting_allowed(p_name: String) -> String:
+		if GodaiEditorSettings.is_godai_setting(p_name):
+			return GODAI_SETTING_MESSAGE % p_name
+		return ""
 
-		var result := Utils.decode_settings(editor_settings, settings)
-		if result.has('errors'):
-			return ToolResult.rejected({errors = result['errors']})
-
-		# The editor has no API to force editor settings to disk; it persists
-		# them itself (e.g. on shutdown). set_setting takes effect immediately.
-		var values: Dictionary = result['values']
-		for name in values:
-			editor_settings.set_setting(name, values[name])
-
-		return ToolResult.resolved({success = true})
+	# The editor has no API to force editor settings to disk; it persists
+	# them itself (e.g. on shutdown), so save_settings stays a no-op.
 
 
 class EditorRestart extends DefaultTool:

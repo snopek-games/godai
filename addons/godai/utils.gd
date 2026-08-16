@@ -175,10 +175,11 @@ static func values_equal_approx(p_a: Variant, p_b: Variant) -> bool:
 ##
 ## Pass the same p_prop_cache Dictionary for every path in a request so each object's property list is fetched only once.
 ##
-## Returns a Dictionary with 'value' (the current value at the path) and
+## Returns a Dictionary with 'value' (the current value at the path),
 ## 'expected_type' (the declared Variant.Type of the final property, or
-## TYPE_NIL if unknown) keys, or an 'error' key with a message that can be
-## sent back to the AI.
+## TYPE_NIL if unknown), 'hint' and 'hint_string' (the final property's
+## declared PropertyHint), and 'usage' (its PropertyUsageFlags) keys, or an
+## 'error' key with a message that can be sent back to the AI.
 static func resolve_property_path(p_object: Object, p_path: String, p_prop_cache: Dictionary = {}) -> Dictionary:
 	var segments := p_path.split(":")
 	var walked := ""
@@ -197,9 +198,12 @@ static func resolve_property_path(p_object: Object, p_path: String, p_prop_cache
 			return {
 				value = p_object.get_indexed(p_path),
 				expected_type = TYPE_NIL,
+				hint = PROPERTY_HINT_NONE,
+				hint_string = "",
+				usage = PROPERTY_USAGE_NONE,
 			}
 
-		var props := _object_property_types(current, p_prop_cache)
+		var props := _object_property_info(current, p_prop_cache)
 
 		# Metadata properties only appear in the property list once set, so
 		# allow setting new ones.
@@ -207,9 +211,13 @@ static func resolve_property_path(p_object: Object, p_path: String, p_prop_cache
 			return { error = "%s has no property named '%s'%s" % [current.get_class(), seg, _property_suggestion(seg, props)] }
 
 		if is_last:
+			var info: Dictionary = props.get(seg, {})
 			return {
 				value = current.get(seg),
-				expected_type = props.get(seg, TYPE_NIL),
+				expected_type = info.get('type', TYPE_NIL),
+				hint = info.get('hint', PROPERTY_HINT_NONE),
+				hint_string = info.get('hint_string', ""),
+				usage = info.get('usage', PROPERTY_USAGE_NONE),
 			}
 
 		current = current.get(seg)
@@ -218,9 +226,10 @@ static func resolve_property_path(p_object: Object, p_path: String, p_prop_cache
 	return { error = "Empty property path" }
 
 
-## Maps the object's property names to their declared types, skipping the
-## grouping pseudo-properties. Cached in p_cache by instance ID.
-static func _object_property_types(p_object: Object, p_cache: Dictionary) -> Dictionary:
+## Maps the object's property names to their declared info ('type', 'hint',
+## 'hint_string', 'usage'), skipping the grouping pseudo-properties. Cached in
+## p_cache by instance ID.
+static func _object_property_info(p_object: Object, p_cache: Dictionary) -> Dictionary:
 	var id := p_object.get_instance_id()
 	if p_cache.has(id):
 		return p_cache[id]
@@ -230,10 +239,21 @@ static func _object_property_types(p_object: Object, p_cache: Dictionary) -> Dic
 		if prop['usage'] & (PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SUBGROUP | PROPERTY_USAGE_CATEGORY):
 			continue
 		if not props.has(prop['name']):
-			props[prop['name']] = prop['type']
+			props[prop['name']] = {
+				type = prop['type'],
+				hint = prop['hint'],
+				hint_string = prop['hint_string'],
+				usage = prop['usage'],
+			}
 
 	p_cache[id] = props
 	return props
+
+
+## A " - did you mean ...?" suffix with the object's property names most
+## similar to p_name, or "" when nothing comes close.
+static func property_suggestion(p_object: Object, p_name: String, p_prop_cache: Dictionary = {}) -> String:
+	return _property_suggestion(p_name, _object_property_info(p_object, p_prop_cache))
 
 
 ## A " - did you mean ...?" suffix with the property names most similar to
@@ -255,6 +275,37 @@ static func _property_suggestion(p_name: String, p_props: Dictionary) -> String:
 	if suggestions.is_empty():
 		return ""
 	return " - did you mean %s?" % " or ".join(suggestions)
+
+
+## Validates a string value against a PROPERTY_HINT_ENUM hint string. Returns
+## "" when the value is one of the options, or an error message with the
+## closest options suggested.
+static func check_enum_value(p_value: String, p_hint_string: String) -> String:
+	# Each option can pair the name with an explicit value ("Name:value").
+	var options := PackedStringArray()
+	for item in p_hint_string.split(","):
+		options.append(item.get_slice(":", 0).strip_edges())
+
+	if p_value in options:
+		return ""
+
+	# Negated score, so the plain ascending sort is best-first with ties
+	# broken by declaration order.
+	var scored := []
+	for i in range(options.size()):
+		scored.append([-options[i].similarity(p_value), i, options[i]])
+	scored.sort()
+
+	var suggestions := PackedStringArray()
+	for s in scored:
+		if -s[0] >= 0.5 and suggestions.size() < 3:
+			suggestions.append("'%s'" % s[2])
+
+	var msg := "'%s' is not one of the valid values" % p_value
+	if not suggestions.is_empty():
+		msg += " - did you mean %s?" % " or ".join(suggestions)
+	msg += " Valid values: %s" % ", ".join(options)
+	return msg
 
 
 ## Builds a map of property name to encoded value for the given object,
@@ -332,36 +383,6 @@ static func is_setting_modified(p_settings: Object, p_name: String) -> bool:
 	if not p_settings.property_can_revert(p_name):
 		return true
 	return p_settings.get_setting(p_name) != p_settings.property_get_revert(p_name)
-
-
-## Decodes a map of setting name to string value (in Godot variant syntax) for a
-## settings object, using each existing setting's current type to guide
-## decoding. Every value is decoded up front, so a single bad value aborts the
-## whole batch.
-##
-## Returns a Dictionary with either a 'values' key (the decoded name -> Variant
-## map), or an 'errors' key with messages that can be sent back to the AI.
-static func decode_settings(p_settings: Object, p_values: Dictionary) -> Dictionary:
-	var decoded := {}
-	var errors := PackedStringArray()
-
-	for name in p_values:
-		# When the setting already exists, use its current type to guide
-		# decoding; otherwise fall back to the raw string on parse failure.
-		var expected_type := TYPE_NIL
-		if p_settings.has_setting(name):
-			expected_type = typeof(p_settings.get_setting(name))
-
-		var result := decode_property_value(p_values[name], expected_type)
-		if result.has('error'):
-			errors.append("%s: %s" % [name, result['error']])
-		else:
-			decoded[name] = result['value']
-
-	if not errors.is_empty():
-		return { errors = errors }
-
-	return { values = decoded }
 
 
 ## Gets the default value of a property, for both native and script properties.

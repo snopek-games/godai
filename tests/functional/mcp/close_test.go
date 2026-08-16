@@ -58,6 +58,7 @@ func TestCloseEditor(t *testing.T) {
 	}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
 	t.Cleanup(func() { stopServer(inst.cmd) })
+	dumpLogOnFailure(t, "server log", inst.logPath)
 
 	_, errBad := inst.client.CallTool(testContext(t), "close_editor", map[string]any{"project_path": "/definitely/not/a/real/path"})
 	is.True(errBad != nil) // invalid project_path
@@ -76,7 +77,7 @@ func TestCloseEditor(t *testing.T) {
 			editor.Process.Kill()
 		}
 	})
-	waitForOpenProject(t, inst.client, projectPath, 180*time.Second)
+	waitForOpenProject(t, inst.client, projectPath, harness.OpenTimeout(180*time.Second))
 
 	// The call returns only once the editor has disconnected.
 	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Second)
