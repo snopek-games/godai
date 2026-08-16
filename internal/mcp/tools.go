@@ -93,18 +93,19 @@ func (s *Server) addLocalToolOverride(name string, handler ToolHandler) {
 
 type projectsResult struct {
 	Projects []core.ProjectInfo `json:"projects"`
+	Note     string             `json:"note,omitempty"`
 }
 
 type openProjectsResult struct {
 	Projects []core.OpenProjectInfo `json:"projects"`
 }
 
-func (s *Server) toolListProjects(ctx context.Context, _ core.Args) (any, error) {
-	projects, err := s.session.ListProjects(ctx)
+func (s *Server) toolListProjects(_ context.Context, _ core.Args) (any, error) {
+	projects, note, err := s.session.ListProjects()
 	if err != nil {
 		return nil, err
 	}
-	return projectsResult{Projects: projects}, nil
+	return projectsResult{Projects: projects, Note: note}, nil
 }
 
 func (s *Server) toolListOpenProjects(ctx context.Context, _ core.Args) (any, error) {

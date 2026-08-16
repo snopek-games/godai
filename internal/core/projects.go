@@ -36,16 +36,20 @@ var skipProjectScanDirs = map[string]bool{
 	"vendor":       true,
 }
 
-func (s *Session) ListProjects(ctx context.Context) ([]ProjectInfo, error) {
+const projectManagerOnlyNote = "only listing projects registered in the Godot project manager; " +
+	"set a `project_base_path` with `godai config` (MCP: the `set_godai_settings` tool) to also list the projects in that directory"
+
+func (s *Session) ListProjects() ([]ProjectInfo, string, error) {
 	pathSet := map[string]struct{}{}
+	note := ""
 
 	if s.Global() {
-		projectBasePath, _ := s.ensureProjectBasePath(ctx)
-
-		if projectBasePath != "" {
+		if projectBasePath := s.config.ProjectBasePath; projectBasePath == "" {
+			note = projectManagerOnlyNote
+		} else {
 			entries, err := os.ReadDir(projectBasePath)
 			if err != nil {
-				return nil, NewUserError(fmt.Sprintf("unable to read project path: %s", projectBasePath), err, []string{
+				return nil, "", NewUserError(fmt.Sprintf("unable to read project path: %s", projectBasePath), err, []string{
 					"Check the base path: `godai config` (MCP: the `get_godai_settings` tool)",
 					"Set a different one: `godai config --set project_base_path=<PATH>`",
 				})
@@ -98,7 +102,7 @@ func (s *Session) ListProjects(ctx context.Context) ([]ProjectInfo, error) {
 
 	sortProjects(list)
 
-	return list, nil
+	return list, note, nil
 }
 
 func scanRootForProjects(rootPath string, pathSet map[string]struct{}) {
@@ -496,61 +500,4 @@ func (s *Session) UnsetConfig(names []string) error {
 		return nil
 	}
 	return SaveConfig(s.config.SavedConfigPath, &saved)
-}
-
-func (s *Session) ensureProjectBasePath(ctx context.Context) (string, error) {
-	if path := s.config.ProjectBasePath; path != "" {
-		if err := ValidateDirectory(path); err == nil {
-			return path, nil
-		}
-		slog.Warn("the configured project base path is no longer usable", "projectBasePath", path)
-	}
-
-	path, err := s.promptForPath(ctx,
-		"Where do you usually keep your Godot projects?",
-		"project_path",
-		"The base path to your Godot projects",
-		resolveDirectory)
-	if err == nil {
-		s.config.ProjectBasePath = path
-		s.logSaveSetting(SettingProjectBasePath, path)
-		return path, nil
-	}
-
-	return "", NewUserError("the path where your Godot projects usually live is not configured or doesn't exist", ErrNotConfigured, []string{
-		"Set it: `godai config --set project_base_path=<PATH>` (MCP: the `set_godai_settings` tool)",
-		"Or pass `--project-base-path <PATH>` when starting Godai",
-	})
-}
-
-func (s *Session) promptForPath(ctx context.Context, message, field, description string, resolve func(string) (string, error)) (string, error) {
-	result, err := s.getPrompter().Prompt(ctx, message, map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			field: map[string]any{
-				"type":        "string",
-				"description": description,
-			},
-		},
-	})
-	if err != nil {
-		if err != ErrPromptUnsupported {
-			slog.Error("error asking for "+field, "error", err)
-		}
-		return "", err
-	}
-
-	value, _ := result[field].(string)
-	if value == "" {
-		slog.Error("no "+field+" was provided", "result", result)
-		return "", fmt.Errorf("no %s was provided", field)
-	}
-
-	path, err := resolve(value)
-	if err != nil {
-		slog.Error("invalid "+field+" was provided", "path", value, "error", err)
-		return "", err
-	}
-
-	return path, nil
 }

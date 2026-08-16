@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -179,7 +180,7 @@ func TestClientRootsListChanged(t *testing.T) {
 	})
 }
 
-func TestClientElicitation(t *testing.T) {
+func TestListProjectsWithoutBasePath(t *testing.T) {
 	is := is.New(t)
 
 	xdgBase := t.TempDir()
@@ -187,9 +188,13 @@ func TestClientElicitation(t *testing.T) {
 		xdgBase = resolved
 	}
 
-	baseDir := filepath.Join(xdgBase, "elicited-base")
-	project := filepath.Join(baseDir, "from_elicitation")
-	mustCreateProject(t, project, "From Elicitation")
+	baseDir := filepath.Join(xdgBase, "base-projects")
+	project := filepath.Join(baseDir, "from_base_path")
+	mustCreateProject(t, project, "From Base Path")
+
+	pmProject := filepath.Join(xdgBase, "elsewhere", "from_project_manager")
+	mustCreateProject(t, pmProject, "From Project Manager")
+	writeProjectsCfg(t, filepath.Join(xdgBase, "data", "godot", "projects.cfg"), pmProject)
 
 	var elicitCalls atomic.Int32
 	cfg := harness.ClientConfig{
@@ -215,10 +220,20 @@ func TestClientElicitation(t *testing.T) {
 	is.NoErr(err)
 	t.Cleanup(func() { stopServer(inst.cmd) })
 
-	projects := listProjects(t, inst.client)
-	is.Equal(projects[project], "From Elicitation") // found via the elicited base path
-	is.True(elicitCalls.Load() > 0)                 // the server actually elicited
+	structured := callToolOKWith(t, inst.client, "list_projects", nil)
+	note, _ := structured["note"].(string)
+	is.True(strings.Contains(note, "project manager"))   // the note explains the limited listing
+	is.True(strings.Contains(note, "project_base_path")) // and how to fix it
+	is.Equal(elicitCalls.Load(), int32(0))               // no elicitation, even though the client supports it
+	is.Equal(listProjects(t, inst.client)[pmProject], "From Project Manager")
 
-	cfg2 := getConfig(t, inst.client)
-	is.Equal(cfg2["project_base_path"], baseDir)
+	out := callToolOKWith(t, inst.client, "set_godai_settings", map[string]any{
+		"project_base_path": baseDir,
+	})
+	is.Equal(out["success"], true)
+
+	structured = callToolOKWith(t, inst.client, "list_projects", nil)
+	_, hasNote := structured["note"]
+	is.True(!hasNote) // the note is gone once a base path is configured
+	is.Equal(listProjects(t, inst.client)[project], "From Base Path")
 }

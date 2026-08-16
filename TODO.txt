@@ -7,11 +7,6 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- CLI: Remove the prompt/elicitation for project_base_path
-  - It's never required, and the godot_path one is gone with the setting
-  - Make into a warning letting the user know they could set "project_base_path"
-  - CLI should check the current directory for a project too
-    - And MCP should check the --roots (if it isn't already)
 - CLI: Better installation story
   - Options:
     - Provide `brew` package (as a "cask", I guess?)

@@ -25,11 +25,20 @@ func projectCommand(configPath string) *cli.Command {
 					}
 
 					return withSession(ctx, cmd, configPath, func(session *core.Session) error {
-						projects, err := session.ListProjects(ctx)
+						projects, note, err := session.ListProjects()
 						if err != nil {
 							return err
 						}
-						return printProjects(printer(cmd), projects)
+
+						out := printer(cmd)
+						if err := printProjects(out, projects); err != nil {
+							return err
+						}
+						if note != "" {
+							out.Printf("\n")
+							out.Note("%s", note)
+						}
+						return nil
 					})
 				},
 			},
