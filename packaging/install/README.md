@@ -140,3 +140,4 @@ Adding a new platform
 1. Add the build variant to the `cli-build` matrix in `.gitlab-ci.yml`.
 2. Add it to the OS/arch detection `case` in `install.sh` (or the `$Arch`
    switch in `install.ps1`), mapping to the zip name's `<platform>-<arch>`.
+
