@@ -7,18 +7,11 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- CLI: Should `godai editor-tool` take the project path as the first argument? Seems confusing (or at least the error is)
 - CLI: Remove the prompt/elicitation for project_base_path
   - It's never required, and the godot_path one is gone with the setting
   - Make into a warning letting the user know they could set "project_base_path"
   - CLI should check the current directory for a project too
     - And MCP should check the --roots (if it isn't already)
-- CLI: Add command to create a new project
-  ```
-  # Will only work on non-existent directories, or empty directories. If no directory is given, use the CWD
-  godai project new --name="Blah" --godot-version=4.5 path/to/use
-  # Or is `create` better than new `new`?
-  ```
 - CLI: Better installation story
   - Options:
     - Provide `brew` package (as a "cask", I guess?)
@@ -107,6 +100,14 @@ For a 1.0
 Backlog
 -------
 
+- CLI: Add command to create a new project
+    - Sketch:
+      ```
+      # Will only work on non-existent directories, or empty directories. If no directory is given, use the CWD
+      godai project new --name="Blah" --godot-version=4.5 path/to/use
+      # Or is `create` better than new `new`?
+      ```
+    - Allow creating from templates!
 - MCP: Add a way to search project and editor settings (maybe a variation on get_project/editor_settings which does a string contains?)
 - CLI: How to make the descriptions for `editor-tool` more CLI-friendly?
 - Make a Godot plugin in the Claude marketplace (which includes the .mcp.json)
