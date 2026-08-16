@@ -283,10 +283,11 @@ website-publish:
   image: alpine:latest
   cache: []
   variables:
-    GIT_SSH_COMMAND: "ssh -i $WEBSITE_DEPLOY_KEY -o UserKnownHostsFile=$CI_PROJECT_DIR/known_hosts -o IdentitiesOnly=yes"
+    GIT_SSH_COMMAND: "ssh -i $CI_PROJECT_DIR/deploy_key -o UserKnownHostsFile=$CI_PROJECT_DIR/known_hosts -o IdentitiesOnly=yes"
   before_script:
     - apk add git openssh-client
-    - chmod 600 "$WEBSITE_DEPLOY_KEY"
+    - echo "$WEBSITE_DEPLOY_KEY" > deploy_key
+    - chmod 600 deploy_key
     # gitlab.com's published ed25519 host key (fingerprint
     # SHA256:eUXGGm1YGsMAS7vkcx6JOJdOGHPem5gQp4taiCfCLB8).
     - echo "gitlab.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf" > known_hosts
