@@ -7,7 +7,7 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- CLI: Should `godai editor-tool` take the project path as the first argument? Seems confusing
+- CLI: Should `godai editor-tool` take the project path as the first argument? Seems confusing (or at least the error is)
 - CLI: Remove the prompt/elicitation for project_base_path
   - It's never required, and the godot_path one is gone with the setting
   - Make into a warning letting the user know they could set "project_base_path"
@@ -24,11 +24,28 @@ For a 1.0
     - Provide `brew` package (as a "cask", I guess?)
     - Provide `WinGet` package
     - Provide `curl | bash` style script for MacOS, Linux and Windows (it would be `irm | WinGet` for Windows)
+- CLI: Add build option to disable `self-update`
+  - Can we make Brew formula actually build from source in order to use it?
+  - Have CI use this option when building `npm` package
 - CLI: Rewrite the README (and move stuff to docs site)
   - Clearer installation story
   - Clearer mode separation (CLI vs Addon)
+- Website:
+  - Allow toggle light/dark mode
+  - Front page:
+    - Playing terminal showing nice `godai` commands and/or AI agent with MCP
+    - Install (with tabs for each install method)
+      - We could have documents or data for each install method that are expanded to be front page and docs
+    - Each mode
+  - Docs
+    - Each of the modes in detail
+    - Install instructions for different MCP clients (could use similar templated approach to "quick install")
+  - Benchmarks
+    - `godai-eval`
+    - Gamedev Bench
 - CLI: Test thoroughly on Windows and MacOS!
 - CLI: XDG_* vars only work to isolate tests on Linux -- we need something that'll work on MacOS (and maybe Windows?) too
+- Mirror project to GitHub via CI?
 - Add to MCP Registry
   - https://registry.modelcontextprotocol.io/
   - See: https://modelcontextprotocol.info/tools/registry/publishing/
