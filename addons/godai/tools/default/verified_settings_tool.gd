@@ -44,6 +44,7 @@ func execute(p_input) -> ToolResult:
 
 	var errors := PackedStringArray()
 	var warnings := PackedStringArray()
+	var notes := PackedStringArray()
 	var ops := []
 	var prop_cache := {}
 
@@ -67,6 +68,7 @@ func execute(p_input) -> ToolResult:
 		if prepared.has("error"):
 			errors.append("%s: %s" % [name, prepared['error']])
 			continue
+		collect_prepared_notices(prepared, name, notes, warnings)
 
 		var op: Dictionary = prepared['op']
 		if resolve_name != name:
@@ -97,7 +99,7 @@ func execute(p_input) -> ToolResult:
 	if not save_error.is_empty():
 		errors.append(save_error)
 
-	return ToolResult.resolved(build_result({}, errors, warnings))
+	return ToolResult.resolved(build_result({}, errors, warnings, notes))
 
 
 func _override_base(p_name: String) -> String:

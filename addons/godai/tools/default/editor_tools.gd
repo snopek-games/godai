@@ -26,12 +26,13 @@ class EditorGetSettings extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var names: Array = p_input.get('names', [])
 		var include_defaults: bool = p_input.get('include_defaults', false)
+		var enums_as_ints: bool = bool(p_input.get('enums_as_ints', false))
 
 		for name in names:
 			if GodaiEditorSettings.is_godai_setting(name):
 				return ToolResult.rejected({errors = [GODAI_SETTING_MESSAGE % name]})
 
-		var result := Utils.get_settings_map(EditorInterface.get_editor_settings(), names, include_defaults)
+		var result := Utils.get_settings_map(EditorInterface.get_editor_settings(), names, include_defaults, enums_as_ints)
 		if result.has('error'):
 			return ToolResult.rejected({errors = [result['error']]})
 
@@ -42,7 +43,14 @@ class EditorGetSettings extends DefaultTool:
 			if GodaiEditorSettings.is_godai_setting(name):
 				settings.erase(name)
 
-		return ToolResult.resolved({ settings = settings })
+		var resolved := { settings = settings }
+		var translated := PackedStringArray()
+		for name in result['translated']:
+			if settings.has(name):
+				translated.append(name)
+		if not translated.is_empty():
+			resolved['notes'] = [Utils.enum_translation_note(translated)]
+		return ToolResult.resolved(resolved)
 
 
 class EditorSetSettings extends VerifiedSettingsTool:

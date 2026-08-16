@@ -136,18 +136,7 @@ static func _unknown_type_prefix_error(p_value: String) -> String:
 	if prefix in _VARIANT_TYPE_PREFIXES:
 		return ""
 
-	# Negated score, so the plain ascending sort is best-first with ties
-	# broken by declaration order.
-	var scored := []
-	for i in range(_VARIANT_TYPE_PREFIXES.size()):
-		var candidate: String = _VARIANT_TYPE_PREFIXES[i]
-		scored.append([-candidate.similarity(prefix), i, candidate])
-	scored.sort()
-
-	var suggestions := PackedStringArray()
-	for s in scored:
-		if -s[0] >= 0.5 and suggestions.size() < 3:
-			suggestions.append(s[2])
+	var suggestions := _closest_matches(prefix, PackedStringArray(_VARIANT_TYPE_PREFIXES))
 
 	var msg := '"%s" is not a variant type.' % prefix
 	if not suggestions.is_empty():
@@ -275,6 +264,17 @@ static func resolve_property_path(p_object: Object, p_path: String, p_prop_cache
 	return { error = "Empty property path" }
 
 
+## Encodes the value of a resolve_property_path() result, translating an int
+## enum value to its option name unless p_enums_as_ints. Returns {value,
+## translated}.
+static func encode_resolved_value(p_resolved: Dictionary, p_enums_as_ints: bool) -> Dictionary:
+	if not p_enums_as_ints and is_int_enum(p_resolved['expected_type'], p_resolved['hint']) and typeof(p_resolved['value']) == TYPE_INT:
+		var enum_name := enum_value_to_name(p_resolved['value'], p_resolved['hint_string'])
+		if not enum_name.is_empty():
+			return { value = enum_name, translated = true }
+	return { value = encode_property_value(p_resolved['value']), translated = false }
+
+
 ## Maps the object's property names to their declared info ('type', 'hint',
 ## 'hint_string', 'usage'), skipping the grouping pseudo-properties. Cached in
 ## p_cache by instance ID.
@@ -308,47 +308,50 @@ static func property_suggestion(p_object: Object, p_name: String, p_prop_cache: 
 ## A " - did you mean ...?" suffix with the property names most similar to
 ## p_name, or "" when nothing comes close.
 static func _property_suggestion(p_name: String, p_props: Dictionary) -> String:
-	var scored := []
-	var index := 0
+	var candidates := PackedStringArray()
 	for candidate in p_props:
 		if not candidate.begins_with("_"):
-			scored.append([-candidate.similarity(p_name), index, candidate])
-		index += 1
-	scored.sort()
+			candidates.append(candidate)
 
-	var suggestions := PackedStringArray()
-	for s in scored:
-		if -s[0] >= 0.5 and suggestions.size() < 3:
-			suggestions.append("'%s'" % s[2])
-
+	var suggestions := _quote_all(_closest_matches(p_name, candidates))
 	if suggestions.is_empty():
 		return ""
 	return " - did you mean %s?" % " or ".join(suggestions)
+
+
+## The candidates most similar to p_target (best first, at most 3), for
+## "did you mean ...?" suggestions.
+static func _closest_matches(p_target: String, p_candidates: PackedStringArray) -> PackedStringArray:
+	# Negated score, so the plain ascending sort is best-first with ties
+	# broken by declaration order.
+	var scored := []
+	for i in range(p_candidates.size()):
+		scored.append([-p_candidates[i].similarity(p_target), i, p_candidates[i]])
+	scored.sort()
+
+	var matches := PackedStringArray()
+	for s in scored:
+		if -s[0] >= 0.5 and matches.size() < 3:
+			matches.append(s[2])
+	return matches
+
+
+static func _quote_all(p_values: PackedStringArray) -> PackedStringArray:
+	var quoted := PackedStringArray()
+	for value in p_values:
+		quoted.append("'%s'" % value)
+	return quoted
 
 
 ## Validates a string value against a PROPERTY_HINT_ENUM hint string. Returns
 ## "" when the value is one of the options, or an error message with the
 ## closest options suggested.
 static func check_enum_value(p_value: String, p_hint_string: String) -> String:
-	# Each option can pair the name with an explicit value ("Name:value").
-	var options := PackedStringArray()
-	for item in p_hint_string.split(","):
-		options.append(item.get_slice(":", 0).strip_edges())
-
+	var options := enum_option_names(p_hint_string)
 	if p_value in options:
 		return ""
 
-	# Negated score, so the plain ascending sort is best-first with ties
-	# broken by declaration order.
-	var scored := []
-	for i in range(options.size()):
-		scored.append([-options[i].similarity(p_value), i, options[i]])
-	scored.sort()
-
-	var suggestions := PackedStringArray()
-	for s in scored:
-		if -s[0] >= 0.5 and suggestions.size() < 3:
-			suggestions.append("'%s'" % s[2])
+	var suggestions := _quote_all(_closest_matches(p_value, options))
 
 	var msg := "'%s' is not one of the valid values" % p_value
 	if not suggestions.is_empty():
@@ -357,10 +360,101 @@ static func check_enum_value(p_value: String, p_hint_string: String) -> String:
 	return msg
 
 
+## Whether a property declares an int enum: a PROPERTY_HINT_ENUM whose value
+## holds the option's int, unlike a string enum which stores the name itself.
+static func is_int_enum(p_type: int, p_hint: int) -> bool:
+	return p_hint == PROPERTY_HINT_ENUM and p_type == TYPE_INT
+
+
+## Parses a PROPERTY_HINT_ENUM hint string into {name, value} options. Each
+## option can pair the name with an explicit value ("Name:value"); one without
+## takes the previous option's value plus one, starting at 0 (the same rule
+## the editor uses).
+static func parse_enum_hint(p_hint_string: String) -> Array:
+	var options := []
+	if p_hint_string.is_empty():
+		return options
+
+	var next_value := 0
+	for item in p_hint_string.split(","):
+		var value := next_value
+		if item.contains(":"):
+			value = int(item.get_slice(":", 1))
+		options.append({ name = item.get_slice(":", 0).strip_edges(), value = value })
+		next_value = value + 1
+	return options
+
+
+static func enum_option_names(p_hint_string: String) -> PackedStringArray:
+	var names := PackedStringArray()
+	for option in parse_enum_hint(p_hint_string):
+		names.append(option['name'])
+	return names
+
+
+## The option name for an int enum value, or "" when no option has that value.
+static func enum_value_to_name(p_value: int, p_hint_string: String) -> String:
+	for option in parse_enum_hint(p_hint_string):
+		if option['value'] == p_value:
+			return option['name']
+	return ""
+
+
+## The options of an int enum with their values, e.g. "'Nearest' (0), 'Linear' (1)".
+static func describe_int_enum_options(p_hint_string: String) -> String:
+	var parts := PackedStringArray()
+	for option in parse_enum_hint(p_hint_string):
+		parts.append("'%s' (%d)" % [option['name'], option['value']])
+	return ", ".join(parts)
+
+
+## Translates an option name of an int enum to its value. Returns {value}
+## (plus 'matched_name' when the match ignored case), or {error} with the
+## closest options suggested.
+static func int_enum_name_to_value(p_name: String, p_hint_string: String) -> Dictionary:
+	var options := parse_enum_hint(p_hint_string)
+	for option in options:
+		if option['name'] == p_name:
+			return { value = option['value'] }
+	for option in options:
+		if option['name'].nocasecmp_to(p_name) == 0:
+			return { value = option['value'], matched_name = option['name'] }
+
+	var suggestions := _quote_all(_closest_matches(p_name, enum_option_names(p_hint_string)))
+
+	var msg := "'%s' is not one of the valid values" % p_name
+	if not suggestions.is_empty():
+		msg += " - did you mean %s?" % " or ".join(suggestions)
+	msg += " Valid values: %s" % describe_int_enum_options(p_hint_string)
+	return { error = msg }
+
+
+## Encodes a value for an error/warning message: an int enum value reads as
+## its option name when it has one.
+static func encode_property_value_for_hint(p_value: Variant, p_hint: int, p_hint_string: String) -> String:
+	if p_hint == PROPERTY_HINT_ENUM and typeof(p_value) == TYPE_INT:
+		var enum_name := enum_value_to_name(p_value, p_hint_string)
+		if not enum_name.is_empty():
+			return enum_name
+	return encode_property_value(p_value)
+
+
+## The note attached to get results when int enum values were translated to
+## their option names. A long list of translated properties is summarized
+## rather than spelled out.
+static func enum_translation_note(p_translated: PackedStringArray) -> String:
+	if p_translated.size() >= 5:
+		return 'Some integer enum values are shown as their option name rather than the underlying int; pass "enums_as_ints": true for the raw values'
+	return 'Integer enum values are shown as their option name rather than the underlying int (%s); pass "enums_as_ints": true for the raw values' % ", ".join(p_translated)
+
+
 ## Builds a map of property name to encoded value for the given object,
 ## skipping internal properties (and optionally, properties at their default
 ## value).
-static func get_property_map(p_object: Object, p_modified_only: bool) -> Dictionary:
+##
+## Unless p_enums_as_ints, int enum values are translated to their option
+## names, with the translated property names appended to r_translated.
+static func get_property_map(p_object: Object, p_modified_only: bool, p_enums_as_ints := false, r_translated := PackedStringArray()) -> Dictionary:
 	var props := {}
 
 	for prop in p_object.get_property_list():
@@ -378,6 +472,13 @@ static func get_property_map(p_object: Object, p_modified_only: bool) -> Diction
 		if p_modified_only and value == get_default_property_value(p_object, prop_name, prop['type']):
 			continue
 
+		if not p_enums_as_ints and is_int_enum(prop['type'], prop['hint']) and typeof(value) == TYPE_INT:
+			var enum_name := enum_value_to_name(value, prop['hint_string'])
+			if not enum_name.is_empty():
+				props[prop_name] = enum_name
+				r_translated.append(prop_name)
+				continue
+
 		props[prop_name] = encode_property_value(value)
 
 	return props
@@ -392,10 +493,14 @@ static func get_property_map(p_object: Object, p_modified_only: bool) -> Diction
 ## exist. Otherwise all settings are returned, skipping those at their default
 ## value unless p_include_defaults is true.
 ##
-## Returns a Dictionary with either a 'settings' key, or an 'error' key with a
-## message that can be sent back to the AI.
-static func get_settings_map(p_settings: Object, p_names: Array, p_include_defaults: bool) -> Dictionary:
+## Unless p_enums_as_ints, int enum values are translated to their option
+## names; 'translated' lists the setting names that were.
+##
+## Returns a Dictionary with either 'settings' and 'translated' keys, or an
+## 'error' key with a message that can be sent back to the AI.
+static func get_settings_map(p_settings: Object, p_names: Array, p_include_defaults: bool, p_enums_as_ints := false) -> Dictionary:
 	var settings := {}
+	var translated := PackedStringArray()
 
 	if not p_names.is_empty():
 		var missing := PackedStringArray()
@@ -404,9 +509,10 @@ static func get_settings_map(p_settings: Object, p_names: Array, p_include_defau
 				missing.append(str(name))
 		if not missing.is_empty():
 			return { error = "No such setting(s): %s" % ", ".join(missing) }
+		var info := _object_property_info(p_settings, {})
 		for name in p_names:
-			settings[name] = encode_property_value(p_settings.get_setting(name))
-		return { settings = settings }
+			settings[name] = _encode_setting_value(p_settings.get_setting(name), info.get(name, {}), p_enums_as_ints, name, translated)
+		return { settings = settings, translated = translated }
 
 	for prop in p_settings.get_property_list():
 		var name: String = prop['name']
@@ -421,9 +527,18 @@ static func get_settings_map(p_settings: Object, p_names: Array, p_include_defau
 		if not p_include_defaults and not is_setting_modified(p_settings, name):
 			continue
 
-		settings[name] = encode_property_value(p_settings.get_setting(name))
+		settings[name] = _encode_setting_value(p_settings.get_setting(name), prop, p_enums_as_ints, name, translated)
 
-	return { settings = settings }
+	return { settings = settings, translated = translated }
+
+
+static func _encode_setting_value(p_value: Variant, p_info: Dictionary, p_enums_as_ints: bool, p_name: String, r_translated: PackedStringArray) -> String:
+	if not p_enums_as_ints and is_int_enum(p_info.get('type', TYPE_NIL), p_info.get('hint', PROPERTY_HINT_NONE)) and typeof(p_value) == TYPE_INT:
+		var enum_name := enum_value_to_name(p_value, p_info.get('hint_string', ""))
+		if not enum_name.is_empty():
+			r_translated.append(p_name)
+			return enum_name
+	return encode_property_value(p_value)
 
 
 ## Whether a setting's current value differs from its default. Settings with no

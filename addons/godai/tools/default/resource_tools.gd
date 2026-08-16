@@ -61,12 +61,14 @@ class ResourceCreate extends VerifiedPropertyTool:
 		# errors, so 'success' reflects the resource's creation.
 		var ops := []
 		var warnings := PackedStringArray()
+		var notes := PackedStringArray()
 		var prop_cache := {}
 		for prop_name in props:
 			var prepared := prepare_property_op(resource, prop_name, props[prop_name], prop_cache)
 			if prepared.has("error"):
 				warnings.append("%s: %s" % [prop_name, prepared['error']])
 				continue
+			collect_prepared_notices(prepared, prop_name, notes, warnings)
 
 			var op: Dictionary = prepared['op']
 			op['object'] = resource
@@ -91,7 +93,7 @@ class ResourceCreate extends VerifiedPropertyTool:
 
 		verify_property_ops(ops, warnings, warnings)
 
-		return ToolResult.resolved(build_result({}, PackedStringArray(), warnings))
+		return ToolResult.resolved(build_result({}, PackedStringArray(), warnings, notes))
 
 
 class ResourceOpen extends DefaultTool:
@@ -118,6 +120,7 @@ class ResourceGetProperties extends DefaultTool:
 		var file_path: String = p_input.get('file_path', '')
 		var properties: Array = p_input.get('properties', [])
 		var modified_only: bool = not bool(p_input.get('include_defaults', false))
+		var enums_as_ints: bool = bool(p_input.get('enums_as_ints', false))
 
 		file_path = Utils.to_res_path(file_path)
 		if file_path.is_empty():
@@ -132,22 +135,32 @@ class ResourceGetProperties extends DefaultTool:
 		if not resource:
 			return ToolResult.rejected({errors = ["Failed to load resource: %s" % file_path]})
 
-		if properties.is_empty():
-			return ToolResult.resolved(Utils.get_property_map(resource, modified_only))
-
 		var results := {}
+		var translated := PackedStringArray()
 		var prop_cache := {}
 
-		for property_path in properties:
-			var resolved := Utils.resolve_property_path(resource, property_path, prop_cache)
-			if resolved.has("error"):
-				results[property_path] = { error = resolved['error'] }
-			elif resolved['value'] is Object:
-				results[property_path] = Utils.get_property_map(resolved['value'], modified_only)
-			else:
-				results[property_path] = Utils.encode_property_value(resolved['value'])
+		if properties.is_empty():
+			results = Utils.get_property_map(resource, modified_only, enums_as_ints, translated)
+		else:
+			for property_path in properties:
+				var resolved := Utils.resolve_property_path(resource, property_path, prop_cache)
+				if resolved.has("error"):
+					results[property_path] = { error = resolved['error'] }
+				elif resolved['value'] is Object:
+					var local := PackedStringArray()
+					results[property_path] = Utils.get_property_map(resolved['value'], modified_only, enums_as_ints, local)
+					for prop_name in local:
+						translated.append("%s:%s" % [property_path, prop_name])
+				else:
+					var encoded := Utils.encode_resolved_value(resolved, enums_as_ints)
+					results[property_path] = encoded['value']
+					if encoded['translated']:
+						translated.append(property_path)
 
-		return ToolResult.resolved(results)
+		var result := { properties = results }
+		if not translated.is_empty():
+			result['notes'] = [Utils.enum_translation_note(translated)]
+		return ToolResult.resolved(result)
 
 
 class ResourceSetProperties extends VerifiedPropertyTool:
@@ -179,6 +192,7 @@ class ResourceSetProperties extends VerifiedPropertyTool:
 
 		var errors := PackedStringArray()
 		var warnings := PackedStringArray()
+		var notes := PackedStringArray()
 		var ops := []
 		var prop_cache := {}
 
@@ -191,6 +205,7 @@ class ResourceSetProperties extends VerifiedPropertyTool:
 			if prepared.has("error"):
 				errors.append("%s: %s" % [prop_name, prepared['error']])
 				continue
+			collect_prepared_notices(prepared, prop_name, notes, warnings)
 
 			var op: Dictionary = prepared['op']
 			op['object'] = resource
@@ -225,7 +240,7 @@ class ResourceSetProperties extends VerifiedPropertyTool:
 
 		verify_property_ops(ops, errors, warnings)
 
-		return ToolResult.resolved(build_result({}, errors, warnings))
+		return ToolResult.resolved(build_result({}, errors, warnings, notes))
 
 	func _save_resource(p_resource: Resource) -> void:
 		var err := ResourceSaver.save(p_resource)

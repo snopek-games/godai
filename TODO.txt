@@ -7,12 +7,7 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- MCP: smarter handling of int enum properties
-	- When one is set:
-    - If a string is given, translate from the string to int (and if it doesn't match, add a "did you mean?" and list possible values), or
-    - If an int is given, output a note saying what the string values was (so agents can see it and confirm if they were right)
-  - When getting one, translate to the string value by default (or leave as int if `raw_enum_property: true` is passed)
-    - A note should be shown when returning translated enums pointing at this property
+- CLI: Should `godai editor-tool` take the project path as the first argument? Seems confusing
 - CLI: Remove the prompt/elicitation for project_base_path
   - It's never required, and the godot_path one is gone with the setting
   - Make into a warning letting the user know they could set "project_base_path"
@@ -95,6 +90,7 @@ For a 1.0
 Backlog
 -------
 
+- MCP: Add a way to search project and editor settings (maybe a variation on get_project/editor_settings which does a string contains?)
 - CLI: How to make the descriptions for `editor-tool` more CLI-friendly?
 - Make a Godot plugin in the Claude marketplace (which includes the .mcp.json)
   - Users do `/plugin marketplace add snopek-games/godai` or `claude plugin install ...`

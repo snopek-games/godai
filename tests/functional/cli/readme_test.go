@@ -113,19 +113,21 @@ func _process(delta: float) -> void:
 		"--node-paths", "Sphere:mesh",
 		"--node-paths", "Sphere:material_override"))
 	is.Equal(props, readmeJSON(t, `{
-  "Sphere": {
-    "material_override": "Object(StandardMaterial3D)",
-    "mesh": "Object(SphereMesh)",
-    "name": "Sphere",
-    "script": "Resource(\"res://spin.gd\")",
-    "speed": "0.25"
-  },
-  "Sphere:material_override": {
-    "albedo_color": "Color(0, 1, 0, 1)"
-  },
-  "Sphere:mesh": {
-    "height": "2.0",
-    "radius": "1.0"
+  "nodes": {
+    "Sphere": {
+      "material_override": "Object(StandardMaterial3D)",
+      "mesh": "Object(SphereMesh)",
+      "name": "Sphere",
+      "script": "Resource(\"res://spin.gd\")",
+      "speed": "0.25"
+    },
+    "Sphere:material_override": {
+      "albedo_color": "Color(0, 1, 0, 1)"
+    },
+    "Sphere:mesh": {
+      "height": "2.0",
+      "radius": "1.0"
+    }
   }
 }`))
 

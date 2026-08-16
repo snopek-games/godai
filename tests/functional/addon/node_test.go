@@ -74,7 +74,7 @@ func TestAddNode(t *testing.T) {
 		is.Equal(structured["success"], true)
 		is.Equal(structured["node_path"], "MyChild")
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
@@ -111,7 +111,7 @@ func TestAddNode(t *testing.T) {
 		is.Equal(len(warnings), 1)
 		is.True(strings.Contains(asStrings(warnings)[0], "Cannot parse"))
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"PartiallyCreated"},
 		})
 		nodeProps, _ := props["PartiallyCreated"].(map[string]any)
@@ -189,7 +189,7 @@ func TestNodeProperties(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
@@ -222,7 +222,7 @@ func TestNodeProperties(t *testing.T) {
 		is.Equal(len(errs), 1)
 		is.True(strings.Contains(asStrings(errs)[0], "NoSuchNode: cannot find node"))
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
@@ -244,7 +244,7 @@ func TestNodeProperties(t *testing.T) {
 	t.Run("get_multiple_nodes", func(t *testing.T) {
 		is := is.New(t)
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{".", "MyChild"},
 		})
 		is.Equal(len(props), 2)
@@ -262,7 +262,7 @@ func TestNodeProperties(t *testing.T) {
 			},
 		})
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyLabel"},
 		})
 		nodeProps, _ := props["MyLabel"].(map[string]any)
@@ -282,19 +282,19 @@ func TestNodeProperties(t *testing.T) {
 			},
 		})
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyMesh"},
 		})
 		nodeProps, _ := props["MyMesh"].(map[string]any)
 		is.Equal(nodeProps["mesh"], "Object(SphereMesh)")
 
-		props = callToolOK(t, "get_node_properties", map[string]any{
+		props = getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyMesh:mesh"},
 		})
 		meshProps, _ := props["MyMesh:mesh"].(map[string]any)
 		is.Equal(meshProps["radius"], "2.0")
 
-		props = callToolOK(t, "get_node_properties", map[string]any{
+		props = getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyMesh:mesh:radius"},
 		})
 		is.Equal(props["MyMesh:mesh:radius"], "2.0")
@@ -312,14 +312,14 @@ func TestNodeProperties(t *testing.T) {
 			},
 		})
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyBoxMesh"},
 		})
 		nodeProps, _ := props["MyBoxMesh"].(map[string]any)
 		is.Equal(nodeProps["mesh"], "Object(BoxMesh)")
 
 		// Everything at its default, so nothing to report.
-		props = callToolOK(t, "get_node_properties", map[string]any{
+		props = getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyBoxMesh:mesh"},
 		})
 		meshProps, _ := props["MyBoxMesh:mesh"].(map[string]any)
@@ -348,7 +348,7 @@ func TestNodeProperties(t *testing.T) {
 			},
 		})
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyMesh:mesh:radius", "MyMesh:mesh:height"},
 		})
 		is.Equal(props["MyMesh:mesh:radius"], "3.5")
@@ -367,7 +367,7 @@ func TestNodeProperties(t *testing.T) {
 			},
 		})
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyChild:position:x"},
 		})
 		is.Equal(props["MyChild:position:x"], "7.0")
@@ -393,7 +393,7 @@ func TestNodeProperties(t *testing.T) {
 			},
 		})
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyLabel", "MyLabel:label_settings:font_size"},
 		})
 		nodeProps, _ := props["MyLabel"].(map[string]any)
@@ -418,7 +418,7 @@ func TestNodeProperties(t *testing.T) {
 		is.Equal(len(errs), 1)
 		is.True(strings.Contains(asStrings(errs)[0], `MyChild / rotation: "garbage" is not a variant type`))
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
@@ -445,7 +445,7 @@ func TestNodeProperties(t *testing.T) {
 	t.Run("get_bad_property_path", func(t *testing.T) {
 		is := is.New(t)
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyChild:no_such_prop"},
 		})
 		errProps, _ := props["MyChild:no_such_prop"].(map[string]any)
@@ -456,7 +456,7 @@ func TestNodeProperties(t *testing.T) {
 	t.Run("modified_only_by_default", func(t *testing.T) {
 		is := is.New(t)
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
@@ -471,7 +471,7 @@ func TestNodeProperties(t *testing.T) {
 	t.Run("include_defaults", func(t *testing.T) {
 		is := is.New(t)
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths":       []string{"MyChild"},
 			"include_defaults": true,
 		})
@@ -490,7 +490,7 @@ func TestNodeProperties(t *testing.T) {
 		is := is.New(t)
 
 		for _, includeDefaults := range []bool{false, true} {
-			props := callToolOK(t, "get_node_properties", map[string]any{
+			props := getNodeProps(t, map[string]any{
 				"node_paths":       []string{"MyChild"},
 				"include_defaults": includeDefaults,
 			})
@@ -507,7 +507,7 @@ func TestNodeProperties(t *testing.T) {
 
 		// The scene root sits at the origin, so MyChild's global position is
 		// just its position.
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyChild:position", "MyChild:global_position"},
 		})
 		is.Equal(props["MyChild:global_position"], props["MyChild:position"])
@@ -516,7 +516,7 @@ func TestNodeProperties(t *testing.T) {
 	t.Run("unset_string_property_omitted", func(t *testing.T) {
 		is := is.New(t)
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
@@ -576,7 +576,7 @@ func TestNodeGroups(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 
-		groups := callToolOK(t, "get_node_groups", map[string]any{
+		groups := getNodeGroups(t, map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		got, _ := groups["MyChild"].([]any)
@@ -593,7 +593,7 @@ func TestNodeGroups(t *testing.T) {
 			"groups":    []string{"mobs"},
 		})
 
-		groups := callToolOK(t, "get_node_groups", map[string]any{
+		groups := getNodeGroups(t, map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		got := asStrings(groups["MyChild"].([]any))
@@ -609,7 +609,7 @@ func TestNodeGroups(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 
-		groups := callToolOK(t, "get_node_groups", map[string]any{
+		groups := getNodeGroups(t, map[string]any{
 			"node_paths": []string{"MyChild"},
 		})
 		got := asStrings(groups["MyChild"].([]any))
@@ -823,7 +823,7 @@ func TestNodeScript(t *testing.T) {
 			},
 		}, "not compatible")
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"ScriptHost"},
 		})
 		nodeProps, _ := props["ScriptHost"].(map[string]any)
@@ -840,7 +840,7 @@ func TestNodeScript(t *testing.T) {
 			},
 		})
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"ScriptHost"},
 		})
 		nodeProps, _ := props["ScriptHost"].(map[string]any)
@@ -856,7 +856,7 @@ func TestNodeScript(t *testing.T) {
 			},
 		})
 
-		props = callToolOK(t, "get_node_properties", map[string]any{
+		props = getNodeProps(t, map[string]any{
 			"node_paths": []string{"ScriptHost"},
 		})
 		nodeProps, _ = props["ScriptHost"].(map[string]any)

@@ -22,6 +22,8 @@ func _notification(p_what: int) -> void:
 
 
 ## Returns {op = ...}, or {error = ...} when the set can't even be attempted.
+## The result can also carry a 'note' and/or 'warning' about the value (e.g.
+## the option name matching an int enum value).
 ## Pass the same p_prop_cache for every property in the request so each object's property list is fetched only once.
 func prepare_property_op(p_object: Object, p_path: String, p_raw_value, p_prop_cache: Dictionary = {}) -> Dictionary:
 	var resolve_error := ""
@@ -44,12 +46,38 @@ func prepare_property_op(p_object: Object, p_path: String, p_raw_value, p_prop_c
 		usage = resolved['usage']
 		old_value = resolved['value']
 
-	var decoded := Utils.decode_property_value(p_raw_value, expected_type)
-	if decoded.has("error"):
-		return { error = decoded['error'] }
+	var int_enum := Utils.is_int_enum(expected_type, hint)
+	var note := ""
+	var warning := ""
+	var decoded := {}
 
-	# Only string enums: an int enum takes numeric values, which the names in
-	# the hint string say nothing about.
+	# An int enum can be set by option name, which isn't variant syntax, so the
+	# name is translated before decoding. A string that parses as a number is
+	# taken as the enum's int value instead.
+	if int_enum and typeof(p_raw_value) == TYPE_STRING:
+		var translated := Utils.int_enum_name_to_value(p_raw_value, hint_string)
+		if translated.has("value"):
+			decoded = { value = translated['value'] }
+			if translated.has("matched_name"):
+				note = "'%s' was taken as the enum option '%s' (%d)" % [p_raw_value, translated['matched_name'], translated['value']]
+		elif typeof(str_to_var(p_raw_value)) not in [TYPE_INT, TYPE_FLOAT]:
+			return { error = translated['error'] }
+
+	var value_from_name := not decoded.is_empty()
+	if not value_from_name:
+		decoded = Utils.decode_property_value(p_raw_value, expected_type)
+		if decoded.has("error"):
+			return { error = decoded['error'] }
+
+	if int_enum and not value_from_name and typeof(decoded['value']) in [TYPE_INT, TYPE_FLOAT] and float(int(decoded['value'])) == float(decoded['value']):
+		var enum_name := Utils.enum_value_to_name(int(decoded['value']), hint_string)
+		if enum_name.is_empty():
+			warning = "%d does not match any option of this enum (valid values: %s)" % [int(decoded['value']), Utils.describe_int_enum_options(hint_string)]
+		else:
+			note = "%d is the enum option '%s'" % [int(decoded['value']), enum_name]
+
+	# String enums store the name itself, so the value is checked against the
+	# options directly.
 	if hint == PROPERTY_HINT_ENUM and expected_type in [TYPE_STRING, TYPE_STRING_NAME]:
 		var enum_error := Utils.check_enum_value(str(decoded['value']), hint_string)
 		if not enum_error.is_empty():
@@ -62,13 +90,20 @@ func prepare_property_op(p_object: Object, p_path: String, p_raw_value, p_prop_c
 		if not script_error.is_empty():
 			return { error = script_error }
 
-	return { op = {
+	var result := { op = {
 		path = p_path,
 		value = decoded['value'],
 		old_value = old_value,
 		resolve_error = resolve_error,
 		usage = usage,
+		hint = hint,
+		hint_string = hint_string,
 	}}
+	if not note.is_empty():
+		result['note'] = note
+	if not warning.is_empty():
+		result['warning'] = warning
+	return result
 
 
 ## The name of the matching read tool (e.g. "get_node_properties"), so error
@@ -87,16 +122,17 @@ func verify_property_op(p_object: Object, p_op: Dictionary) -> Dictionary:
 	if Utils.values_equal_approx(after, p_op['value']):
 		return {}
 
+	var after_str := Utils.encode_property_value_for_hint(after, p_op['hint'], p_op['hint_string'])
 	if Utils.values_equal_approx(after, p_op['old_value']):
 		if not p_op['resolve_error'].is_empty():
 			if after == null:
 				return { error = "%s%s%s" % [p_op['resolve_error'], _non_tool_script_hint(p_object, p_op['path']), _discovery_hint()] }
-			return { error = "the value read back unchanged after setting it (still %s), and %s%s%s" % [Utils.encode_property_value(after), p_op['resolve_error'], _non_tool_script_hint(p_object, p_op['path']), _discovery_hint()] }
+			return { error = "the value read back unchanged after setting it (still %s), and %s%s%s" % [after_str, p_op['resolve_error'], _non_tool_script_hint(p_object, p_op['path']), _discovery_hint()] }
 		if after == null:
 			return { error = "the value read back null both before and after setting it - the setter may have rejected the value (is it the right type?), or the property may not exist%s" % _discovery_hint() }
-		return { error = "the value read back unchanged after setting it (still %s) - the property may be read-only, the setter may have rejected the value, or it may have clamped the value to what it already was; retrying the same value will not change it" % Utils.encode_property_value(after) }
+		return { error = "the value read back unchanged after setting it (still %s) - the property may be read-only, the setter may have rejected the value, or it may have clamped the value to what it already was; retrying the same value will not change it" % after_str }
 
-	return { warning = "the value was changed, but only to %s" % Utils.encode_property_value(after) }
+	return { warning = "the value was changed, but only to %s" % after_str }
 
 
 ## The most common reason an unrecognized property is really there in the
@@ -111,6 +147,15 @@ func _non_tool_script_hint(p_object: Object, p_path: String) -> String:
 		if prop['name'] == first_segment:
 			return " (the node's script defines '%s', but a non-@tool script only exposes @export variables to the editor)" % first_segment
 	return ""
+
+
+## Collects the note/warning a prepare_property_op() result may carry,
+## prefixed with the op's label.
+func collect_prepared_notices(p_prepared: Dictionary, p_label: String, p_notes: PackedStringArray, p_warnings: PackedStringArray) -> void:
+	if p_prepared.has("note"):
+		p_notes.append("%s: %s" % [p_label, p_prepared['note']])
+	if p_prepared.has("warning"):
+		p_warnings.append("%s: %s" % [p_label, p_prepared['warning']])
 
 
 func verify_property_ops(p_ops: Array, p_errors: PackedStringArray, p_warnings: PackedStringArray) -> void:
@@ -133,12 +178,15 @@ func build_rejection(p_errors: PackedStringArray) -> Dictionary:
 
 ## Builds the resolved result content, leaving out the slots with nothing
 ## to say.
-func build_result(p_result: Dictionary, p_errors: PackedStringArray, p_warnings: PackedStringArray) -> Dictionary:
+func build_result(p_result: Dictionary, p_errors: PackedStringArray, p_warnings: PackedStringArray, p_notes := PackedStringArray()) -> Dictionary:
 	p_result['success'] = p_errors.is_empty()
 	if not p_errors.is_empty():
 		p_result['errors'] = p_errors
 	if not p_warnings.is_empty():
 		p_result['warnings'] = p_warnings
+	if not p_notes.is_empty():
+		var notes: Array = p_result.get_or_add('notes', [])
+		notes.append_array(p_notes)
 	var output := logger.stop()
 	if not output.is_empty():
 		p_result['output'] = output

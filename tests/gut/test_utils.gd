@@ -262,6 +262,59 @@ func test_check_enum_value() -> void:
 	assert_string_contains(error, "Valid values:")
 
 
+func test_parse_enum_hint() -> void:
+	assert_eq(Utils.parse_enum_hint(""), [])
+	assert_eq(Utils.parse_enum_hint("Slow,Fast"), [
+		{ name = "Slow", value = 0 },
+		{ name = "Fast", value = 1 },
+	])
+	# An option without an explicit value takes the previous value plus one.
+	assert_eq(Utils.parse_enum_hint("Low:1,High:10,Higher"), [
+		{ name = "Low", value = 1 },
+		{ name = "High", value = 10 },
+		{ name = "Higher", value = 11 },
+	])
+
+
+func test_enum_value_to_name() -> void:
+	assert_eq(Utils.enum_value_to_name(1, "Slow,Fast"), "Fast")
+	assert_eq(Utils.enum_value_to_name(10, "Low:1,High:10"), "High")
+	assert_eq(Utils.enum_value_to_name(2, "Low:1,High:10"), "")
+
+
+func test_int_enum_name_to_value() -> void:
+	assert_eq(Utils.int_enum_name_to_value("Fast", "Slow,Fast"), { value = 1 })
+	assert_eq(Utils.int_enum_name_to_value("High", "Low:1,High:10"), { value = 10 })
+
+	# A match ignoring case is accepted, reporting the canonical name.
+	assert_eq(Utils.int_enum_name_to_value("fast", "Slow,Fast"), { value = 1, matched_name = "Fast" })
+
+	var result := Utils.int_enum_name_to_value("Fastt", "Slow,Fast")
+	assert_string_contains(result.get("error", ""), "'Fastt' is not one of the valid values")
+	assert_string_contains(result.get("error", ""), "did you mean 'Fast'")
+	assert_string_contains(result.get("error", ""), "Valid values: 'Slow' (0), 'Fast' (1)")
+
+
+func test_enum_translation_note() -> void:
+	var note := Utils.enum_translation_note(PackedStringArray(["a", "b"]))
+	assert_string_contains(note, "(a, b)")
+	assert_string_contains(note, '"enums_as_ints": true')
+
+	# A long list is summarized rather than spelled out.
+	note = Utils.enum_translation_note(PackedStringArray(["a", "b", "c", "d", "e"]))
+	assert_false(note.contains("a, b"))
+	assert_string_contains(note, "Some integer enum values")
+	assert_string_contains(note, '"enums_as_ints": true')
+
+
+func test_encode_property_value_for_hint() -> void:
+	assert_eq(Utils.encode_property_value_for_hint(1, PROPERTY_HINT_ENUM, "Slow,Fast"), "Fast")
+	# No matching option, or not an int enum at all: plain encoding.
+	assert_eq(Utils.encode_property_value_for_hint(7, PROPERTY_HINT_ENUM, "Slow,Fast"), "7")
+	assert_eq(Utils.encode_property_value_for_hint(1, PROPERTY_HINT_NONE, ""), "1")
+	assert_eq(Utils.encode_property_value_for_hint("Fast", PROPERTY_HINT_ENUM, "Slow,Fast"), "Fast")
+
+
 func test_get_property_default_value() -> void:
 	assert_eq(Utils.get_default_property_value(autofree(Node2D.new()), "position"), Vector2(0, 0))
 
@@ -298,6 +351,31 @@ func test_get_property_map() -> void:
 	for prop_name in ["global_position", "global_transform", "basis", "quaternion", "rotation_degrees", "multiplayer", "owner"]:
 		assert_false(modified.has(prop_name), "'%s' should be left out" % prop_name)
 		assert_false(all.has(prop_name), "'%s' should be left out" % prop_name)
+
+
+func test_get_property_map_translates_int_enums() -> void:
+	var node: Node = autofree(Node.new())
+	node.set_script(load("res://tests/gut/fixtures/script_with_enum.gd"))
+	node.speed_mode = 2
+	node.power = 10
+
+	var translated := PackedStringArray()
+	var props := Utils.get_property_map(node, true, false, translated)
+	assert_eq(props.get("speed_mode"), "Fast")
+	assert_eq(props.get("power"), "High")
+	assert_true("speed_mode" in translated)
+	assert_true("power" in translated)
+
+	var raw := Utils.get_property_map(node, true, true)
+	assert_eq(raw.get("speed_mode"), "2")
+	assert_eq(raw.get("power"), "10")
+
+	# A value no option covers stays an int.
+	node.power = 3
+	translated = PackedStringArray()
+	props = Utils.get_property_map(node, true, false, translated)
+	assert_eq(props.get("power"), "3")
+	assert_false("power" in translated)
 
 
 func test_script_read_tracking() -> void:

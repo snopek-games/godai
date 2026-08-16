@@ -143,7 +143,7 @@ func TestResourceProperties(t *testing.T) {
 	t.Run("get", func(t *testing.T) {
 		is := is.New(t)
 
-		props := callToolOK(t, "get_resource_properties", map[string]any{
+		props := getResourceProps(t, map[string]any{
 			"file_path": materialPath,
 		})
 		is.Equal(props["albedo_color"], "Color(1, 0, 0, 1)")
@@ -156,7 +156,7 @@ func TestResourceProperties(t *testing.T) {
 	t.Run("get_include_defaults", func(t *testing.T) {
 		is := is.New(t)
 
-		props := callToolOK(t, "get_resource_properties", map[string]any{
+		props := getResourceProps(t, map[string]any{
 			"file_path":        materialPath,
 			"include_defaults": true,
 		})
@@ -167,7 +167,7 @@ func TestResourceProperties(t *testing.T) {
 	t.Run("get_specific_properties", func(t *testing.T) {
 		is := is.New(t)
 
-		structured := callToolOK(t, "get_resource_properties", map[string]any{
+		structured := getResourceProps(t, map[string]any{
 			"file_path":  materialPath,
 			"properties": []string{"albedo_color", "albedo_color:r"},
 		})
@@ -191,7 +191,7 @@ func TestResourceProperties(t *testing.T) {
 	t.Run("get_bad_property_path", func(t *testing.T) {
 		is := is.New(t)
 
-		structured := callToolOK(t, "get_resource_properties", map[string]any{
+		structured := getResourceProps(t, map[string]any{
 			"file_path":  materialPath,
 			"properties": []string{"no_such_prop"},
 		})
@@ -213,7 +213,7 @@ func TestResourceProperties(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 
-		props := callToolOK(t, "get_resource_properties", map[string]any{
+		props := getResourceProps(t, map[string]any{
 			"file_path": materialPath,
 		})
 		is.Equal(props["albedo_color"], "Color(0, 1, 0, 1)")
@@ -235,7 +235,7 @@ func TestResourceProperties(t *testing.T) {
 			},
 		})
 
-		structured := callToolOK(t, "get_resource_properties", map[string]any{
+		structured := getResourceProps(t, map[string]any{
 			"file_path":  materialPath,
 			"properties": []string{"albedo_color"},
 		})
@@ -249,7 +249,7 @@ func TestResourceProperties(t *testing.T) {
 		runEditorScript(t, `EditorInterface.get_editor_undo_redo().get_history_undo_redo(EditorUndoRedoManager.GLOBAL_HISTORY).undo()
 return OK`)
 
-		structured := callToolOK(t, "get_resource_properties", map[string]any{
+		structured := getResourceProps(t, map[string]any{
 			"file_path":  materialPath,
 			"properties": []string{"albedo_color"},
 		})
@@ -271,12 +271,12 @@ return OK`)
 			},
 		})
 
-		props := callToolOK(t, "get_resource_properties", map[string]any{
+		props := getResourceProps(t, map[string]any{
 			"file_path": materialPath,
 		})
 		is.Equal(props["albedo_texture"], "Object(GradientTexture1D)")
 
-		structured := callToolOK(t, "get_resource_properties", map[string]any{
+		structured := getResourceProps(t, map[string]any{
 			"file_path":  materialPath,
 			"properties": []string{"albedo_texture", "albedo_texture:width"},
 		})
@@ -317,7 +317,7 @@ return OK`)
 		is.Equal(len(errs), 1)
 		is.True(strings.Contains(asStrings(errs)[0], `roughness: "garbage" is not a variant type`))
 
-		props := callToolOK(t, "get_resource_properties", map[string]any{
+		props := getResourceProps(t, map[string]any{
 			"file_path":  materialPath,
 			"properties": []string{"metallic"},
 		})

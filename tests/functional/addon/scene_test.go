@@ -304,7 +304,7 @@ func TestInstantiateScene(t *testing.T) {
 		notes, _ := structured["notes"].([]any)
 		is.True(anyLineContains(notes, "save_scene"))
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyInstance"},
 		})
 		nodeProps, _ := props["MyInstance"].(map[string]any)

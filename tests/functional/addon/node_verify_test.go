@@ -147,7 +147,7 @@ func TestSetNodePropertiesVerification(t *testing.T) {
 		structured := setFixtureProps(t, map[string]any{"declared_dynamic": "42"})
 		is.Equal(structured["success"], true)
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"Fixture:declared_dynamic"},
 		})
 		is.Equal(props["Fixture:declared_dynamic"], "42")
@@ -239,7 +239,7 @@ func TestSetNodePropertiesVerification(t *testing.T) {
 		is.Equal(len(warnings), 1)
 		is.True(strings.Contains(asStrings(warnings)[0], "clamped_value"))
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"Fixture:plain_value"},
 		})
 		is.Equal(props["Fixture:plain_value"], "8.25")
@@ -301,7 +301,7 @@ func TestSetNodePropertiesNonToolScript(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 
-		props := callToolOK(t, "get_node_properties", map[string]any{
+		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"PlainScript:exported_value"},
 		})
 		is.Equal(props["PlainScript:exported_value"], "2.5")

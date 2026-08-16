@@ -27,6 +27,7 @@ class NodeGetProperties extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var node_paths: Array = p_input.get("node_paths", [])
 		var modified_only: bool = not bool(p_input.get("include_defaults", false))
+		var enums_as_ints: bool = bool(p_input.get("enums_as_ints", false))
 
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 
@@ -62,6 +63,7 @@ class NodeGetProperties extends DefaultTool:
 			return ToolResult.rejected({errors = errors})
 
 		var results := {}
+		var translated := PackedStringArray()
 		var prop_cache := {}
 
 		for target in targets:
@@ -69,18 +71,30 @@ class NodeGetProperties extends DefaultTool:
 			var property_path: String = target['property_path']
 
 			if property_path.is_empty():
-				results[node_path] = Utils.get_property_map(target['node'], modified_only)
+				var local := PackedStringArray()
+				results[node_path] = Utils.get_property_map(target['node'], modified_only, enums_as_ints, local)
+				for prop_name in local:
+					translated.append("%s:%s" % [node_path, prop_name])
 				continue
 
 			var resolved := Utils.resolve_property_path(target['node'], property_path, prop_cache)
 			if resolved.has("error"):
 				results[node_path] = { error = resolved['error'] }
 			elif resolved['value'] is Object:
-				results[node_path] = Utils.get_property_map(resolved['value'], modified_only)
+				var local := PackedStringArray()
+				results[node_path] = Utils.get_property_map(resolved['value'], modified_only, enums_as_ints, local)
+				for prop_name in local:
+					translated.append("%s:%s" % [node_path, prop_name])
 			else:
-				results[node_path] = Utils.encode_property_value(resolved['value'])
+				var encoded := Utils.encode_resolved_value(resolved, enums_as_ints)
+				results[node_path] = encoded['value']
+				if encoded['translated']:
+					translated.append(node_path)
 
-		return ToolResult.resolved(results)
+		var result := { nodes = results }
+		if not translated.is_empty():
+			result['notes'] = [Utils.enum_translation_note(translated)]
+		return ToolResult.resolved(result)
 
 
 class NodeSetProperties extends VerifiedPropertyTool:
@@ -98,6 +112,7 @@ class NodeSetProperties extends VerifiedPropertyTool:
 
 		var errors := PackedStringArray()
 		var warnings := PackedStringArray()
+		var notes := PackedStringArray()
 		var ops := []
 		var prop_cache := {}
 
@@ -131,6 +146,7 @@ class NodeSetProperties extends VerifiedPropertyTool:
 				if prepared.has("error"):
 					errors.append("%s / %s: %s" % [node_path, prop_name, prepared['error']])
 					continue
+				collect_prepared_notices(prepared, "%s / %s" % [node_path, prop_name], notes, warnings)
 
 				var op: Dictionary = prepared['op']
 				op['object'] = node
@@ -159,7 +175,7 @@ class NodeSetProperties extends VerifiedPropertyTool:
 
 		return ToolResult.resolved(build_result({
 			notes = [UNSAVED_SCENE_NOTE],
-		}, errors, warnings))
+		}, errors, warnings, notes))
 
 
 class NodeAdd extends VerifiedPropertyTool:
@@ -195,12 +211,14 @@ class NodeAdd extends VerifiedPropertyTool:
 		# create a duplicate node.
 		var ops := []
 		var warnings := PackedStringArray()
+		var notes := PackedStringArray()
 		var prop_cache := {}
 		for prop_name in props:
 			var prepared := prepare_property_op(node, prop_name, props[prop_name], prop_cache)
 			if prepared.has("error"):
 				warnings.append("%s: %s" % [prop_name, prepared['error']])
 				continue
+			collect_prepared_notices(prepared, prop_name, notes, warnings)
 
 			var op: Dictionary = prepared['op']
 			op['object'] = node
@@ -224,7 +242,7 @@ class NodeAdd extends VerifiedPropertyTool:
 		return ToolResult.resolved(build_result({
 			node_path = str(edited_scene_root.get_path_to(node)),
 			notes = [UNSAVED_SCENE_NOTE],
-		}, PackedStringArray(), warnings))
+		}, PackedStringArray(), warnings, notes))
 
 
 class NodeRemove extends DefaultTool:
@@ -355,7 +373,7 @@ class NodeGetGroups extends DefaultTool:
 				groups.push_back(str(group))
 			results[node_paths[i]] = groups
 
-		return ToolResult.resolved(results)
+		return ToolResult.resolved({ nodes = results })
 
 
 class NodeConnectSignal extends DefaultTool:

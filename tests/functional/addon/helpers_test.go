@@ -58,6 +58,39 @@ func callToolErr(t *testing.T, name string, args map[string]any, wantSubstr stri
 	return structured
 }
 
+// Unwraps the per-node results a get_node_properties call returns in 'nodes'.
+func getNodeProps(t *testing.T, args map[string]any) map[string]any {
+	t.Helper()
+	structured := callToolOK(t, "get_node_properties", args)
+	nodes, _ := structured["nodes"].(map[string]any)
+	if nodes == nil {
+		t.Fatalf("get_node_properties returned no 'nodes': %v", structured)
+	}
+	return nodes
+}
+
+// Unwraps the per-node results a get_node_groups call returns in 'nodes'.
+func getNodeGroups(t *testing.T, args map[string]any) map[string]any {
+	t.Helper()
+	structured := callToolOK(t, "get_node_groups", args)
+	nodes, _ := structured["nodes"].(map[string]any)
+	if nodes == nil {
+		t.Fatalf("get_node_groups returned no 'nodes': %v", structured)
+	}
+	return nodes
+}
+
+// Unwraps the results a get_resource_properties call returns in 'properties'.
+func getResourceProps(t *testing.T, args map[string]any) map[string]any {
+	t.Helper()
+	structured := callToolOK(t, "get_resource_properties", args)
+	props, _ := structured["properties"].(map[string]any)
+	if props == nil {
+		t.Fatalf("get_resource_properties returned no 'properties': %v", structured)
+	}
+	return props
+}
+
 func requireManagedProject(t *testing.T) {
 	t.Helper()
 	if projectDir == "" {

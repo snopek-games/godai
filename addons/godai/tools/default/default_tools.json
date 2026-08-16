@@ -46,7 +46,8 @@
 				"Pass 'names' to get specific settings by name (returned regardless of whether they match their default).",
 				"Otherwise, all settings are returned, but only those whose value differs from the default; pass 'include_defaults' as true to also include settings left at their default value.",
 				"",
-				"Setting values are strings in Godot variant syntax."
+				"Setting values are strings in Godot variant syntax.",
+				"Integer enum settings are returned as their option name (e.g. `Nearest` instead of `0`), with a note pointing out the translation; pass 'enums_as_ints' as true to get the raw integer values instead."
 			],
 			"annotations": {
 				"readOnlyHint": true,
@@ -65,6 +66,10 @@
 					"include_defaults": {
 						"type": "boolean",
 						"description": "When getting all settings, also include those left at their default value (default: false)"
+					},
+					"enums_as_ints": {
+						"type": "boolean",
+						"description": "Return integer enum settings as their raw integer value, instead of translated to the option name (default: false)"
 					}
 				}
 			},
@@ -77,6 +82,11 @@
 						"additionalProperties": {
 							"type": "string"
 						}
+					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. which integer enum settings were translated to their option name"
 					},
 					"errors": {
 						"type": "array",
@@ -93,6 +103,7 @@
 				"Changes settings in the project and saves 'project.godot'.",
 				"",
 				"Pass 'settings': a map of setting name (e.g. 'display/window/size/viewport_width') to value. Values are strings in Godot variant syntax (e.g. `1280`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
+				"An integer enum setting takes the option name (e.g. `Nearest`) or the integer value; setting one by integer returns a note with the matching option name, and an integer matching no option is still applied, with a warning.",
 				"",
 				"Setting names must already exist; unknown names are rejected. Pass \"create_missing\": true to create new settings, e.g. custom game settings, 'autoload/...', 'input/...', 'shader_globals/...' or 'global_group/...'. A feature-tag override of an existing setting (e.g. 'application/config/name.web') counts as existing, and its value is validated against the base setting.",
 				"",
@@ -145,6 +156,11 @@
 						"type": "array",
 						"items": {"type": "string"},
 						"description": "Settings that were changed, but ended up with a different value than requested, or that require an editor restart to take effect"
+					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. the option name matching an integer enum value that was set"
 					},
 					"output": {
 						"type": "array",
@@ -319,9 +335,11 @@
 				"- Packed arrays take a flat list of components, so: `PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1)` is two colors (r,g,b,a, r,g,b,a), `PackedVector2Array(1, 2, 3, 4)` is two vectors",
 				"- A property referencing a saved resource is returned as `Resource(\"res://path/to/file.tres\")`",
 				"- A property holding an embedded resource is summarized as `Object(ClassName)`, e.g. `Object(SphereMesh)`",
+				"- Integer enum properties are returned as their option name (e.g. `Nearest` instead of `0`), with a note pointing out the translation; pass 'enums_as_ints' as true to get the raw integer values instead",
 				"",
 				"To inspect the properties of an embedded resource, append a colon-separated property path to the node path: `MyMesh:mesh` returns the properties of the mesh resource, and `MyMesh:mesh:radius` returns just that value.",
 				"",
+				"The per-node results are returned in 'nodes', keyed by the requested node path.",
 				"If any of the node paths can't be found, an error is returned and no properties are read. If a property path can't be resolved, its value will be an object with an `error` key."
 			],
 			"annotations": {
@@ -343,34 +361,46 @@
 					"include_defaults": {
 						"type": "boolean",
 						"description": "Also include properties left at their default value (default: false)"
+					},
+					"enums_as_ints": {
+						"type": "boolean",
+						"description": "Return integer enum properties as their raw integer value, instead of translated to the option name (default: false)"
 					}
 				},
 				"required": ["node_paths"]
 			},
 			"outputSchema": {
 				"type": "object",
-				"description": "Maps each requested node path to its result.",
 				"properties": {
+					"nodes": {
+						"type": "object",
+						"description": "Maps each requested node path to its result.",
+						"additionalProperties": {
+							"oneOf": [
+								{
+									"type": "object",
+									"description": "A map of property names to values (in Godot variant syntax), or an object with an 'error' key if a property path couldn't be resolved.",
+									"additionalProperties": {
+										"type": "string"
+									}
+								},
+								{
+									"type": "string",
+									"description": "A single property value (in Godot variant syntax), when the node path resolved to a scalar via a colon-separated property path."
+								}
+							]
+						}
+					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. which integer enum properties were translated to their option name"
+					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
 						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"additionalProperties": {
-					"oneOf": [
-						{
-							"type": "object",
-							"description": "A map of property names to values (in Godot variant syntax), or an object with an 'error' key if a property path couldn't be resolved.",
-							"additionalProperties": {
-								"type": "string"
-							}
-						},
-						{
-							"type": "string",
-							"description": "A single property value (in Godot variant syntax), when the node path resolved to a scalar via a colon-separated property path."
-						}
-					]
 				}
 			}
 		},
@@ -390,6 +420,7 @@
 				"- To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
 				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`, or `Object(SphereMesh)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
 				"- Careful: `Object(ClassName)` is also how an existing embedded resource reads back, so passing that in replaces it with a new one, losing whatever it held.",
+				"- Integer enum properties take the option name (e.g. `Nearest`) or the integer value; setting one by integer returns a note with the matching option name, and an integer matching no option is still applied, with a warning",
 				"",
 				"Property names may use colon-separated sub-paths to set properties nested inside resources or other properties, e.g. `mesh:radius`, `material:albedo_color`, `position:x`.",
 				"",
@@ -441,7 +472,7 @@
 					"notes": {
 						"type": "array",
 						"items": {"type": "string"},
-						"description": "Reminders that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
+						"description": "Notes that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene, or the option name matching an integer enum value that was set"
 					},
 					"success": {
 						"type": "boolean",
@@ -477,6 +508,7 @@
 				"- Packed arrays take a flat list of components, so: `PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1)` is two colors (r,g,b,a, r,g,b,a), `PackedVector2Array(1, 2, 3, 4)` is two vectors",
 				"- To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
 				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`, or `Object(SphereMesh)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
+				"- Integer enum properties take the option name (e.g. `Nearest`) or the integer value; setting one by integer returns a note with the matching option name, and an integer matching no option is still applied, with a warning",
 				"",
 				"Like all scene edits, the new node is in-memory until save_scene: call it once you're done editing, or it is lost.",
 				"",
@@ -518,7 +550,7 @@
 					"notes": {
 						"type": "array",
 						"items": {"type": "string"},
-						"description": "Reminders that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
+						"description": "Notes that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene, or the option name matching an integer enum value that was set"
 					},
 					"success": {
 						"type": "boolean",
@@ -549,7 +581,11 @@
 		"remove_node": {
 			"title": "Remove Node",
 			"toolsets": ["scene"],
-			"description": "Removes the given node (and all its children) from the current scene.",
+			"description": [
+				"Removes the given node (and all its children) from the current scene.",
+				"",
+				"Like all scene edits, the change is in-memory until save_scene: call it once you're done editing, or it is lost."
+			],
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -574,6 +610,11 @@
 						"type": "boolean",
 						"description": "True if the node was removed"
 					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
+					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
@@ -596,6 +637,7 @@
 				"- Packed arrays take a flat list of components, so: `PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1)` is two colors (r,g,b,a, r,g,b,a), `PackedVector2Array(1, 2, 3, 4)` is two vectors",
 				"- To reference a saved resource: `Resource(\"res://path/to/file.tres\")`",
 				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(SphereMesh,\"radius\":2.0)`, or `Object(SphereMesh)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
+				"- Integer enum properties take the option name (e.g. `Nearest`) or the integer value; setting one by integer returns a note with the matching option name, and an integer matching no option is still applied, with a warning",
 				"",
 				"Every property is verified by reading it back after setting, like set_resource_properties. The resource is still created and saved even when a property fails: properties that could not be set, or that ended up with a different value than requested, are reported in 'warnings' (with anything Godot printed in 'output'). Do NOT retry the call over a warning - the file now exists; fix the property with set_resource_properties instead."
 			],
@@ -640,6 +682,11 @@
 						"type": "array",
 						"items": {"type": "string"},
 						"description": "Properties that could not be set, or ended up with a different value than requested; any property not listed here was set to the requested value"
+					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. the option name matching an integer enum value that was set"
 					},
 					"output": {
 						"type": "array",
@@ -704,9 +751,11 @@
 				"- Packed arrays take a flat list of components, so: `PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1)` is two colors (r,g,b,a, r,g,b,a), `PackedVector2Array(1, 2, 3, 4)` is two vectors",
 				"- A property referencing another saved resource is returned as `Resource(\"res://path/to/file.tres\")`",
 				"- A property holding an embedded resource is summarized as `Object(ClassName)`, e.g. `Object(FastNoiseLite)`",
+				"- Integer enum properties are returned as their option name (e.g. `Nearest` instead of `0`), with a note pointing out the translation; pass 'enums_as_ints' as true to get the raw integer values instead",
 				"",
 				"Requested properties may use colon-separated sub-paths to address properties nested inside embedded resources or other properties, e.g. `noise:frequency` or `albedo_color:r`.",
 				"",
+				"The results are returned in 'properties', keyed by property name (or requested property path).",
 				"If a requested property holds an embedded resource (e.g. `noise`), all of that resource's properties are returned for it, instead of just a summary.",
 				"If a requested property can't be resolved, its value will be an object with an `error` key."
 			],
@@ -733,34 +782,46 @@
 					"include_defaults": {
 						"type": "boolean",
 						"description": "Also include properties left at their default value (default: false)"
+					},
+					"enums_as_ints": {
+						"type": "boolean",
+						"description": "Return integer enum properties as their raw integer value, instead of translated to the option name (default: false)"
 					}
 				},
 				"required": ["file_path"]
 			},
 			"outputSchema": {
 				"type": "object",
-				"description": "If 'properties' was omitted, a map of all the resource's property names to values. If 'properties' was given, a map of each requested property path to its result.",
 				"properties": {
+					"properties": {
+						"type": "object",
+						"description": "If 'properties' was omitted, a map of all the resource's property names to values. If 'properties' was given, a map of each requested property path to its result.",
+						"additionalProperties": {
+							"oneOf": [
+								{
+									"type": "object",
+									"description": "A map of property names to values (in Godot variant syntax) - used both for the whole resource and for a requested property that holds an embedded resource - or an object with an 'error' key if the property path couldn't be resolved.",
+									"additionalProperties": {
+										"type": "string"
+									}
+								},
+								{
+									"type": "string",
+									"description": "A single property value, in Godot variant syntax"
+								}
+							]
+						}
+					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. which integer enum properties were translated to their option name"
+					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
 						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
 					}
-				},
-				"additionalProperties": {
-					"oneOf": [
-						{
-							"type": "object",
-							"description": "A map of property names to values (in Godot variant syntax) - used both for the whole resource and for a requested property that holds an embedded resource - or an object with an 'error' key if the property path couldn't be resolved.",
-							"additionalProperties": {
-								"type": "string"
-							}
-						},
-						{
-							"type": "string",
-							"description": "A single property value, in Godot variant syntax"
-						}
-					]
 				}
 			}
 		},
@@ -780,6 +841,7 @@
 				"- To reference another saved resource: `Resource(\"res://path/to/file.tres\")`",
 				"- To create an embedded resource: `Object(ClassName, \"prop\": value, ...)`, e.g. `Object(FastNoiseLite,\"frequency\":0.1)`, or `Object(FastNoiseLite)` for one with every property at its default. Do NOT use SubResource() or ExtResource() - those only work inside .tscn files.",
 				"- Careful: `Object(ClassName)` is also how an existing embedded resource reads back, so passing that in replaces it with a new one, losing whatever it held.",
+				"- Integer enum properties take the option name (e.g. `Nearest`) or the integer value; setting one by integer returns a note with the matching option name, and an integer matching no option is still applied, with a warning",
 				"",
 				"Property names may use colon-separated sub-paths to set properties nested inside embedded resources or other properties, e.g. `noise:frequency`, `albedo_color:r`.",
 				"",
@@ -838,6 +900,11 @@
 						"items": {"type": "string"},
 						"description": "Properties that were changed, but ended up with a different value than requested"
 					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. the option name matching an integer enum value that was set"
+					},
 					"output": {
 						"type": "array",
 						"items": {"type": "string"},
@@ -879,7 +946,11 @@
 		"instantiate_scene": {
 			"title": "Instantiate Scene",
 			"toolsets": ["scene"],
-			"description": "Instantiates a saved scene (.tscn/.scn) as a child node in the current scene, like adding an instanced scene in the editor.",
+			"description": [
+				"Instantiates a saved scene (.tscn/.scn) as a child node in the current scene, like adding an instanced scene in the editor.",
+				"",
+				"Like all scene edits, the new instance is in-memory until save_scene: call it once you're done editing, or it is lost."
+			],
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": false,
@@ -916,6 +987,11 @@
 					"node_path": {
 						"type": "string",
 						"description": "The path of the new instance node, relative to the scene root"
+					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
 					},
 					"errors": {
 						"type": "array",
@@ -1001,7 +1077,11 @@
 		"add_to_group": {
 			"title": "Add Node to Groups",
 			"toolsets": ["scene"],
-			"description": "Adds a node in the current scene to one or more groups.",
+			"description": [
+				"Adds a node in the current scene to one or more groups.",
+				"",
+				"Like all scene edits, the change is in-memory until save_scene: call it once you're done editing, or it is lost."
+			],
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -1035,6 +1115,11 @@
 						"type": "boolean",
 						"description": "True if the node was added to the groups"
 					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
+					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
@@ -1046,7 +1131,11 @@
 		"remove_from_group": {
 			"title": "Remove Node from Groups",
 			"toolsets": ["scene"],
-			"description": "Removes a node in the current scene from one or more groups.",
+			"description": [
+				"Removes a node in the current scene from one or more groups.",
+				"",
+				"Like all scene edits, the change is in-memory until save_scene: call it once you're done editing, or it is lost."
+			],
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -1080,6 +1169,11 @@
 						"type": "boolean",
 						"description": "True if the node was removed from the groups"
 					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
+					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
@@ -1091,7 +1185,11 @@
 		"get_node_groups": {
 			"title": "Get Node Groups",
 			"toolsets": ["scene"],
-			"description": "Gets the groups that nodes in the current scene belong to.",
+			"description": [
+				"Gets the groups that nodes in the current scene belong to.",
+				"",
+				"The results are returned in 'nodes', keyed by the requested node path."
+			],
 			"annotations": {
 				"readOnlyHint": true,
 				"openWorldHint": false
@@ -1113,18 +1211,21 @@
 			},
 			"outputSchema": {
 				"type": "object",
-				"description": "Maps each requested node path to an array of its group names (internal engine groups omitted).",
 				"properties": {
+					"nodes": {
+						"type": "object",
+						"description": "Maps each requested node path to an array of its group names (internal engine groups omitted).",
+						"additionalProperties": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}
+					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
 						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
-					}
-				},
-				"additionalProperties": {
-					"type": "array",
-					"items": {
-						"type": "string"
 					}
 				}
 			}
@@ -1135,7 +1236,9 @@
 			"description": [
 				"Connects a signal on one node to a method on another node, in the current scene.",
 				"",
-				"Both nodes must be in the current scene. The signal must exist on 'from_node', and the method on 'to_node'."
+				"Both nodes must be in the current scene. The signal must exist on 'from_node', and the method on 'to_node'.",
+				"",
+				"Like all scene edits, the connection is in-memory until save_scene: call it once you're done editing, or it is lost."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -1176,6 +1279,11 @@
 						"type": "boolean",
 						"description": "True if the signal was connected"
 					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
+					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
@@ -1187,7 +1295,11 @@
 		"disconnect_signal": {
 			"title": "Disconnect Signal",
 			"toolsets": ["scene"],
-			"description": "Disconnects a previously-connected signal between two nodes in the current scene.",
+			"description": [
+				"Disconnects a previously-connected signal between two nodes in the current scene.",
+				"",
+				"Like all scene edits, the change is in-memory until save_scene: call it once you're done editing, or it is lost."
+			],
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -1227,6 +1339,11 @@
 						"type": "boolean",
 						"description": "True if the signal was disconnected"
 					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
+					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
@@ -1243,7 +1360,9 @@
 				"",
 				"The script's base type must be compatible with the node's type.",
 				"",
-				"Use create_script first if the script doesn't exist yet."
+				"Use create_script first if the script doesn't exist yet.",
+				"",
+				"Like all scene edits, the attachment is in-memory until save_scene: call it once you're done editing, or it is lost."
 			],
 			"annotations": {
 				"readOnlyHint": false,
@@ -1274,6 +1393,11 @@
 						"type": "boolean",
 						"description": "True if the script was attached"
 					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
+					},
 					"errors": {
 						"type": "array",
 						"items": {"type": "string"},
@@ -1285,7 +1409,11 @@
 		"detach_script": {
 			"title": "Detach Script",
 			"toolsets": ["scene"],
-			"description": "Removes the script attached to a node in the current scene.",
+			"description": [
+				"Removes the script attached to a node in the current scene.",
+				"",
+				"Like all scene edits, the change is in-memory until save_scene: call it once you're done editing, or it is lost."
+			],
 			"annotations": {
 				"readOnlyHint": false,
 				"destructiveHint": true,
@@ -1309,6 +1437,11 @@
 					"success": {
 						"type": "boolean",
 						"description": "True if the script was detached"
+					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. that the scene has unsaved changes until save_scene"
 					},
 					"errors": {
 						"type": "array",
@@ -1535,6 +1668,11 @@
 					"saved": {
 						"type": "boolean",
 						"description": "True if the new contents were written to disk; false if only the editor buffer was updated (call save_script to flush it)"
+					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. that the script has unsaved changes until save_script"
 					},
 					"errors": {
 						"type": "array",
@@ -1770,6 +1908,7 @@
 				"Otherwise, all settings are returned, but only those whose value differs from the default; pass 'include_defaults' as true to also include settings left at their default value.",
 				"",
 				"Setting values are strings in Godot variant syntax.",
+				"Integer enum settings are returned as their option name (e.g. `Nearest` instead of `0`), with a note pointing out the translation; pass 'enums_as_ints' as true to get the raw integer values instead.",
 				"",
 				"Settings under 'godai/' are Godai's own configuration and are never returned; only the user can see them, via Editor Settings."
 			],
@@ -1790,6 +1929,10 @@
 					"include_defaults": {
 						"type": "boolean",
 						"description": "When getting all settings, also include those left at their default value (default: false)"
+					},
+					"enums_as_ints": {
+						"type": "boolean",
+						"description": "Return integer enum settings as their raw integer value, instead of translated to the option name (default: false)"
 					}
 				}
 			},
@@ -1802,6 +1945,11 @@
 						"additionalProperties": {
 							"type": "string"
 						}
+					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. which integer enum settings were translated to their option name"
 					},
 					"errors": {
 						"type": "array",
@@ -1818,6 +1966,7 @@
 				"Changes settings in the Godot editor itself (editor-wide preferences, not project settings).",
 				"",
 				"Pass 'settings': a map of setting name (e.g. 'text_editor/behavior/indent/size') to value. Values are strings in Godot variant syntax (e.g. `16`, `true`, `2.0`); a value that isn't valid variant syntax is taken as a raw string.",
+				"An integer enum setting takes the option name (e.g. `Nearest`) or the integer value; setting one by integer returns a note with the matching option name, and an integer matching no option is still applied, with a warning.",
 				"",
 				"Setting names must already exist; unknown names are rejected. Pass \"create_missing\": true to create a setting that doesn't exist yet (e.g. one belonging to a plugin that isn't currently loaded).",
 				"",
@@ -1872,6 +2021,11 @@
 						"type": "array",
 						"items": {"type": "string"},
 						"description": "Settings that were changed, but ended up with a different value than requested, or that require an editor restart to take effect"
+					},
+					"notes": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "Notes that don't indicate a problem, e.g. the option name matching an integer enum value that was set"
 					},
 					"output": {
 						"type": "array",
