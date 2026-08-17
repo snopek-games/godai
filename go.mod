@@ -8,7 +8,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/matryer/is v1.4.1
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
-	github.com/urfave/cli/v3 v3.6.1
+	github.com/urfave/cli/v3 v3.11.0
 	golang.org/x/term v0.45.0
 )
 

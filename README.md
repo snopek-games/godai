@@ -311,6 +311,25 @@ Exit codes distinguish the interesting cases:
 > A one-shot command leaves every editor it launched running - shutting one down would mean paying
 > for a full project import on the next invocation. Close it with `godai editor close <path>`.
 
+### Shell completion
+
+`godai completion <shell>` prints a tab-completion script for `bash`, `zsh`, `fish`, or `pwsh`
+(PowerShell). To enable it:
+
+```bash
+# Bash: add to ~/.bashrc
+source <(godai completion bash)
+
+# Zsh: add to ~/.zshrc
+source <(godai completion zsh)
+
+# Fish: run once
+godai completion fish > ~/.config/fish/completions/godai.fish
+```
+
+For PowerShell, save the output of `godai completion pwsh` to a `.ps1` file and dot-source it from
+your profile.
+
 Quick Start: MCP mode
 ---------------------
 
