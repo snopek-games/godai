@@ -8,7 +8,10 @@ import (
 
 var ToolsetNames = []string{"project", "scene", "resource", "script", "import", "editor", "engine", "config"}
 
-const DefaultToolsetName = "default"
+const (
+	DefaultToolsetName = "default"
+	AllToolsetName     = "all"
+)
 
 var nonDefaultToolsets = []string{"engine"}
 
@@ -34,10 +37,14 @@ func ExpandToolsets(requested []string) (map[string]bool, error) {
 			for _, defaultName := range DefaultToolsets() {
 				enabled[defaultName] = true
 			}
+		case name == AllToolsetName:
+			for _, toolsetName := range ToolsetNames {
+				enabled[toolsetName] = true
+			}
 		case slices.Contains(ToolsetNames, name):
 			enabled[name] = true
 		default:
-			return nil, fmt.Errorf("unknown toolset %q; the toolsets are %s, %s", name, DefaultToolsetName, strings.Join(ToolsetNames, ", "))
+			return nil, fmt.Errorf("unknown toolset %q; the toolsets are %s, %s, %s", name, DefaultToolsetName, AllToolsetName, strings.Join(ToolsetNames, ", "))
 		}
 	}
 

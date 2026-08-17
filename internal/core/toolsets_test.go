@@ -31,6 +31,12 @@ func TestExpandToolsets(t *testing.T) {
 	is.True(enabled["scene"])
 	is.True(enabled["engine"])
 
+	enabled, err = ExpandToolsets([]string{"all"})
+	is.NoErr(err)
+	for _, name := range ToolsetNames {
+		is.True(enabled[name])
+	}
+
 	enabled, err = ExpandToolsets([]string{"scene"})
 	is.NoErr(err)
 	is.True(enabled["scene"])

@@ -461,7 +461,7 @@ Two important notes:
   if your client supports it. If not, it'll use the current directory it was spawned from as its
   root. If you want to manually specify the allowed roots, add one or more `--root PATH` arguments.
 - The tools for installing and removing Godot versions (the `engine` toolset) aren't advertised by
-  default. Add `--toolsets=default,engine` to expose them, or pick just the toolsets you want, like
+  default. Add `--toolsets=all` to expose every toolset, or pick just the toolsets you want, like
   `--toolsets=scene,project`. `godai mcp toolsets` lists the toolsets and the tools in each.
 
 Updating the Godai CLI
