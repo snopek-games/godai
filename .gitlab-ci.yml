@@ -34,8 +34,11 @@ go-test:
   script:
     - go version
     - go env
+    # Test that we can build without the "selfupdate" tag.
+    # Everywhere else, we always test and build with that tag enabled.
+    - go build ./...
     # -short skips the functional tests, which the godot-test job runs.
-    - go test -short ./...
+    - go test -tags selfupdate -short ./...
 
 godot-test:
   stage: test
@@ -103,7 +106,9 @@ cli-build:
     - mkdir -p dist/cli/${CLI_ASSET_NAME}-${VARIANT}
 
     - echo "Building for GOOS=$GOOS GOARCH=$GOARCH"
-    - GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags="-s -w" -o "dist/cli/${CLI_ASSET_NAME}-${VARIANT}/${CLI_BIN_NAME}${EXT}" "$CLI_MAIN_PKG"
+    - GOOS="$GOOS" GOARCH="$GOARCH" go build -tags selfupdate -trimpath -ldflags="-s -w" -o "dist/cli/${CLI_ASSET_NAME}-${VARIANT}/${CLI_BIN_NAME}${EXT}" "$CLI_MAIN_PKG"
+    # Official binaries must have self-update; a build that lost the tag would strand every user on this release.
+    - go version -m "dist/cli/${CLI_ASSET_NAME}-${VARIANT}/${CLI_BIN_NAME}${EXT}" | grep -E -- '-tags=([^,]+,)*selfupdate(,|$)'
     - cp README.md LICENSE.txt dist/cli/${CLI_ASSET_NAME}-${VARIANT}
   artifacts:
     when: always

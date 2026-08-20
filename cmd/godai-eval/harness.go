@@ -257,7 +257,7 @@ func defaultTranscriptDir(out string) string {
 // godai is on PATH.
 func buildGodai() (string, error) {
 	bin := filepath.Join(os.TempDir(), fmt.Sprintf("godai-eval-bin-%d", os.Getpid()))
-	build := exec.Command("go", "build", "-o", bin, "./cmd/godai")
+	build := exec.Command("go", "build", "-tags", "selfupdate", "-o", bin, "./cmd/godai")
 	if out, err := build.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("build godai: %v: %s", err, out)
 	}

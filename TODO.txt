@@ -7,9 +7,6 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- CLI: Disable `godai self-update` when installed via `go install`
-  - Maybe we disable self update by default, but then enable it via a build tag in our CI builds?
-  - That way custom builds and `go install` won't have self update
 - CLI: Test thoroughly on Windows and MacOS!
 - CLI: XDG_* vars only work to isolate tests on Linux -- we need something that'll work on MacOS (and maybe Windows?) too
 - Mirror project to GitHub via CI?

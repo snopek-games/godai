@@ -23,7 +23,7 @@ type updateAvailableParams struct {
 // connected editors about it, so the Godai panel can mention it. Editors that
 // connect later are told by onEditorConnect().
 func (s *Session) CheckForUpdate(ctx context.Context) {
-	if s.config.UpdateCheckInterval <= 0 {
+	if !selfupdate.Enabled || s.config.UpdateCheckInterval <= 0 {
 		return
 	}
 

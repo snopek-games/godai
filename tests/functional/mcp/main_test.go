@@ -269,7 +269,7 @@ func startServerWithClient(xdgBase string, args, extraEnv []string, verbose bool
 
 func buildServer(dir string) (string, error) {
 	binPath := filepath.Join(dir, "godai")
-	args := []string{"build"}
+	args := []string{"build", "-tags", "selfupdate"}
 	if coverDir != "" {
 		args = append(args, "-cover", "-coverpkg=gitlab.com/snopek-games/godai/cmd/godai,gitlab.com/snopek-games/godai/internal/...")
 	}

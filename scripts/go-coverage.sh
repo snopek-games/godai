@@ -36,7 +36,7 @@ FUNC_DIR="$WORK/func"
 mkdir -p "$UNIT_DIR" "$FUNC_DIR"
 
 echo ">> unit tests (./internal/...)"
-go test -count=1 -cover -coverpkg="$COVPKG" ./internal/... \
+go test -tags selfupdate -count=1 -cover -coverpkg="$COVPKG" ./internal/... \
 	-args -test.gocoverdir="$UNIT_DIR"
 
 for SUITE in mcp cli; do

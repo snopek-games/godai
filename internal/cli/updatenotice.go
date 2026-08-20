@@ -53,6 +53,9 @@ func PrintUpdateNotice(w io.Writer) {
 }
 
 func shouldCheckForUpdates(cmd *cli.Command) bool {
+	if !selfupdate.Enabled {
+		return false
+	}
 	if noticeSkipCommands[cmd.Args().First()] {
 		return false
 	}

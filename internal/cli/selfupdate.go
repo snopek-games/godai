@@ -1,3 +1,5 @@
+//go:build selfupdate
+
 package cli
 
 import (

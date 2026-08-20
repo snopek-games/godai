@@ -137,12 +137,12 @@ sed -i 's/^version=".*"$/version="<version>"/' addons/godai/plugin.cfg
 # Build the binaries for all platforms, the same way CI does (clearing the
 # output first, so a stale binary can't get published):
 rm -rf dist/cli
-CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-linux-x86_64/godai ./cmd/godai/
-CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-linux-arm64/godai ./cmd/godai/
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-windows-x86_64/godai.exe ./cmd/godai/
-CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-windows-arm64/godai.exe ./cmd/godai/
-CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-macos-arm64/godai ./cmd/godai/
-CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-macos-x86_64/godai ./cmd/godai/
+CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -tags selfupdate -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-linux-x86_64/godai ./cmd/godai/
+CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -tags selfupdate -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-linux-arm64/godai ./cmd/godai/
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags selfupdate -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-windows-x86_64/godai.exe ./cmd/godai/
+CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -tags selfupdate -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-windows-arm64/godai.exe ./cmd/godai/
+CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -tags selfupdate -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-macos-arm64/godai ./cmd/godai/
+CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -tags selfupdate -trimpath -ldflags="-s -w" -o dist/cli/godai-cli-macos-x86_64/godai ./cmd/godai/
 
 # Generate the npm packages with the right version stamped in
 # (npm never allows re-publishing a version, even a deleted one):
