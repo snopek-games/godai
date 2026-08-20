@@ -9,6 +9,13 @@ For a 1.0
 
 - CLI: Test thoroughly on Windows and MacOS!
 - CLI: XDG_* vars only work to isolate tests on Linux -- we need something that'll work on MacOS (and maybe Windows?) too
+- CLI: Add `et` alias for `editor-tool`
+- CLI: `godai mcp setup`
+  - Should we ask about setting up for user or project for the command (`--scope=user|project`)?
+  - Should we mark all tools as approved (since we have our own approval)?
+- MCP: Sending wrong version to addon? Seems to want to use the Claude version, although, how have we not hit this before?
+- CLI: Color doesn't work in Powershell on Windows (should automatically disable it)
+- CLI: Need more detailed error for `godai project install-addon` (failing for me on Windows)
 - Mirror project to GitHub via CI?
 - Add to MCP Registry
   - https://registry.modelcontextprotocol.io/
