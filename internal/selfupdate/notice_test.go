@@ -15,7 +15,7 @@ func noticeOutput(t *testing.T, updater *Updater, currentVersion, cachePath stri
 
 	buf := &bytes.Buffer{}
 	check := startNoticeCheck(updater, nil, currentVersion, cachePath)
-	check.PrintNotice(buf, 5*time.Second)
+	check.PrintNotice(buf, 5*time.Second, false)
 	return buf.String()
 }
 
@@ -85,6 +85,6 @@ func TestNoticeAbandonsASlowCheck(t *testing.T) {
 	check := &NoticeCheck{outcome: make(chan noticeOutcome)}
 
 	buf := &bytes.Buffer{}
-	check.PrintNotice(buf, time.Millisecond)
+	check.PrintNotice(buf, time.Millisecond, false)
 	is.Equal(buf.String(), "")
 }

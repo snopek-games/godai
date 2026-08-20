@@ -56,8 +56,12 @@ func Build(schema json.RawMessage) ([]cli.Flag, []Spec, error) {
 	}
 	sort.Strings(names)
 
-	flags := make([]cli.Flag, 0, len(names))
-	specs := make([]Spec, 0, len(names))
+	type parsedProperty struct {
+		spec   Spec
+		schema propertySchema
+	}
+
+	properties := make([]parsedProperty, 0, len(names))
 	claimed := map[string]string{}
 
 	for _, name := range names {
@@ -83,17 +87,49 @@ func Build(schema json.RawMessage) ([]cli.Flag, []Spec, error) {
 		}
 		claimed[spec.Flag] = name
 
-		flags = append(flags, newFlag(spec, property))
-		specs = append(specs, spec)
+		properties = append(properties, parsedProperty{spec, property})
+	}
+
+	flags := make([]cli.Flag, 0, len(properties))
+	specs := make([]Spec, 0, len(properties))
+
+	// Aliases come in a second pass so every property has claimed its flag before any singular is checked against them.
+	for _, p := range properties {
+		aliases := aliasesFor(p.spec)
+		if singular := singularAlias(p.spec); singular != "" {
+			if other, taken := claimed[singular]; taken {
+				return nil, nil, fmt.Errorf("property %q needs --%s as its singular alias, but %q already claims it; rename one of them", p.spec.Property, singular, other)
+			}
+			claimed[singular] = p.spec.Property
+			aliases = append(aliases, singular)
+		}
+
+		flags = append(flags, newFlag(p.spec, p.schema, aliases))
+		specs = append(specs, p.spec)
 	}
 
 	return flags, specs, nil
+}
+
+// Repeatable flags also answer to the singular of their name, since each occurrence sets exactly one value.
+func singularAlias(spec Spec) string {
+	if spec.Kind != KindStringList && spec.Kind != KindStringMap {
+		return ""
+	}
+	switch {
+	case strings.HasSuffix(spec.Flag, "ies"):
+		return strings.TrimSuffix(spec.Flag, "ies") + "y"
+	case len(spec.Flag) > 1 && strings.HasSuffix(spec.Flag, "s") && !strings.HasSuffix(spec.Flag, "ss"):
+		return strings.TrimSuffix(spec.Flag, "s")
+	}
+	return ""
 }
 
 type propertySchema struct {
 	Type        string   `json:"type"`
 	Description string   `json:"description"`
 	Enum        []string `json:"enum"`
+	Default     any      `json:"default"`
 	Items       *struct {
 		Type string `json:"type"`
 	} `json:"items"`
@@ -135,7 +171,7 @@ func aliasesFor(spec Spec) []string {
 	return []string{spec.Property}
 }
 
-func newFlag(spec Spec, property propertySchema) cli.Flag {
+func newFlag(spec Spec, property propertySchema, aliases []string) cli.Flag {
 	// The schemas mark up code in backticks, which urfave/cli would take as
 	// the flag's value placeholder ("--nodes MyMesh:mesh").
 	usage := strings.ReplaceAll(property.Description, "`", "")
@@ -144,33 +180,34 @@ func newFlag(spec Spec, property propertySchema) cli.Flag {
 	}
 
 	switch spec.Kind {
-	case KindStringList:
-		usage = appendHint(usage, "repeatable")
 	case KindStringMap:
-		usage = appendHint(usage, "KEY=VALUE, repeatable")
+		usage = appendHint(usage, "KEY=VALUE")
 	case KindJSON:
 		usage = appendHint(usage, "JSON")
 	}
 
+	if property.Default != nil {
+		usage = appendHint(usage, "default: "+defaultHint(property.Default))
+	}
 	if spec.Required {
 		usage = appendHint(usage, "required")
 	}
 
 	switch spec.Kind {
 	case KindBool:
-		return &cli.BoolFlag{Name: spec.Flag, Aliases: aliasesFor(spec), Usage: usage}
+		return &cli.BoolFlag{Name: spec.Flag, Aliases: aliases, Usage: usage}
 	// Collect omits unset flags, so the editor's own default applies: printing
 	// Go's zero value would contradict the schema's description of the default.
 	case KindInt:
-		return &cli.IntFlag{Name: spec.Flag, Aliases: aliasesFor(spec), Usage: usage, HideDefault: true}
+		return &cli.IntFlag{Name: spec.Flag, Aliases: aliases, Usage: usage, HideDefault: true}
 	case KindNumber:
-		return &cli.FloatFlag{Name: spec.Flag, Aliases: aliasesFor(spec), Usage: usage, HideDefault: true}
+		return &cli.FloatFlag{Name: spec.Flag, Aliases: aliases, Usage: usage, HideDefault: true}
 	case KindStringList, KindStringMap:
 		// A slice rather than cli.StringMapFlag: the map flag splits values on
 		// commas, which mangles Godot variant syntax like "Vector2(1, 2)".
-		return &cli.StringSliceFlag{Name: spec.Flag, Aliases: aliasesFor(spec), Usage: usage}
+		return &cli.StringSliceFlag{Name: spec.Flag, Aliases: aliases, Usage: usage}
 	default:
-		return &cli.StringFlag{Name: spec.Flag, Aliases: aliasesFor(spec), Usage: usage}
+		return &cli.StringFlag{Name: spec.Flag, Aliases: aliases, Usage: usage}
 	}
 }
 
@@ -192,6 +229,17 @@ func CheckRequired(specs []Spec, args core.Args) error {
 	default:
 		return fmt.Errorf("missing required arguments: %s", strings.Join(missing, ", "))
 	}
+}
+
+func defaultHint(value any) string {
+	if s, ok := value.(string); ok {
+		return s
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Sprintf("%v", value)
+	}
+	return string(encoded)
 }
 
 func appendHint(usage, hint string) string {

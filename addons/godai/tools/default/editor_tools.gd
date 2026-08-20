@@ -36,11 +36,10 @@ class EditorGetSettings extends DefaultTool:
 		if result.has('error'):
 			return ToolResult.rejected({errors = [result['error']]})
 
-		# Only has anything to do when 'names' was empty, since named Godai
-		# settings are rejected above.
+		# Underscored (editor-internal) settings are hidden from the full listing but still reachable by name.
 		var settings: Dictionary = result['settings']
 		for name in settings.keys():
-			if GodaiEditorSettings.is_godai_setting(name):
+			if GodaiEditorSettings.is_godai_setting(name) or (names.is_empty() and name.begins_with("_")):
 				settings.erase(name)
 
 		var resolved := { settings = settings }

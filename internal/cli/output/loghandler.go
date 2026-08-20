@@ -50,11 +50,7 @@ func (h *LogHandler) Handle(_ context.Context, record slog.Record) error {
 	line := &strings.Builder{}
 
 	if label, color := levelLabel(record.Level); label != "" {
-		if h.color {
-			fmt.Fprintf(line, "\x1b[%sm%s:\x1b[0m ", color, label)
-		} else {
-			fmt.Fprintf(line, "%s: ", label)
-		}
+		fmt.Fprintf(line, "%s ", Paint(h.color, color, label+":"))
 	}
 
 	line.WriteString(record.Message)
@@ -87,9 +83,9 @@ func (h *LogHandler) writeAttrs(line *strings.Builder, record slog.Record) {
 func levelLabel(level slog.Level) (label, color string) {
 	switch {
 	case level >= slog.LevelError:
-		return "error", "31"
+		return "error", Red
 	case level >= slog.LevelWarn:
-		return "warning", "33"
+		return "warning", Yellow
 	default:
 		return "", ""
 	}

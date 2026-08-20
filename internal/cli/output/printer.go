@@ -9,13 +9,27 @@ import (
 )
 
 type Printer struct {
-	Out  io.Writer
-	Err  io.Writer
-	JSON bool
+	Out      io.Writer
+	Err      io.Writer
+	JSON     bool
+	ColorOut bool
+	ColorErr bool
 }
 
 func NewPrinter(out, errOut io.Writer, asJSON bool) *Printer {
-	return &Printer{Out: out, Err: errOut, JSON: asJSON}
+	return &Printer{
+		Out:      out,
+		Err:      errOut,
+		JSON:     asJSON,
+		ColorOut: !asJSON && colorEnabled(out),
+		ColorErr: colorEnabled(errOut),
+	}
+}
+
+// Paint styles text for the human output stream; the text comes back unchanged
+// when color is off (not a terminal, NO_COLOR, or JSON output).
+func (p *Printer) Paint(code, text string) string {
+	return Paint(p.ColorOut, code, text)
 }
 
 func (p *Printer) Value(v any, human func(w io.Writer) error) error {
@@ -47,11 +61,15 @@ func (p *Printer) Table(headers []string, rows [][]string) error {
 }
 
 func (p *Printer) Note(format string, args ...any) {
-	fmt.Fprintf(p.Err, "note: "+format+"\n", args...)
+	fmt.Fprintf(p.Err, Paint(p.ColorErr, Cyan, "note:")+" "+format+"\n", args...)
 }
 
 func (p *Printer) Warn(format string, args ...any) {
-	fmt.Fprintf(p.Err, "warning: "+format+"\n", args...)
+	fmt.Fprintf(p.Err, Paint(p.ColorErr, Yellow, "warning:")+" "+format+"\n", args...)
+}
+
+func (p *Printer) Error(format string, args ...any) {
+	fmt.Fprintf(p.Err, Paint(p.ColorErr, Red, "error:")+" "+format+"\n", args...)
 }
 
 func (p *Printer) Printf(format string, args ...any) {

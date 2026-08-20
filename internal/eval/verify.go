@@ -92,17 +92,14 @@ func VerifyEditor(ctx context.Context, w *Workspace, spec *Spec) (*VerifyReport,
 		return nil, fmt.Errorf("execute editor_verify.gd: %w", err)
 	}
 
-	var result struct {
-		StructuredContent struct {
-			Success bool     `json:"success"`
-			Output  []string `json:"output"`
-			Errors  []string `json:"errors"`
-		} `json:"structuredContent"`
+	var run struct {
+		Success bool     `json:"success"`
+		Output  []string `json:"output"`
+		Errors  []string `json:"errors"`
 	}
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
+	if err := json.Unmarshal([]byte(out), &run); err != nil {
 		return nil, fmt.Errorf("bad editor-tool JSON: %w: %s", err, tail(out, 800))
 	}
-	run := result.StructuredContent
 	if len(run.Errors) > 0 {
 		return nil, fmt.Errorf("editor_verify.gd: %s", strings.Join(run.Errors, "; "))
 	}

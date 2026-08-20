@@ -23,7 +23,7 @@ func fakeGodai(t *testing.T, script string) *Workspace {
 func TestVerifyEditorParsesTheReportOutOfTheScriptOutput(t *testing.T) {
 	is := is.New(t)
 
-	w := fakeGodai(t, `echo '{"structuredContent":{"success":true,"output":["noise","GODAI_VERIFY_JSON:{\"passed\":false,\"checks_passed\":1,\"checks_total\":2,\"checks\":[{\"name\":\"a\",\"ok\":true},{\"name\":\"b\",\"ok\":false,\"detail\":\"nope\"}]}"]}}'`)
+	w := fakeGodai(t, `echo '{"success":true,"output":["noise","GODAI_VERIFY_JSON:{\"passed\":false,\"checks_passed\":1,\"checks_total\":2,\"checks\":[{\"name\":\"a\",\"ok\":true},{\"name\":\"b\",\"ok\":false,\"detail\":\"nope\"}]}"]}'`)
 
 	rep, err := VerifyEditor(context.Background(), w, &Spec{Dir: w.Root})
 	is.NoErr(err)
@@ -46,7 +46,7 @@ func TestVerifyEditorSurfacesStderrWhenGodaiFails(t *testing.T) {
 func TestVerifyEditorFailsWhenTheScriptPrintsNoReport(t *testing.T) {
 	is := is.New(t)
 
-	w := fakeGodai(t, `echo '{"structuredContent":{"success":true,"output":["just some prints"]}}'`)
+	w := fakeGodai(t, `echo '{"success":true,"output":["just some prints"]}'`)
 
 	_, err := VerifyEditor(context.Background(), w, &Spec{Dir: w.Root})
 	is.True(err != nil)

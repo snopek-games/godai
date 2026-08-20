@@ -14,10 +14,15 @@ func TestAddNode(t *testing.T) {
 		"root_node_type": "Node2D",
 	})
 
-	t.Run("missing_parent_path", func(t *testing.T) {
-		callToolErr(t, "add_node", map[string]any{
-			"node_type": "Node2D",
-		}, "'parent_path' is required")
+	t.Run("default_parent_path_is_the_scene_root", func(t *testing.T) {
+		is := is.New(t)
+
+		structured := callToolOK(t, "add_node", map[string]any{
+			"node_type":  "Node2D",
+			"properties": map[string]any{"name": "DefaultParentChild"},
+		})
+		is.Equal(structured["success"], true)
+		is.Equal(structured["node_path"], "DefaultParentChild")
 	})
 
 	t.Run("missing_node_type", func(t *testing.T) {

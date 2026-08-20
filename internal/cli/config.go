@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"gitlab.com/snopek-games/godai/internal/cli/output"
 	"gitlab.com/snopek-games/godai/internal/core"
 
 	"github.com/urfave/cli/v3"
@@ -159,7 +160,7 @@ func runConfigInit(ctx context.Context, cmd *cli.Command, session *core.Session)
 	}
 
 	out := printer(cmd)
-	out.Printf("\nSaved to %s\n\n", configPathOrDefault(session.Config().SavedConfigPath))
+	out.Printf("\nSaved to %s\n\n", out.Paint(output.Cyan, configPathOrDefault(session.Config().SavedConfigPath)))
 	return printConfig(out, session.GetConfig())
 }
 

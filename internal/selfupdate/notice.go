@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"gitlab.com/snopek-games/godai/internal/cli/output"
 )
 
 const noticeCheckTimeout = 10 * time.Second
@@ -57,7 +59,7 @@ func startNoticeCheck(updater *Updater, err error, currentVersion, cachePath str
 
 // A check that hasn't finished within grace is abandoned; its result still
 // lands in the cache for a later command to report.
-func (n *NoticeCheck) PrintNotice(w io.Writer, grace time.Duration) {
+func (n *NoticeCheck) PrintNotice(w io.Writer, grace time.Duration, color bool) {
 	var outcome noticeOutcome
 	select {
 	case outcome = <-n.outcome:
@@ -74,7 +76,7 @@ func (n *NoticeCheck) PrintNotice(w io.Writer, grace time.Duration) {
 		}
 		cache.WarnedAt = now
 		storeCheckCache(n.cachePath, cache)
-		fmt.Fprintf(w, "\nwarning: unable to check for godai updates: %v\n", outcome.err)
+		fmt.Fprintf(w, "\n%s unable to check for godai updates: %v\n", output.Paint(color, output.Yellow, "warning:"), outcome.err)
 		return
 	}
 
@@ -94,5 +96,5 @@ func (n *NoticeCheck) PrintNotice(w io.Writer, grace time.Duration) {
 	if exePath, err := ExecutablePath(); err == nil {
 		instruction = InstallInstruction(exePath)
 	}
-	fmt.Fprintf(w, "\ngodai %s is available (currently running %s); %s\n", latest, n.currentVersion, instruction)
+	fmt.Fprintf(w, "\ngodai %s is available (currently running %s); %s\n", output.Paint(color, output.Cyan, latest), output.Paint(color, output.Cyan, n.currentVersion), instruction)
 }

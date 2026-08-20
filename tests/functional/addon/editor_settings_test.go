@@ -45,6 +45,22 @@ func TestEditorSettings(t *testing.T) {
 		is.True(len(allSettings) > len(modified))
 		_, ok := allSettings[editorSettingName]
 		is.True(ok)
+
+		for name := range allSettings {
+			if strings.HasPrefix(name, "_") {
+				t.Errorf("listing includes the editor-internal setting %q", name)
+			}
+		}
+	})
+
+	t.Run("get_underscored_by_name", func(t *testing.T) {
+		is := is.New(t)
+
+		structured := callToolOK(t, "get_editor_settings", map[string]any{
+			"names": []string{"_editor_settings_advanced_mode"},
+		})
+		settings, _ := structured["settings"].(map[string]any)
+		is.Equal(len(settings), 1)
 	})
 
 	t.Run("set_roundtrip", func(t *testing.T) {

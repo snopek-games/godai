@@ -350,10 +350,15 @@ func TestInstantiateScene(t *testing.T) {
 		}, "is not a scene")
 	})
 
-	t.Run("missing_parent_path", func(t *testing.T) {
-		callToolErr(t, "instantiate_scene", map[string]any{
+	t.Run("default_parent_path_is_the_scene_root", func(t *testing.T) {
+		is := is.New(t)
+
+		structured := callToolOK(t, "instantiate_scene", map[string]any{
 			"scene_path": "res://scenes/instance_source.tscn",
-		}, "'parent_path' is required")
+			"name":       "DefaultParentInstance",
+		})
+		is.Equal(structured["success"], true)
+		is.Equal(structured["node_path"], "DefaultParentInstance")
 	})
 
 	t.Run("missing_scene_path", func(t *testing.T) {

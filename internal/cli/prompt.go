@@ -3,16 +3,26 @@ package cli
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
 
+	"gitlab.com/snopek-games/godai/internal/cli/output"
 	"gitlab.com/snopek-games/godai/internal/core"
 
 	"github.com/urfave/cli/v3"
 	"golang.org/x/term"
 )
+
+func promptText(s string) string {
+	return output.Paint(useColor(), output.Green, s)
+}
+
+func hintText(s string) string {
+	return output.Paint(useColor(), output.Dim, s)
+}
 
 func newPrompter(cmd *cli.Command) core.Prompter {
 	if cmd.Bool("no-input") || !isInteractive() {
@@ -40,7 +50,7 @@ func (p *ttyPrompter) Prompt(ctx context.Context, message string, schema map[str
 		return nil, fmt.Errorf("prompt schema has no properties")
 	}
 
-	fmt.Fprintf(os.Stderr, "\n%s\n", message)
+	fmt.Fprintf(os.Stderr, "\n%s\n", promptText(message))
 
 	required := requiredFields(schema)
 	reader := bufio.NewReader(os.Stdin)
@@ -72,11 +82,19 @@ func (p *ttyPrompter) ask(reader *bufio.Reader, name string, field map[string]an
 	}
 
 	if description != "" {
-		fmt.Fprintf(os.Stderr, "\n  %s\n", description)
+		fmt.Fprintf(os.Stderr, "\n  %s\n", promptText(description))
+	}
+
+	if allowed := enumValues(field["enum"]); len(allowed) > 0 && fieldType != "boolean" {
+		defaultText, _ := defaultValue.(string)
+		choice, err := selectFromList(name, allowed, defaultText)
+		if !errors.Is(err, errNoRawTerminal) {
+			return choice, err
+		}
 	}
 
 	for {
-		fmt.Fprintf(os.Stderr, "  %s%s: ", name, promptSuffix(fieldType, defaultValue, field["enum"]))
+		fmt.Fprintf(os.Stderr, "%s ", promptText(fmt.Sprintf("  %s%s:", name, promptSuffix(fieldType, defaultValue, field["enum"]))))
 
 		line, err := reader.ReadString('\n')
 		if err != nil && line == "" {
@@ -89,7 +107,7 @@ func (p *ttyPrompter) ask(reader *bufio.Reader, name string, field map[string]an
 				return defaultValue, nil
 			}
 			if required {
-				fmt.Fprintln(os.Stderr, "  (required)")
+				fmt.Fprintln(os.Stderr, hintText("  (required)"))
 				continue
 			}
 			return nil, nil
@@ -102,13 +120,13 @@ func (p *ttyPrompter) ask(reader *bufio.Reader, name string, field map[string]an
 			case "n", "no", "false":
 				return false, nil
 			default:
-				fmt.Fprintln(os.Stderr, "  (please answer y or n)")
+				fmt.Fprintln(os.Stderr, hintText("  (please answer y or n)"))
 				continue
 			}
 		}
 
 		if allowed := enumValues(field["enum"]); len(allowed) > 0 && !contains(allowed, answer) {
-			fmt.Fprintf(os.Stderr, "  (must be one of: %s)\n", strings.Join(allowed, ", "))
+			fmt.Fprintln(os.Stderr, hintText(fmt.Sprintf("  (must be one of: %s)", strings.Join(allowed, ", "))))
 			continue
 		}
 

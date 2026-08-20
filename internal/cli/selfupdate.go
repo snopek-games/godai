@@ -3,10 +3,11 @@ package cli
 import (
 	"context"
 	"errors"
-	"fmt"
+	"io"
 	"log/slog"
 	"os"
 
+	"gitlab.com/snopek-games/godai/internal/cli/output"
 	"gitlab.com/snopek-games/godai/internal/core"
 	"gitlab.com/snopek-games/godai/internal/selfupdate"
 
@@ -62,8 +63,10 @@ func runSelfUpdate(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
+	out := printer(cmd)
+
 	if rollback {
-		return runRollback(exePath)
+		return runRollback(out, exePath)
 	}
 
 	if !check {
@@ -73,8 +76,7 @@ func runSelfUpdate(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	if allowUnverified {
-		fmt.Fprintln(os.Stderr,
-			"DANGER: --dangerously-allow-unverified is set, so the download will be installed without checking it against the release checksums")
+		out.Warn("--dangerously-allow-unverified is set, so the download will be installed without checking it against the release checksums")
 	}
 
 	updater, err := selfupdate.New(selfupdate.Config{
@@ -86,7 +88,7 @@ func runSelfUpdate(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	if check {
-		return runCheck(ctx, cmd, updater, exePath)
+		return runCheck(ctx, cmd, out, updater, exePath)
 	}
 
 	release, err := updater.DetectLatest(ctx)
@@ -94,30 +96,46 @@ func runSelfUpdate(ctx context.Context, cmd *cli.Command) error {
 		// No installable release at all means there's nothing newer, the same
 		// way CheckCached treats it - not something to bother the user about.
 		if errors.Is(err, selfupdate.ErrNoRelease) {
-			fmt.Printf("godai %s is up-to-date\n", core.Version)
-			return nil
+			return printUpToDate(out, "")
 		}
 		return err
 	}
 
 	if !updater.IsNewer(release) {
-		fmt.Printf("godai %s is up-to-date\n", core.Version)
-		return nil
+		return printUpToDate(out, release.Version.String())
 	}
 
-	fmt.Printf("updating %s to godai %s ...\n", exePath, release.Version)
+	out.Printf("updating %s to godai %s ...\n", exePath, out.Paint(output.Cyan, release.Version.String()))
 
 	backupPath, err := updater.Update(ctx, release, exePath)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("updated %s to godai %s\n", exePath, release.Version)
-	fmt.Printf("the previous version was kept at %s; run '%s self-update --rollback' to restore it\n", backupPath, exePath)
-	return nil
+	return out.Value(struct {
+		Previous   string `json:"previous"`
+		Version    string `json:"version"`
+		Path       string `json:"path"`
+		BackupPath string `json:"backup_path"`
+	}{core.Version, release.Version.String(), exePath, backupPath}, func(io.Writer) error {
+		out.Printf("updated %s to godai %s\n", exePath, out.Paint(output.Cyan, release.Version.String()))
+		out.Printf("the previous version was kept at %s; run '%s' to restore it\n", backupPath, out.Paint(output.BoldCyan, exePath+" self-update --rollback"))
+		return nil
+	})
 }
 
-func runCheck(ctx context.Context, cmd *cli.Command, updater *selfupdate.Updater, exePath string) error {
+func printUpToDate(out *Printer, latest string) error {
+	return out.Value(struct {
+		Current string `json:"current"`
+		Latest  string `json:"latest,omitempty"`
+		Newer   bool   `json:"newer"`
+	}{core.Version, latest, false}, func(io.Writer) error {
+		out.Printf("godai %s is up-to-date\n", out.Paint(output.Cyan, core.Version))
+		return nil
+	})
+}
+
+func runCheck(ctx context.Context, cmd *cli.Command, out *Printer, updater *selfupdate.Updater, exePath string) error {
 	cachePath, err := core.GetUpdateCheckCachePath()
 	if err != nil {
 		return err
@@ -134,21 +152,35 @@ func runCheck(ctx context.Context, cmd *cli.Command, updater *selfupdate.Updater
 	}
 
 	if !newer {
-		fmt.Printf("godai %s is up-to-date\n", core.Version)
-		return nil
+		// A cached "nothing newer" carries no release, leaving latest zero.
+		if latest == (selfupdate.Version{}) {
+			return printUpToDate(out, "")
+		}
+		return printUpToDate(out, latest.String())
 	}
 
-	fmt.Printf("godai %s is available (currently running %s)\n", latest, core.Version)
-	fmt.Printf("%s\n", selfupdate.InstallInstruction(exePath))
-	return nil
+	return out.Value(struct {
+		Current string `json:"current"`
+		Latest  string `json:"latest"`
+		Newer   bool   `json:"newer"`
+	}{core.Version, latest.String(), true}, func(io.Writer) error {
+		out.Printf("godai %s is available (currently running %s)\n", out.Paint(output.Cyan, latest.String()), out.Paint(output.Cyan, core.Version))
+		out.Printf("%s\n", selfupdate.InstallInstruction(exePath))
+		return nil
+	})
 }
 
-func runRollback(exePath string) error {
+func runRollback(out *Printer, exePath string) error {
 	if err := selfupdate.Rollback(exePath); err != nil {
 		return err
 	}
 
-	fmt.Printf("restored the previous version of %s\n", exePath)
-	fmt.Printf("run '%s --version' to see which version is installed now, or 'self-update --rollback' again to undo this\n", exePath)
-	return nil
+	return out.Value(struct {
+		RolledBack bool   `json:"rolled_back"`
+		Path       string `json:"path"`
+	}{true, exePath}, func(io.Writer) error {
+		out.Printf("restored the previous version of %s\n", exePath)
+		out.Printf("run '%s' to see which version is installed now, or '%s' again to undo this\n", out.Paint(output.BoldCyan, exePath+" --version"), out.Paint(output.BoldCyan, "self-update --rollback"))
+		return nil
+	})
 }

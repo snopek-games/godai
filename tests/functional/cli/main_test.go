@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -93,6 +92,11 @@ func testMain(m *testing.M) int {
 		return 1
 	}
 
+	if err := setupExitCodeTests(base); err != nil {
+		fmt.Fprintf(os.Stderr, "FAIL: setting up the exit code tests: %v\n", err)
+		return 1
+	}
+
 	// The editor writes its instance file under the XDG dirs the harness points
 	// into the project, which is where --editor-instances-path sends the CLI
 	// looking. Nothing touches the real ~/.cache.
@@ -154,8 +158,8 @@ func waitForInstanceFile(timeout time.Duration) error {
 	return fmt.Errorf("the editor never wrote an instance file to %s", instancesDir)
 }
 
-// Builds a godai command that runs from inside the project, the way the README
-// says you can once you've cd'd there.
+// Builds a godai command that runs from inside the project, the way the demo
+// does once it's cd'd there, so `--project-path` can be dropped.
 func command(args ...string) *exec.Cmd {
 	cmd := exec.Command(godaiBin, append([]string{
 		"--root", filepath.Dir(projectPath),
@@ -178,26 +182,4 @@ func godai(t *testing.T, args ...string) string {
 		t.Fatalf("godai %v: %v\n%s", args, err, out)
 	}
 	return string(out)
-}
-
-// Runs the godai binary expecting it to fail, and returns what it printed.
-func godaiErr(t *testing.T, args ...string) string {
-	t.Helper()
-
-	out, err := command(args...).CombinedOutput()
-	if err == nil {
-		t.Fatalf("godai %v should have failed, but printed:\n%s", args, out)
-	}
-	return string(out)
-}
-
-// Parses the JSON a tool printed.
-func decode(t *testing.T, out string) map[string]any {
-	t.Helper()
-
-	var parsed map[string]any
-	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
-		t.Fatalf("parsing tool output: %v\nin:\n%s", err, out)
-	}
-	return parsed
 }

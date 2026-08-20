@@ -188,6 +188,78 @@ func TestCollectAcceptsSnakeCaseAlias(t *testing.T) {
 	is.Equal(string(args["node_path"]), `"/root/Player"`)
 }
 
+func TestCollectAcceptsSingularAliasForRepeatableFlags(t *testing.T) {
+	is := is.New(t)
+
+	const schema = `{
+		"type": "object",
+		"properties": {
+			"node_paths": {"type": "array", "items": {"type": "string"}},
+			"properties": {"type": "object", "additionalProperties": {"type": "string"}}
+		}
+	}`
+
+	args := collect(t, schema,
+		"--node-path", "Player", "--node-path", "Enemy",
+		"--property", "speed=1.0")
+
+	is.Equal(string(args["node_paths"]), `["Player","Enemy"]`)
+	is.Equal(string(args["properties"]), `{"speed":"1.0"}`)
+}
+
+func TestSingularAliasSkipsNonRepeatableFlags(t *testing.T) {
+	is := is.New(t)
+
+	const schema = `{
+		"type": "object",
+		"properties": {
+			"status":  {"type": "string"},
+			"filters": {"type": "array", "items": {"type": "string"}}
+		}
+	}`
+
+	flags, _, err := Build(json.RawMessage(schema))
+	is.NoErr(err)
+
+	aliases := map[string]bool{}
+	for _, flag := range flags {
+		for _, name := range flag.Names() {
+			aliases[name] = true
+		}
+	}
+
+	is.True(aliases["filter"])
+	is.True(!aliases["statu"])
+}
+
+// A naming collision is a schema problem to fix, not something to quietly work around.
+func TestSingularAliasCollisionIsAnError(t *testing.T) {
+	is := is.New(t)
+
+	_, _, err := Build(json.RawMessage(`{
+		"type": "object",
+		"properties": {
+			"name":  {"type": "string"},
+			"names": {"type": "array", "items": {"type": "string"}}
+		}
+	}`))
+	is.True(err != nil)
+	is.True(strings.Contains(err.Error(), "--name"))
+	is.True(strings.Contains(err.Error(), "singular"))
+}
+
+func TestSchemaDefaultShowsInUsage(t *testing.T) {
+	is := is.New(t)
+
+	flags, _, err := Build(json.RawMessage(
+		`{"type":"object","properties":{"parent_path":{"type":"string","default":"."}}}`))
+	is.NoErr(err)
+
+	doc, ok := flags[0].(cli.DocGenerationFlag)
+	is.True(ok)
+	is.True(strings.Contains(doc.GetUsage(), "(default: .)"))
+}
+
 func TestCollectRejectsInvalidJSON(t *testing.T) {
 	is := is.New(t)
 

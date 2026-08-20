@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"gitlab.com/snopek-games/godai/internal/cli/output"
+
 	"github.com/urfave/cli/v3"
 	"golang.org/x/term"
 )
@@ -25,55 +27,148 @@ const bulletMarker = "- "
 // default width of 10000 characters, so nothing ever wraps.
 func wrapHelp() {
 	cli.HelpPrinter = func(out io.Writer, templ string, data any) {
-		cli.HelpPrinterCustom(out, templ, data, map[string]any{"wrap": wrapHelpText})
+		cli.HelpPrinterCustom(out, templ, data, map[string]any{
+			"wrap":       wrapHelpText,
+			"heading":    helpHeading,
+			"subheading": helpSubheading,
+		})
 	}
 }
 
-// Both templates are copies of urfave/cli v3.6.1's, differing only in the
-// trailing section: a pointer to the root help instead of every global option.
-const commandHelpTemplate = `NAME:
+// Help goes to stdout, so the stderr-oriented useColor() doesn't apply.
+func helpColor() bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+func helpHeading(text string) string {
+	return output.Paint(helpColor(), output.BoldCyan, text)
+}
+
+func helpSubheading(text string) string {
+	return output.Paint(helpColor(), output.Cyan, text)
+}
+
+// The templates are copies of urfave/cli's, differing in the trailing section
+// (a pointer to the root help instead of every global option), the colored
+// headings, and the COMMANDS list, which groups by category and lists each
+// command under its primary name alone, keeping aliases out of the column.
+const commandHelpTemplate = `{{heading "NAME:"}}
    {{template "helpNameTemplate" .}}
 
-USAGE:
+{{heading "USAGE:"}}
    {{template "usageTemplate" .}}{{if .Category}}
 
-CATEGORY:
+{{heading "CATEGORY:"}}
    {{.Category}}{{end}}{{if .Description}}
 
-DESCRIPTION:
+{{heading "DESCRIPTION:"}}
    {{template "descriptionTemplate" .}}{{end}}{{if .VisibleFlagCategories}}
 
-OPTIONS:{{template "visibleFlagCategoryTemplate" .}}{{else if .VisibleFlags}}
+{{heading "OPTIONS:"}}{{template "visibleFlagCategoryTemplate" .}}{{else if .VisibleFlags}}
 
-OPTIONS:{{template "visibleFlagTemplate" .}}{{end}}{{if .VisiblePersistentFlags}}
+{{heading "OPTIONS:"}}{{template "visibleFlagTemplate" .}}{{end}}{{if .VisiblePersistentFlags}}
 
 Global options also apply; run '{{.Root.Name}} --help' to list them.{{end}}
 `
 
-const subcommandHelpTemplate = `NAME:
+const subcommandHelpTemplate = `{{heading "NAME:"}}
    {{template "helpNameTemplate" .}}
 
-USAGE:
+{{heading "USAGE:"}}
    {{if .UsageText}}{{wrap .UsageText 3}}{{else}}{{.FullName}}{{if .VisibleCommands}} [command [command options]]{{end}}{{if .ArgsUsage}} {{.ArgsUsage}}{{else}}{{if .Arguments}} [arguments...]{{end}}{{end}}{{end}}{{if .Category}}
 
-CATEGORY:
+{{heading "CATEGORY:"}}
    {{.Category}}{{end}}{{if .Description}}
 
-DESCRIPTION:
+{{heading "DESCRIPTION:"}}
    {{template "descriptionTemplate" .}}{{end}}{{if .VisibleCommands}}
 
-COMMANDS:{{template "visibleCommandTemplate" .}}{{end}}{{if .VisibleFlagCategories}}
+{{heading "COMMANDS:"}}{{range .VisibleCategories}}{{if .Name}}
 
-OPTIONS:{{template "visibleFlagCategoryTemplate" .}}{{else if .VisibleFlags}}
+   {{subheading (printf "%s:" .Name)}}{{range .VisibleCommands}}
+     {{index .Names 0}}{{"\t"}}{{.Usage}}{{end}}{{else}}{{range .VisibleCommands}}
+   {{index .Names 0}}{{"\t"}}{{.Usage}}{{end}}{{end}}{{end}}{{end}}{{if .VisibleFlagCategories}}
 
-OPTIONS:{{template "visibleFlagTemplate" .}}{{end}}{{if .VisiblePersistentFlags}}
+{{heading "OPTIONS:"}}{{template "visibleFlagCategoryTemplate" .}}{{else if .VisibleFlags}}
+
+{{heading "OPTIONS:"}}{{template "visibleFlagTemplate" .}}{{end}}{{if .VisiblePersistentFlags}}
 
 Global options also apply; run '{{.Root.Name}} --help' to list them.{{end}}
+`
+
+const rootHelpTemplate = `{{heading "NAME:"}}
+   {{template "helpNameTemplate" .}}
+
+{{heading "USAGE:"}}
+   {{if .UsageText}}{{wrap .UsageText 3}}{{else}}{{.FullName}} {{if .VisibleFlags}}[global options]{{end}}{{if .VisibleCommands}} [command [command options]]{{end}}{{if .ArgsUsage}} {{.ArgsUsage}}{{else}}{{if .Arguments}} [arguments...]{{end}}{{end}}{{end}}{{if .Version}}{{if not .HideVersion}}
+
+{{heading "VERSION:"}}
+   {{.Version}}{{end}}{{end}}{{if .Description}}
+
+{{heading "DESCRIPTION:"}}
+   {{template "descriptionTemplate" .}}{{end}}{{if .VisibleCommands}}
+
+{{heading "COMMANDS:"}}{{template "visibleCommandTemplate" .}}{{end}}{{if .VisibleFlagCategories}}
+
+{{heading "GLOBAL OPTIONS:"}}{{range .VisibleFlagCategories}}
+   {{if .Name}}{{subheading .Name}}
+
+   {{end}}{{$flglen := len .Flags}}{{range $i, $e := .Flags}}{{if eq (subtract $flglen $i) 1}}{{$e}}
+{{else}}{{$e}}
+   {{end}}{{end}}{{end}}{{else if .VisibleFlags}}
+
+{{heading "GLOBAL OPTIONS:"}}{{template "visibleFlagTemplate" .}}{{end}}
 `
 
 func trimHelpGlobals() {
+	cli.RootCommandHelpTemplate = rootHelpTemplate
 	cli.CommandHelpTemplate = commandHelpTemplate
 	cli.SubcommandHelpTemplate = subcommandHelpTemplate
+}
+
+var defaultFlagStringer = cli.FlagStringer
+
+func adjustFlagHelp() {
+	cli.FlagStringer = func(flag cli.Flag) string {
+		if doc, ok := flag.(docFlag); ok {
+			return defaultFlagStringer(displayFlag{doc})
+		}
+		return defaultFlagStringer(flag)
+	}
+}
+
+// What the default FlagStringer type-asserts a flag into; every flag urfave/cli ships satisfies it.
+type docFlag interface {
+	cli.Flag
+	cli.DocGenerationMultiValueFlag
+	cli.RequiredFlag
+}
+
+type displayFlag struct{ docFlag }
+
+func (f displayFlag) Names() []string {
+	var names []string
+	for _, name := range f.docFlag.Names() {
+		if !strings.Contains(name, "_") {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func (f displayFlag) IsMultiValueFlag() bool {
+	return false
+}
+
+func (f displayFlag) GetUsage() string {
+	usage := f.docFlag.GetUsage()
+	if f.docFlag.IsMultiValueFlag() {
+		return strings.TrimSpace(usage + " (repeatable)")
+	}
+	return usage
 }
 
 func wrapHelpText(text string, offset int) string {

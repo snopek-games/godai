@@ -49,6 +49,22 @@
 						"type": "boolean",
 						"default": "false"
 					},
+					"cliPositionalArguments": {
+						"description": "Input properties the CLI also accepts as positional arguments, in order. A list-typed property must come last and takes every remaining argument.",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"minItems": 1
+					},
+					"cliResPathArguments": {
+						"description": "Input properties holding res:// paths. The CLI resolves a local file path given for one of these against the working directory and rewrites it to res://, rejecting paths outside the project.",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"minItems": 1
+					},
 					"toolsets": {
 						"type": "array",
 						"items": {

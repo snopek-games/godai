@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"gitlab.com/snopek-games/godai/internal/cli/output"
@@ -26,6 +28,15 @@ const (
 	serverOpenWait    = 30 * time.Second
 )
 
+// Help sorts the groups by name, so these are worded to also read well in
+// alphabetical order.
+const (
+	flagCategoryGodot   = "Choosing a Godot version:"
+	flagCategoryProject = "Choosing a project:"
+	flagCategoryEditor  = "Connecting to the editor:"
+	flagCategoryOutput  = "Output:"
+)
+
 func Root() *cli.Command {
 	godotVersion, godotPath, projectBasePath, configPath := loadDefaults()
 	instancesPath, _ := core.GetInstancesPath()
@@ -37,101 +48,120 @@ func Root() *cli.Command {
 		EnableShellCompletion: true,
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
-				Name:  "root",
-				Usage: "file system path(s) with Godot project(s) that may be used",
+				Name:     "root",
+				Category: flagCategoryProject,
+				Usage:    "file system path(s) with Godot project(s) that may be used",
 			},
 			&cli.BoolFlag{
-				Name:  "global",
-				Usage: "use any Godot editor instance, wherever its project lives",
+				Name:     "global",
+				Category: flagCategoryProject,
+				Usage:    "use any Godot editor instance, wherever its project lives",
 			},
 			&cli.StringFlag{
-				Name:  "godot-version",
-				Usage: "version of Godot to use (see 'godai engine list'), overriding whatever version a project asks for",
-				Value: godotVersion,
+				Name:     "godot-version",
+				Category: flagCategoryGodot,
+				Usage:    "version of Godot to use (see 'godai engine list'), overriding whatever version a project asks for",
+				Value:    godotVersion,
 			},
 			// GODOT is read in loadDefaults() rather than declared as a source,
 			// so that IsSet("godot-path") stays "the user typed this" and an
 			// ambient GODOT doesn't get validated as if they had.
 			&cli.StringFlag{
-				Name:  "godot-path",
-				Usage: "path to a Godot executable, used instead of any configured version [$GODOT]",
-				Value: godotPath,
+				Name:     "godot-path",
+				Category: flagCategoryGodot,
+				Usage:    "path to a Godot executable, used instead of any configured version [$GODOT]",
+				Value:    godotPath,
 			},
 			&cli.BoolFlag{
-				Name:  "no-auto-install",
-				Usage: "don't download a version of Godot a project asks for but doesn't have",
+				Name:     "no-auto-install",
+				Category: flagCategoryGodot,
+				Usage:    "don't download a version of Godot a project asks for but doesn't have",
 			},
 			&cli.StringFlag{
-				Name:  "project-base-path",
-				Usage: "base path where your Godot projects usually live",
-				Value: projectBasePath,
+				Name:     "project-base-path",
+				Category: flagCategoryProject,
+				Usage:    "base path where your Godot projects usually live",
+				Value:    projectBasePath,
 			},
 			&cli.StringFlag{
-				Name:  "editor-instances-path",
-				Usage: "directory where running Godot editors write their instance files",
-				Value: instancesPath,
+				Name:     "editor-instances-path",
+				Category: flagCategoryEditor,
+				Usage:    "directory where running Godot editors write their instance files",
+				Value:    instancesPath,
 			},
 			// The real defaults live in durationFlag, which only applies them
 			// when the flag isn't set, so there's no Value for urfave to print.
 			&cli.FloatFlag{
 				Name:        "editor-scan-interval",
+				Category:    flagCategoryEditor,
 				Usage:       "how often (in seconds) to scan for running Godot editors",
 				DefaultText: secondsText(cliScanInterval),
 			},
 			&cli.FloatFlag{
 				Name:        "editor-retry-delay",
+				Category:    flagCategoryEditor,
 				Usage:       "the delay (in seconds) between attempts to connect to the Godot editor",
 				DefaultText: secondsText(cliRetryDelay),
 			},
 			&cli.FloatFlag{
-				Name:  "editor-timeout",
-				Usage: "the timeout (in seconds) when making a request to the editor",
-				Value: editorTimeout.Seconds(),
+				Name:     "editor-timeout",
+				Category: flagCategoryEditor,
+				Usage:    "the timeout (in seconds) when making a request to the editor",
+				Value:    editorTimeout.Seconds(),
 			},
 			&cli.FloatFlag{
-				Name:  "editor-tool-timeout",
-				Usage: "the timeout (in seconds) when calling a tool in the editor, which may include waiting for the user to approve it",
-				Value: editorToolTimeout.Seconds(),
+				Name:     "editor-tool-timeout",
+				Category: flagCategoryEditor,
+				Usage:    "the timeout (in seconds) when calling a tool in the editor, which may include waiting for the user to approve it",
+				Value:    editorToolTimeout.Seconds(),
 			},
 			&cli.FloatFlag{
-				Name:  "connect-timeout",
-				Usage: "how long (in seconds) to wait for a Godot editor to connect",
-				Value: cliConnectWait.Seconds(),
+				Name:     "connect-timeout",
+				Category: flagCategoryEditor,
+				Usage:    "how long (in seconds) to wait for a Godot editor to connect",
+				Value:    cliConnectWait.Seconds(),
 			},
 			&cli.FloatFlag{
 				Name:        "open-timeout",
+				Category:    flagCategoryEditor,
 				Usage:       "how long (in seconds) to wait for an editor being opened to import its project and connect",
 				Sources:     cli.EnvVars("GODAI_OPEN_TIMEOUT"),
 				DefaultText: secondsText(cliOpenWait),
 			},
 			&cli.StringFlag{
-				Name:    "x11-display",
-				Usage:   "the x11 DISPLAY variable (may be needed on Linux to launch the editor)",
-				Sources: cli.EnvVars("DISPLAY"),
-				Value:   ":0",
+				Name:     "x11-display",
+				Category: flagCategoryEditor,
+				Usage:    "the x11 DISPLAY variable (may be needed on Linux to launch the editor)",
+				Sources:  cli.EnvVars("DISPLAY"),
+				Value:    ":0",
 			},
 			&cli.StringFlag{
-				Name:  "log-file",
-				Usage: "a file to write the log output to",
+				Name:     "log-file",
+				Category: flagCategoryOutput,
+				Usage:    "a file to write the log output to",
 			},
 			&cli.BoolFlag{
-				Name:  "json",
-				Usage: "print results as JSON",
+				Name:     "json",
+				Category: flagCategoryOutput,
+				Usage:    "print results as JSON",
 			},
 			// No -v alias: urfave/cli gives that to --version, and having both
 			// claim it makes which one you get depend on flag order.
 			&cli.BoolFlag{
-				Name:  "verbose",
-				Usage: "print more about what's happening",
+				Name:     "verbose",
+				Category: flagCategoryOutput,
+				Usage:    "print more about what's happening",
 			},
 			&cli.BoolFlag{
-				Name:    "debug",
-				Usage:   "enable debug features and logging",
-				Sources: cli.EnvVars("DEBUG"),
+				Name:     "debug",
+				Category: flagCategoryOutput,
+				Usage:    "enable debug features and logging",
+				Sources:  cli.EnvVars("DEBUG"),
 			},
 			&cli.BoolFlag{
-				Name:  "no-input",
-				Usage: "never prompt, even when there's a terminal to prompt on",
+				Name:     "no-input",
+				Category: flagCategoryOutput,
+				Usage:    "never prompt, even when there's a terminal to prompt on",
 			},
 		},
 		Commands: []*cli.Command{
@@ -154,6 +184,7 @@ func Root() *cli.Command {
 	setErrorHandlers(root)
 	wrapHelp()
 	trimHelpGlobals()
+	adjustFlagHelp()
 
 	return root
 }
@@ -170,7 +201,14 @@ func setErrorHandlers(command *cli.Command) {
 	}
 }
 
-func onUsageError(_ context.Context, _ *cli.Command, err error, _ bool) error {
+func onUsageError(_ context.Context, cmd *cli.Command, err error, _ bool) error {
+	const unknownFlag = "flag provided but not defined: -"
+	if msg := err.Error(); cmd != nil && strings.HasPrefix(msg, unknownFlag) {
+		provided := strings.TrimLeft(strings.TrimPrefix(msg, unknownFlag), "-")
+		if suggestion := cli.SuggestFlag(cmd.Flags, provided, false); suggestion != "" {
+			return usageError{fmt.Errorf("%s (did you mean %s?)", msg, suggestion)}
+		}
+	}
 	return usageError{err}
 }
 
@@ -178,7 +216,11 @@ func onUsageError(_ context.Context, _ *cli.Command, err error, _ bool) error {
 // for ..." and exit code 3, which is our "not configured" code.
 func defaultCommandAction(_ context.Context, cmd *cli.Command) error {
 	if cmd.Args().Present() {
-		return newUsageError("unknown command: %s %s", cmd.FullName(), cmd.Args().First())
+		unknown := cmd.Args().First()
+		if suggestion := cli.SuggestCommand(cmd.Commands, unknown); suggestion != "" {
+			return newUsageError("unknown command: %s %s (did you mean %q?)", cmd.FullName(), unknown, suggestion)
+		}
+		return newUsageError("unknown command: %s %s", cmd.FullName(), unknown)
 	}
 	if cmd.Root() == cmd {
 		return cli.ShowRootCommandHelp(cmd)

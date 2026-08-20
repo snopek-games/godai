@@ -40,6 +40,7 @@
 		"get_project_settings": {
 			"title": "Get Project Settings",
 			"toolsets": ["project"],
+			"cliPositionalArguments": ["names"],
 			"description": [
 				"Gets settings from the project (the values stored in 'project.godot', e.g. 'application/config/name' or 'display/window/size/viewport_width').",
 				"",
@@ -247,6 +248,8 @@
 		"create_scene": {
 			"title": "Create Scene",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": "Creates a new scene and opens it in the editor.",
 			"inputSchema": {
 				"type": "object",
@@ -288,6 +291,8 @@
 		"open_scene": {
 			"title": "Open Scene",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": "Opens a scene in the editor.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -322,6 +327,7 @@
 		"get_node_properties": {
 			"title": "Get Node Properties",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["node_paths"],
 			"description": [
 				"Gets the values of properties on specific nodes in the current scene.",
 				"",
@@ -499,6 +505,7 @@
 		"add_node": {
 			"title": "Add Node",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["node_type"],
 			"description": [
 				"Creates a new node in the current scene, with the given properties set.",
 				"",
@@ -526,7 +533,8 @@
 					"parent_path": {
 						"type": "string",
 						"minLength": 1,
-						"description": "Path to the parent node, relative the scene root"
+						"default": ".",
+						"description": "Path to the parent node, relative to the scene root"
 					},
 					"node_type": {
 						"type": "string",
@@ -542,7 +550,7 @@
 						}
 					}
 				},
-				"required": ["parent_path", "node_type"]
+				"required": ["node_type"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -581,6 +589,7 @@
 		"remove_node": {
 			"title": "Remove Node",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["node_path"],
 			"description": [
 				"Removes the given node (and all its children) from the current scene.",
 				"",
@@ -626,6 +635,8 @@
 		"create_resource": {
 			"title": "Create Resource",
 			"toolsets": ["resource"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": [
 				"Creates a new resource.",
 				"",
@@ -704,6 +715,8 @@
 		"open_resource": {
 			"title": "Open Resource",
 			"toolsets": ["resource"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": "Opens a resource in the inspector.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -738,6 +751,8 @@
 		"get_resource_properties": {
 			"title": "Get Resource Properties",
 			"toolsets": ["resource"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": [
 				"Gets the values of properties on a saved resource file (e.g. a .tres file).",
 				"",
@@ -828,6 +843,7 @@
 		"set_resource_properties": {
 			"title": "Set Resource Properties",
 			"toolsets": ["resource"],
+			"cliResPathArguments": ["file_path"],
 			"description": [
 				"Sets the values of properties on a saved resource file (.tres or .res), and saves the changes to the file.",
 				"",
@@ -946,6 +962,8 @@
 		"instantiate_scene": {
 			"title": "Instantiate Scene",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["scene_path"],
+			"cliResPathArguments": ["scene_path"],
 			"description": [
 				"Instantiates a saved scene (.tscn/.scn) as a child node in the current scene, like adding an instanced scene in the editor.",
 				"",
@@ -963,6 +981,7 @@
 					"parent_path": {
 						"type": "string",
 						"minLength": 1,
+						"default": ".",
 						"description": "Path to the parent node, relative to the scene root"
 					},
 					"scene_path": {
@@ -975,7 +994,7 @@
 						"description": "Name for the new instance node"
 					}
 				},
-				"required": ["parent_path", "scene_path"]
+				"required": ["scene_path"]
 			},
 			"outputSchema": {
 				"type": "object",
@@ -1037,6 +1056,8 @@
 		"save_scene_as": {
 			"title": "Save Scene As",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": "Saves the scene currently open in the editor to the given path, changing the path of the current scene, such that subsequent save_scene calls would save to the new path.",
 			"annotations": {
 				"readOnlyHint": false,
@@ -1077,6 +1098,7 @@
 		"add_to_group": {
 			"title": "Add Node to Groups",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["node_path"],
 			"description": [
 				"Adds a node in the current scene to one or more groups.",
 				"",
@@ -1131,6 +1153,7 @@
 		"remove_from_group": {
 			"title": "Remove Node from Groups",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["node_path"],
 			"description": [
 				"Removes a node in the current scene from one or more groups.",
 				"",
@@ -1185,6 +1208,7 @@
 		"get_node_groups": {
 			"title": "Get Node Groups",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["node_paths"],
 			"description": [
 				"Gets the groups that nodes in the current scene belong to.",
 				"",
@@ -1233,6 +1257,7 @@
 		"connect_signal": {
 			"title": "Connect Signal",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["from_node", "signal"],
 			"description": [
 				"Connects a signal on one node to a method on another node, in the current scene.",
 				"",
@@ -1295,6 +1320,7 @@
 		"disconnect_signal": {
 			"title": "Disconnect Signal",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["from_node", "signal"],
 			"description": [
 				"Disconnects a previously-connected signal between two nodes in the current scene.",
 				"",
@@ -1355,6 +1381,8 @@
 		"attach_script": {
 			"title": "Attach Script",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["node_path", "script_path"],
+			"cliResPathArguments": ["script_path"],
 			"description": [
 				"Attaches an existing script file to a node in the current scene.",
 				"",
@@ -1409,6 +1437,7 @@
 		"detach_script": {
 			"title": "Detach Script",
 			"toolsets": ["scene"],
+			"cliPositionalArguments": ["node_path"],
 			"description": [
 				"Removes the script attached to a node in the current scene.",
 				"",
@@ -1454,6 +1483,8 @@
 		"create_script": {
 			"title": "Create Script",
 			"toolsets": ["script"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": [
 				"Creates a new GDScript file.",
 				"",
@@ -1504,6 +1535,8 @@
 		"open_script": {
 			"title": "Open Script",
 			"toolsets": ["script"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": "Opens a script file in the editor's script editor.",
 			"annotations": {
 				"readOnlyHint": true,
@@ -1538,6 +1571,8 @@
 		"save_script": {
 			"title": "Save Script",
 			"toolsets": ["script"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": [
 				"Saves a script's unsaved changes from the editor to its file.",
 				"",
@@ -1582,6 +1617,8 @@
 		"read_script": {
 			"title": "Read Script",
 			"toolsets": ["script"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": [
 				"Reads the contents of a script file.",
 				"",
@@ -1624,6 +1661,8 @@
 		"write_script": {
 			"title": "Write Script",
 			"toolsets": ["script"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": [
 				"Replaces the entire contents of an existing script file.",
 				"",
@@ -1685,6 +1724,7 @@
 		"run_project": {
 			"title": "Run Project",
 			"toolsets": ["project"],
+			"cliPositionalArguments": ["scene"],
 			"description": [
 				"Runs the project from the editor.",
 				"",
@@ -1752,6 +1792,8 @@
 		"reimport": {
 			"title": "Reimport Assets",
 			"toolsets": ["import"],
+			"cliPositionalArguments": ["file_paths"],
+			"cliResPathArguments": ["file_paths"],
 			"description": [
 				"Reimports one or more asset files (e.g. after changing the source file or its import settings).",
 				"",
@@ -1798,6 +1840,8 @@
 		"get_import_settings": {
 			"title": "Get Import Settings",
 			"toolsets": ["import"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": [
 				"Gets the import settings for an imported asset (e.g. a texture or audio file).",
 				"",
@@ -1843,6 +1887,8 @@
 		"set_import_settings": {
 			"title": "Set Import Settings",
 			"toolsets": ["import"],
+			"cliPositionalArguments": ["file_path"],
+			"cliResPathArguments": ["file_path"],
 			"description": [
 				"Changes the import settings for an imported asset, and reimports it.",
 				"",
@@ -1901,6 +1947,7 @@
 		"get_editor_settings": {
 			"title": "Get Editor Settings",
 			"toolsets": ["editor"],
+			"cliPositionalArguments": ["names"],
 			"description": [
 				"Gets settings from the Godot editor itself (the values stored in the global editor configuration, e.g. 'text_editor/behavior/indent/size' or 'text_editor/appearance/whitespace/draw_tabs'). These are editor-wide preferences, not project settings.",
 				"",
@@ -2108,6 +2155,7 @@
 		"execute_editor_script": {
 			"title": "Execute Editor Script",
 			"toolsets": ["editor"],
+			"cliPositionalArguments": ["code"],
 			"description": [
 				"Executes the given GDScript code in the editor, in the context of a Node that is a child of the scene currently being edited.",
 				"",

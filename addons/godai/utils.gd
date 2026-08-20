@@ -546,7 +546,10 @@ static func _encode_setting_value(p_value: Variant, p_info: Dictionary, p_enums_
 static func is_setting_modified(p_settings: Object, p_name: String) -> bool:
 	if not p_settings.property_can_revert(p_name):
 		return true
-	return p_settings.get_setting(p_name) != p_settings.property_get_revert(p_name)
+	# values_equal_approx, because Godot may hand back the current value and
+	# the default as different types (e.g. a bool setting with an int default),
+	# and comparing those directly is a script error.
+	return not values_equal_approx(p_settings.get_setting(p_name), p_settings.property_get_revert(p_name))
 
 
 ## Gets the default value of a property, for both native and script properties.

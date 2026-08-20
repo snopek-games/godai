@@ -91,6 +91,12 @@ class Tool extends RefCounted:
 	@abstract
 	func execute(p_input) -> ToolResult
 
+	func apply_input_defaults(p_input: Dictionary) -> void:
+		var properties: Dictionary = input_schema.get('properties', {})
+		for property_name in properties:
+			if not p_input.has(property_name) and properties[property_name].has('default'):
+				p_input[property_name] = properties[property_name]['default']
+
 	## Checks the input against the top level of the tool's own schema: that
 	## everything in 'required' is there, that it isn't empty when the schema
 	## sets a minimum size, and that whatever is there has the declared type.
@@ -282,6 +288,8 @@ func execute_tool(p_name: String, p_input) -> ToolResult:
 	var input_error := tool_obj.check_input(p_input)
 	if not input_error.is_empty():
 		return ToolResult.rejected({errors = [input_error]})
+
+	tool_obj.apply_input_defaults(p_input)
 
 	if not _current:
 		var result: ToolResult = tool_obj.execute(p_input)

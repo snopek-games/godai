@@ -48,7 +48,7 @@ func PrintUpdateNotice(w io.Writer) {
 	if activeNoticeCheck == nil {
 		return
 	}
-	activeNoticeCheck.PrintNotice(w, noticeGrace)
+	activeNoticeCheck.PrintNotice(w, noticeGrace, useColor())
 	activeNoticeCheck = nil
 }
 

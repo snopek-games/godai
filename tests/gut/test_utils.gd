@@ -402,3 +402,49 @@ func test_script_read_tracking() -> void:
 	result = Utils.check_script_writable(path, "extends Node\n")
 	assert_true(result.has("error"))
 	assert_string_contains(result.get("error", ""), "must read")
+
+
+class FakeSettings:
+	extends RefCounted
+
+	var values := {}
+	var defaults := {}
+
+	func has_setting(p_name: String) -> bool:
+		return values.has(p_name)
+
+	func get_setting(p_name: String) -> Variant:
+		return values.get(p_name)
+
+	func _property_can_revert(p_name: StringName) -> bool:
+		return defaults.has(p_name)
+
+	func _property_get_revert(p_name: StringName) -> Variant:
+		return defaults.get(p_name)
+
+
+func test_is_setting_modified() -> void:
+	var settings := FakeSettings.new()
+	settings.values = {
+		"unchanged": 4,
+		"changed": 5,
+		"bool_with_int_default": true,
+		"bool_toggled_from_int_default": true,
+		"retyped": "text",
+		"custom": "x",
+	}
+	settings.defaults = {
+		"unchanged": 4,
+		"changed": 6,
+		"bool_with_int_default": 1,
+		"bool_toggled_from_int_default": 0,
+		"retyped": 3,
+	}
+
+	assert_false(Utils.is_setting_modified(settings, "unchanged"))
+	assert_true(Utils.is_setting_modified(settings, "changed"))
+	assert_false(Utils.is_setting_modified(settings, "bool_with_int_default"))
+	assert_true(Utils.is_setting_modified(settings, "bool_toggled_from_int_default"))
+	assert_true(Utils.is_setting_modified(settings, "retyped"))
+	# No known default means always modified.
+	assert_true(Utils.is_setting_modified(settings, "custom"))

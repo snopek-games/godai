@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 
+	"gitlab.com/snopek-games/godai/internal/cli/output"
 	"gitlab.com/snopek-games/godai/internal/core"
 
 	"github.com/urfave/cli/v3"
@@ -29,10 +30,17 @@ func newUsageError(format string, args ...any) error {
 	return usageError{fmt.Errorf(format, args...)}
 }
 
+type propagatedExit struct{ code int }
+
+func (propagatedExit) Error() string { return "" }
+
 func ExitCodeFor(err error) int {
+	var propagated propagatedExit
 	switch {
 	case err == nil:
 		return ExitOK
+	case errors.As(err, &propagated):
+		return propagated.code
 	case errors.Is(err, context.Canceled):
 		return ExitInterrupted
 	case errors.As(err, &usageError{}), isUnknownHelpTopic(err):
@@ -58,6 +66,10 @@ func isUnknownHelpTopic(err error) bool {
 }
 
 func PrintError(w io.Writer, err error, asJSON bool) {
+	if errors.As(err, &propagatedExit{}) {
+		return
+	}
+
 	var userErr *core.UserError
 	hasUserErr := errors.As(err, &userErr)
 
@@ -82,8 +94,10 @@ func PrintError(w io.Writer, err error, asJSON bool) {
 		return
 	}
 
+	prefix := output.Paint(useColor(), output.Red, "godai:")
+
 	if hasUserErr {
-		fmt.Fprintf(w, "godai: %s\n", userErr.Message)
+		fmt.Fprintf(w, "%s %s\n", prefix, userErr.Message)
 		if len(userErr.Solutions) > 0 {
 			fmt.Fprintln(w, "\nPossible solutions:")
 			for _, s := range userErr.Solutions {
@@ -93,5 +107,5 @@ func PrintError(w io.Writer, err error, asJSON bool) {
 		return
 	}
 
-	fmt.Fprintf(w, "godai: %v\n", err)
+	fmt.Fprintf(w, "%s %v\n", prefix, err)
 }

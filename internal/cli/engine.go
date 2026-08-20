@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/snopek-games/godai/internal/cli/output"
 	"gitlab.com/snopek-games/godai/internal/core"
 	"gitlab.com/snopek-games/godai/internal/godot"
 
@@ -139,16 +140,16 @@ func engineInstallCommand(configPath string) *cli.Command {
 
 			return withSession(ctx, cmd, configPath, func(session *core.Session) error {
 				out := printer(cmd)
-				out.Printf("Installing Godot %s...\n", version)
+				out.Printf("Installing Godot %s...\n", out.Paint(output.Cyan, version.String()))
 
 				result, err := session.InstallEngine(ctx, version.String(), downloadOptions(cmd))
 				if err != nil {
 					return err
 				}
-				out.Printf("Installed Godot %s to %s\n", version, result.Engine.Path)
+				out.Printf("Installed Godot %s to %s\n", out.Paint(output.Cyan, version.String()), result.Engine.Path)
 
 				if result.BecameDefault {
-					out.Printf("Godot %s is now the default\n", result.Engine.Version)
+					out.Printf("Godot %s is now the default\n", out.Paint(output.Cyan, result.Engine.Version))
 				}
 
 				if cmd.Bool("with-templates") {
@@ -192,13 +193,13 @@ func engineRemoveCommand(configPath string) *cli.Command {
 
 				out := printer(cmd)
 				if result.Linked {
-					out.Printf("Unlinked %s\n", result.Version)
+					out.Printf("Unlinked %s\n", out.Paint(output.Cyan, result.Version))
 				} else {
-					out.Printf("Removed Godot %s\n", result.Version)
+					out.Printf("Removed Godot %s\n", out.Paint(output.Cyan, result.Version))
 				}
 
 				if result.TemplatesRemoved {
-					out.Printf("Removed the export templates for Godot %s\n", result.Version)
+					out.Printf("Removed the export templates for Godot %s\n", out.Paint(output.Cyan, result.Version))
 				}
 
 				if result.DefaultCleared {
@@ -317,7 +318,7 @@ func markIncomplete(platforms, incomplete []string) []string {
 
 func printTemplateDetail(out *Printer, templates *godot.InstalledTemplates) error {
 	if templates.Empty() && !out.JSON {
-		out.Printf("No export templates are installed for Godot %s\n", templates.Name)
+		out.Printf("No export templates are installed for Godot %s\n", out.Paint(output.Cyan, templates.Name))
 		return nil
 	}
 
@@ -558,7 +559,7 @@ func installTemplatesIfNeeded(ctx context.Context, cmd *cli.Command, manager *go
 
 func installTemplates(ctx context.Context, cmd *cli.Command, manager *godot.EngineManager, version godot.EngineVersion) error {
 	out := printer(cmd)
-	out.Printf("Installing the export templates for Godot %s...\n", version)
+	out.Printf("Installing the export templates for Godot %s...\n", out.Paint(output.Cyan, version.String()))
 
 	if err := manager.InstallTemplates(ctx, version, downloadOptions(cmd)); err != nil {
 		return err
@@ -666,7 +667,7 @@ func runEngine(ctx context.Context, cmd *cli.Command, path string, args []string
 	if err := godotCmd.Run(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			return cli.Exit("", exitErr.ExitCode())
+			return propagatedExit{exitErr.ExitCode()}
 		}
 		return err
 	}

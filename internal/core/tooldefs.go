@@ -15,13 +15,15 @@ var inputSchemaEmpty json.RawMessage = json.RawMessage(`{"type":"object","proper
 type ToolDescription []string
 
 type ToolDefinition struct {
-	Title        string          `json:"title"`
-	Description  ToolDescription `json:"description"`
-	InputSchema  json.RawMessage `json:"inputSchema,omitempty"`
-	OutputSchema json.RawMessage `json:"outputSchema,omitempty"`
-	DoNotForward bool            `json:"doNotForward,omitempty"`
-	Annotations  map[string]any  `json:"annotations"`
-	Toolsets     []string        `json:"toolsets,omitempty"`
+	Title                  string          `json:"title"`
+	Description            ToolDescription `json:"description"`
+	InputSchema            json.RawMessage `json:"inputSchema,omitempty"`
+	OutputSchema           json.RawMessage `json:"outputSchema,omitempty"`
+	DoNotForward           bool            `json:"doNotForward,omitempty"`
+	Annotations            map[string]any  `json:"annotations"`
+	Toolsets               []string        `json:"toolsets,omitempty"`
+	CLIPositionalArguments []string        `json:"cliPositionalArguments,omitempty"`
+	CLIResPathArguments    []string        `json:"cliResPathArguments,omitempty"`
 }
 
 func (d *ToolDescription) UnmarshalJSON(data []byte) error {

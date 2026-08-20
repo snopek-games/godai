@@ -48,6 +48,80 @@ func TestWrapTextSkipsFlagLines(t *testing.T) {
 
 const globalOptionsNote = "Global options also apply; run 'godai --help' to list them."
 
+func TestHelpHidesSnakeCaseAliases(t *testing.T) {
+	is := is.New(t)
+
+	out, err := runCLI(t, []string{"godai", "editor-tool", "get_node_properties", "--help"})
+	is.NoErr(err)
+
+	is.True(strings.Contains(out, "--node-paths"))
+	is.True(strings.Contains(out, "--node-path"))
+	is.True(!strings.Contains(out, "node_paths"))
+}
+
+func TestHelpMarksRepeatableFlagsWithoutBrackets(t *testing.T) {
+	is := is.New(t)
+
+	out, err := runCLI(t, []string{"godai", "editor-tool", "get_node_properties", "--help"})
+	is.NoErr(err)
+
+	is.True(strings.Contains(out, "(repeatable)"))
+	is.True(!strings.Contains(out, "[ --"))
+}
+
+func TestEditorToolHelpGroupsByToolsetAndHidesAliases(t *testing.T) {
+	is := is.New(t)
+
+	out, err := runCLI(t, []string{"godai", "editor-tool", "--help"})
+	is.NoErr(err)
+
+	is.True(strings.Contains(out, "Scene:"))
+	is.True(strings.Contains(out, "Script:"))
+	is.True(strings.Contains(out, "add_node"))
+	is.True(!strings.Contains(out, "add-node"))
+}
+
+func TestUnknownCommandSuggestsTheNearestName(t *testing.T) {
+	is := is.New(t)
+
+	_, err := runCLI(t, []string{"godai", "projct"})
+	is.True(err != nil)
+	is.True(strings.Contains(err.Error(), `did you mean "project"?`))
+
+	_, err = runCLI(t, []string{"godai", "editor-tool", "ad_node"})
+	is.True(err != nil)
+	is.True(strings.Contains(err.Error(), `did you mean "add_node"?`))
+}
+
+func TestUnknownFlagSuggestsTheNearestName(t *testing.T) {
+	is := is.New(t)
+
+	_, err := runCLI(t, []string{"godai", "editor-tool", "read_script", "--file-pth", "res://x.gd"})
+	is.True(err != nil)
+	is.True(strings.Contains(err.Error(), "did you mean --file-path?"))
+}
+
+func TestKebabCaseToolNamesAreAccepted(t *testing.T) {
+	is := is.New(t)
+
+	// Resolving the alias gets as far as the tool's own required-argument
+	// check, rather than failing as an unknown command.
+	_, err := runCLI(t, []string{"godai", "editor-tool", "read-script"})
+	is.True(err != nil)
+	is.True(strings.Contains(err.Error(), "file_path"))
+}
+
+func TestRootHelpGroupsGlobalOptions(t *testing.T) {
+	is := is.New(t)
+
+	out, err := runCLI(t, []string{"godai", "--help"})
+	is.NoErr(err)
+
+	for _, header := range []string{"Choosing a Godot version:", "Choosing a project:", "Connecting to the editor:", "Output:"} {
+		is.True(strings.Contains(out, header))
+	}
+}
+
 func TestRootHelpListsGlobalOptions(t *testing.T) {
 	is := is.New(t)
 

@@ -40,6 +40,7 @@ func mcpCommand(configPath string) *cli.Command {
 			},
 		},
 		Commands: []*cli.Command{
+			mcpSetupCommand(),
 			mcpToolsetsCommand(),
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {

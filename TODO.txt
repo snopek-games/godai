@@ -7,21 +7,9 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- CLI: Rewrite the README (and move stuff to docs site)
-  - Clearer installation story
-  - Clearer mode separation (CLI vs Addon)
-- Website:
-  - Front page:
-    - Playing terminal showing nice `godai` commands and/or AI agent with MCP
-    - Install (with tabs for each install method)
-      - We could have documents or data for each install method that are expanded to be front page and docs
-    - Each mode
-  - Docs
-    - Each of the modes in detail
-    - Install instructions for different MCP clients (could use similar templated approach to "quick install")
-  - Benchmarks
-    - `godai-eval`
-    - Gamedev Bench
+- CLI: Disable `godai self-update` when installed via `go install`
+  - Maybe we disable self update by default, but then enable it via a build tag in our CI builds?
+  - That way custom builds and `go install` won't have self update
 - CLI: Test thoroughly on Windows and MacOS!
 - CLI: XDG_* vars only work to isolate tests on Linux -- we need something that'll work on MacOS (and maybe Windows?) too
 - Mirror project to GitHub via CI?

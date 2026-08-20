@@ -17,6 +17,7 @@
       "args": [
         "mcp",
         "--global",
+        "--toolsets=all",
         "--project-base-path", "${user_config.project_base_path}",
         "--x11-display", "${user_config.x11_display}"
       ],
