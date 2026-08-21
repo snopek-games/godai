@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -487,13 +488,22 @@ func TestIsUnderRoot(t *testing.T) {
 	is.True(!under)
 
 	// A symlink pointing into the root resolves to a path under it.
-	link := filepath.Join(t.TempDir(), "link")
-	if err := os.Symlink(nested, link); err != nil {
-		t.Fatalf("creating symlink: %v", err)
-	}
-	under, err = IsPathUnderRoot(link, root)
-	is.NoErr(err)
-	is.True(under)
+	t.Run("symlink", func(t *testing.T) {
+		is := is.New(t)
+
+		link := filepath.Join(t.TempDir(), "link")
+		if err := os.Symlink(nested, link); err != nil {
+			// Windows only allows this for an admin or in Developer Mode.
+			if runtime.GOOS == "windows" {
+				t.Skip("creating a symlink is not permitted:", err)
+			}
+			t.Fatalf("creating symlink: %v", err)
+		}
+
+		under, err := IsPathUnderRoot(link, root)
+		is.NoErr(err)
+		is.True(under)
+	})
 
 	// A non-existent path is an error, not a false "under" result.
 	_, err = IsPathUnderRoot(filepath.Join(root, "nope"), root)

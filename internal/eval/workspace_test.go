@@ -4,13 +4,28 @@ import (
 	"context"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	"github.com/matryer/is"
 )
 
+// The harness drives Godai through a POSIX shell shim and corrals editors with
+// Unix process groups, which is why cmd/godai-eval doesn't build on Windows.
+// The rest of this package is portable, so only the tests that reach for those
+// parts opt out; on Windows, run the eval suite in Docker.
+func skipWithoutUnixHarness(t *testing.T) {
+	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("the eval harness is Unix-only; run the suite in Docker")
+	}
+}
+
 func TestCleanupKillsAnEditorItCouldNotClose(t *testing.T) {
+	skipWithoutUnixHarness(t)
+
 	is := is.New(t)
 
 	root := t.TempDir()

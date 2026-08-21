@@ -12,6 +12,7 @@ import (
 
 func cliWorkspace(t *testing.T) *Workspace {
 	t.Helper()
+	skipWithoutUnixHarness(t)
 
 	root := t.TempDir()
 	godai := filepath.Join(root, "fake-godai")

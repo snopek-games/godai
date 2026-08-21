@@ -13,11 +13,13 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	root := cli.Root()
+
 	code := 0
-	if err := cli.Root().Run(ctx, os.Args); err != nil {
+	if err := root.Run(ctx, os.Args); err != nil {
 		code = cli.ExitCodeFor(err)
 		if code != cli.ExitInterrupted {
-			cli.PrintError(os.Stderr, err, wantsJSON(os.Args))
+			cli.PrintError(os.Stderr, err, root.Bool("json"), root.Bool("verbose") || root.Bool("debug"))
 		}
 	}
 
@@ -27,17 +29,4 @@ func main() {
 	if code != 0 {
 		os.Exit(code)
 	}
-}
-
-// The parsed command isn't available once Run has returned with an error.
-func wantsJSON(args []string) bool {
-	for _, arg := range args {
-		if arg == "--json" {
-			return true
-		}
-		if arg == "--" {
-			break
-		}
-	}
-	return false
 }

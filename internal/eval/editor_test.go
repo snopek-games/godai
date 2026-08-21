@@ -92,6 +92,8 @@ func TestAwaitStreamReportsEditorExit(t *testing.T) {
 }
 
 func TestWatchEditorExitCancelsWhenTheProcessDies(t *testing.T) {
+	skipWithoutUnixHarness(t)
+
 	is := is.New(t)
 
 	cmd := exec.Command("sleep", "0.2")

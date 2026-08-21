@@ -65,13 +65,21 @@ func isUnknownHelpTopic(err error) bool {
 	return errors.As(err, &exitCoder) && exitCoder.ExitCode() == 3
 }
 
-func PrintError(w io.Writer, err error, asJSON bool) {
+func PrintError(w io.Writer, err error, asJSON, verbose bool) {
 	if errors.As(err, &propagatedExit{}) {
 		return
 	}
 
 	var userErr *core.UserError
 	hasUserErr := errors.As(err, &userErr)
+
+	userMessage := ""
+	if hasUserErr {
+		userMessage = userErr.UserMessage()
+		if verbose {
+			userMessage = userErr.FullMessage()
+		}
+	}
 
 	if asJSON {
 		payload := struct {
@@ -84,7 +92,7 @@ func PrintError(w io.Writer, err error, asJSON bool) {
 		payload.Error.Message = err.Error()
 		payload.Error.Code = ExitCodeFor(err)
 		if hasUserErr {
-			payload.Error.Message = userErr.Message
+			payload.Error.Message = userMessage
 			payload.Error.Solutions = userErr.Solutions
 		}
 
@@ -97,7 +105,7 @@ func PrintError(w io.Writer, err error, asJSON bool) {
 	prefix := output.Paint(useColor(), output.Red, "godai:")
 
 	if hasUserErr {
-		fmt.Fprintf(w, "%s %s\n", prefix, userErr.Message)
+		fmt.Fprintf(w, "%s %s\n", prefix, userMessage)
 		if len(userErr.Solutions) > 0 {
 			fmt.Fprintln(w, "\nPossible solutions:")
 			for _, s := range userErr.Solutions {

@@ -49,7 +49,7 @@ func PluginVersion(fsys fs.FS) (string, error) {
 
 func setupAddon(project *godot.Project, forceReplace bool) error {
 	if err := installAddon(project, forceReplace); err != nil {
-		return NewUserError("unable to install godai addon", err, nil)
+		return NewUserError("unable to install godai addon", err, nil).ShowErrToUser()
 	}
 	if err := enableAddon(project); err != nil {
 		return NewUserError("unable to enable godai addon in project.godot file", err, nil)
@@ -60,10 +60,13 @@ func setupAddon(project *godot.Project, forceReplace bool) error {
 	return nil
 }
 
+// Path of the addon inside the embedded FS. io/fs paths always use forward
+// slashes, so this can't go through filepath.Join().
+const addonFSPath = "addons/godai"
+
 func installAddon(project *godot.Project, forceReplace bool) error {
 	projectPath := project.GetPath()
-	addonRelPath := filepath.Join("addons", "godai")
-	installedPath := filepath.Join(projectPath, addonRelPath)
+	installedPath := filepath.Join(projectPath, filepath.FromSlash(addonFSPath))
 
 	exists, err := dirExists(installedPath)
 	if err != nil {
@@ -108,12 +111,12 @@ func installAddon(project *godot.Project, forceReplace bool) error {
 
 	slog.Info("installing Godai addon", "projectPath", projectPath)
 
-	return fs.WalkDir(godai.AddonFS, addonRelPath, func(p string, d fs.DirEntry, err error) error {
+	return fs.WalkDir(godai.AddonFS, addonFSPath, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		rel, err := filepath.Rel(addonRelPath, p)
+		rel, err := filepath.Rel(filepath.FromSlash(addonFSPath), filepath.FromSlash(p))
 		if err != nil {
 			return err
 		}

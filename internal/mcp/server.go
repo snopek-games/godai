@@ -88,12 +88,12 @@ type toolResult struct {
 }
 
 func toolResultForError(err *core.UserError) *toolResult {
-	structured, _ := json.Marshal(map[string]any{"errors": []string{err.Message}})
+	structured, _ := json.Marshal(map[string]any{"errors": []string{err.UserMessage()}})
 	result := toolResult{
 		Content: []toolTextContent{
 			{
 				Type: "text",
-				Text: err.Message,
+				Text: err.UserMessage(),
 			},
 		},
 		StructuredContent: structured,

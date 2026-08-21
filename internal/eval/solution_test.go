@@ -11,6 +11,8 @@ import (
 
 // A --content argument holds anything a line or a shell word could be split on.
 func TestShimRecordsCallsWithAwkwardArguments(t *testing.T) {
+	skipWithoutUnixHarness(t)
+
 	is := is.New(t)
 
 	root := t.TempDir()
@@ -39,6 +41,8 @@ func TestShimRecordsCallsWithAwkwardArguments(t *testing.T) {
 }
 
 func TestShimEchoesCommandsOnlyWhenAsked(t *testing.T) {
+	skipWithoutUnixHarness(t)
+
 	is := is.New(t)
 
 	root := t.TempDir()

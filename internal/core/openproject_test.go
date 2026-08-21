@@ -34,7 +34,7 @@ func TestRunningEditorIsFoundBeforeItConnects(t *testing.T) {
 	is := is.New(t)
 
 	instancesDir := t.TempDir()
-	projectPath := t.TempDir()
+	projectPath := canonicalTempDir(t)
 
 	// Port 1 has nothing listening on it, so no connection is ever registered.
 	writeInstanceFile(t, instancesDir, "advertised", projectPath, 1)
@@ -54,7 +54,7 @@ func TestRunningEditorIsFoundBeforeItConnects(t *testing.T) {
 	is.True(!s.hasEditorForProject(projectPath))       // no connection has been made
 	is.True(s.hasRunningEditorForProject(projectPath)) // but the editor is running
 
-	other := t.TempDir()
+	other := canonicalTempDir(t)
 	is.True(!s.hasRunningEditorForProject(other)) // nothing advertised for this project
 }
 

@@ -12,6 +12,7 @@ import (
 
 func fakeGodai(t *testing.T, script string) *Workspace {
 	t.Helper()
+	skipWithoutUnixHarness(t)
 	root := t.TempDir()
 	bin := filepath.Join(root, "godai")
 	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"+script), 0o755); err != nil {

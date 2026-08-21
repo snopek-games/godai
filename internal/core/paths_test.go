@@ -10,6 +10,19 @@ import (
 	"github.com/matryer/is"
 )
 
+// Godai stores canonical paths, but t.TempDir() hands back one that still has
+// symlinks in it (/var on macOS) or 8.3 short names (Windows), so tests that
+// compare a stored path against a temp dir have to canonicalize it first.
+func canonicalTempDir(t *testing.T) string {
+	t.Helper()
+
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatalf("resolving temp dir: %v", err)
+	}
+	return dir
+}
+
 func TestValidateDirectory(t *testing.T) {
 	is := is.New(t)
 	dir := t.TempDir()

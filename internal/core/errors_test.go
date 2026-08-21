@@ -23,6 +23,30 @@ func TestUserError(t *testing.T) {
 	is.True(plain.Unwrap() == nil)
 }
 
+func TestUserErrorFullMessage(t *testing.T) {
+	is := is.New(t)
+
+	e := NewUserError("something failed", errors.New("boom"), nil)
+	is.Equal(e.FullMessage(), "something failed: boom") // wrapped error always included
+
+	plain := NewUserError("plain message", nil, nil)
+	is.Equal(plain.FullMessage(), "plain message")
+}
+
+func TestUserErrorUserMessage(t *testing.T) {
+	is := is.New(t)
+
+	wrapped := errors.New("boom")
+	e := NewUserError("something failed", wrapped, nil)
+	is.Equal(e.UserMessage(), "something failed") // wrapped error hidden by default
+
+	is.Equal(e.ShowErrToUser(), e) // chainable
+	is.Equal(e.UserMessage(), "something failed: boom")
+
+	plain := NewUserError("plain message", nil, nil).ShowErrToUser()
+	is.Equal(plain.UserMessage(), "plain message") // nothing to show without a wrapped error
+}
+
 func TestUserErrorSentinels(t *testing.T) {
 	is := is.New(t)
 

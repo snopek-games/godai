@@ -17,6 +17,7 @@ type UserError struct {
 	Message   string
 	Solutions []string
 	Err       error
+	ShowErr   bool
 }
 
 func NewUserError(message string, err error, solutions []string) *UserError {
@@ -28,6 +29,10 @@ func NewUserError(message string, err error, solutions []string) *UserError {
 }
 
 func (e *UserError) Error() string {
+	return e.FullMessage()
+}
+
+func (e *UserError) FullMessage() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s: %v", e.Message, e.Err)
 	}
@@ -36,4 +41,16 @@ func (e *UserError) Error() string {
 
 func (e *UserError) Unwrap() error {
 	return e.Err
+}
+
+func (e *UserError) ShowErrToUser() *UserError {
+	e.ShowErr = true
+	return e
+}
+
+func (e *UserError) UserMessage() string {
+	if e.ShowErr {
+		return e.FullMessage()
+	}
+	return e.Message
 }

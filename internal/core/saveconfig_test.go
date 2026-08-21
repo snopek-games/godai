@@ -13,7 +13,7 @@ const testGodotVersion = "4.5-stable"
 func TestSetConfigKeepsTheOtherSetting(t *testing.T) {
 	is := is.New(t)
 
-	dir := t.TempDir()
+	dir := canonicalTempDir(t)
 	configPath := filepath.Join(dir, "config.json")
 	basePath := filepath.Join(dir, "projects")
 	is.NoErr(os.MkdirAll(basePath, 0o755))
