@@ -97,6 +97,10 @@ func (s *listSelector) finish(chosen string) {
 }
 
 func selectFromList(name string, options []string, defaultValue string) (string, error) {
+	if !output.TermSupportsANSI(os.Stderr) {
+		return "", errNoRawTerminal
+	}
+
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {

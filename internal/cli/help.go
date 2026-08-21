@@ -40,7 +40,7 @@ func helpColor() bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}
-	return term.IsTerminal(int(os.Stdout.Fd()))
+	return term.IsTerminal(int(os.Stdout.Fd())) && output.TermSupportsANSI(os.Stdout)
 }
 
 func helpHeading(text string) string {

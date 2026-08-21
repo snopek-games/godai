@@ -39,7 +39,7 @@ func useColor() bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}
-	return term.IsTerminal(int(os.Stderr.Fd()))
+	return term.IsTerminal(int(os.Stderr.Fd())) && output.TermSupportsANSI(os.Stderr)
 }
 
 type ttyPrompter struct{}

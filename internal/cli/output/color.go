@@ -30,5 +30,5 @@ func colorEnabled(w io.Writer) bool {
 		return false
 	}
 	f, ok := w.(*os.File)
-	return ok && term.IsTerminal(int(f.Fd()))
+	return ok && term.IsTerminal(int(f.Fd())) && TermSupportsANSI(f)
 }
