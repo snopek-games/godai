@@ -40,6 +40,7 @@ func editorToolCommand(configPath string) *cli.Command {
 
 	return &cli.Command{
 		Name:        "editor-tool",
+		Aliases:     []string{"et"},
 		Usage:       "run the tools the Godot editor provides",
 		Description: "These run inside a Godot editor, so the project has to be open. Each tool is a subcommand with its own flags: run `godai editor-tool <tool> --help` to see what it takes.",
 		Commands:    commands,
