@@ -31,7 +31,7 @@ func TestProjectSettings(t *testing.T) {
 		})
 		settings, _ := structured["settings"].(map[string]any)
 		_, ok := settings["display/window/size/viewport_height"]
-		is.True(ok)
+		is.True(ok) // present even at its default value
 	})
 
 	t.Run("get_nonexistent", func(t *testing.T) {
@@ -49,7 +49,7 @@ func TestProjectSettings(t *testing.T) {
 		is.Equal(settings["application/config/name"], projectName)
 
 		_, hasDefault := settings["display/window/size/viewport_height"]
-		is.True(!hasDefault)
+		is.True(!hasDefault) // default-valued settings are omitted
 	})
 
 	t.Run("get_all_include_defaults", func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestProjectSettings(t *testing.T) {
 		is.True(len(allSettings) > len(modified))
 
 		_, hasDefault := allSettings["display/window/size/viewport_height"]
-		is.True(hasDefault)
+		is.True(hasDefault) // now the default-valued setting is included
 	})
 
 	t.Run("set_and_persist", func(t *testing.T) {
@@ -183,7 +183,7 @@ func TestProjectSettings(t *testing.T) {
 		after := callToolOK(t, "get_project_settings", map[string]any{
 			"names": []string{"rendering/renderer/rendering_method"},
 		})
-		is.Equal(after["settings"].(map[string]any)["rendering/renderer/rendering_method"], original)
+		is.Equal(after["settings"].(map[string]any)["rendering/renderer/rendering_method"], original) // a rejected set must not change the value
 	})
 
 	t.Run("set_enum_valid_value", func(t *testing.T) {
@@ -227,7 +227,7 @@ func TestProjectSettings(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 		_, hasWarnings := structured["warnings"]
-		is.True(!hasWarnings)
+		is.True(!hasWarnings) // no restart warning when the value didn't change
 	})
 
 	t.Run("set_independently", func(t *testing.T) {
@@ -243,7 +243,7 @@ func TestProjectSettings(t *testing.T) {
 		})
 		is.Equal(structured["success"], false)
 		errs, _ := structured["errors"].([]any)
-		is.Equal(len(errs), 1)
+		is.Equal(len(errs), 1) // only the bad setting errored
 		is.True(strings.Contains(asStrings(errs)[0], "Cannot parse"))
 
 		after := callToolOK(t, "get_project_settings", map[string]any{

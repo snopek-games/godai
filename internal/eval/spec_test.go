@@ -54,5 +54,5 @@ func TestLoadTasksKnownIDFilteredByTagsIsNotUnknown(t *testing.T) {
 
 	_, err := LoadTasks(root, []string{"slow"}, []string{"real-task"})
 	is.True(err != nil)
-	is.True(strings.Contains(err.Error(), "no tasks matched"))
+	is.True(strings.Contains(err.Error(), "no tasks matched")) // filtered by tag, not reported as unknown
 }

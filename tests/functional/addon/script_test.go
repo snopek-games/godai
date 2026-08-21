@@ -72,7 +72,7 @@ func TestScriptFiles(t *testing.T) {
 		is.Equal(structured["open_in_editor"], false)
 		is.Equal(structured["saved"], true)
 		_, hasNotes := structured["notes"]
-		is.True(!hasNotes)
+		is.True(!hasNotes) // a write that already saved needs no notes
 
 		if content := readProjectFile(t, "scripts/sf_closed.gd"); content != "" {
 			is.Equal(content, body)
@@ -141,7 +141,7 @@ func TestScriptFiles(t *testing.T) {
 			"file_path": "res://scripts/sf_notopen.gd",
 		})
 		is.Equal(structured["success"], true)
-		is.Equal(structured["saved"], false)
+		is.Equal(structured["saved"], false) // nothing to save for a script that isn't open
 	})
 
 	t.Run("write_requires_prior_read", func(t *testing.T) {
@@ -240,7 +240,7 @@ return OK`)
 		}, "has changed since you last read")
 
 		if content := readProjectFile(t, "scripts/sf_stale.gd"); content != "" {
-			is.True(strings.Contains(content, "user_edit"))
+			is.True(strings.Contains(content, "user_edit")) // the rejected write must not clobber the user's edit
 		}
 
 		read := callToolOK(t, "read_script", map[string]any{

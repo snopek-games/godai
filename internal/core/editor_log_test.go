@@ -40,7 +40,7 @@ func TestEditorLogCaptureAndTail(t *testing.T) {
 	is.NoErr(f.Close())
 
 	tail := editorLogTail(path)
-	is.True(strings.Contains(tail, path))
+	is.True(strings.Contains(tail, path)) // the tail names the log file
 	is.True(strings.Contains(tail, "ERROR: cannot listen on port 12120"))
 
 	// A relaunch truncates the previous session's log.

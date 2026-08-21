@@ -230,7 +230,7 @@ func TestOpenScene(t *testing.T) {
 		is.Equal(child["type"], "Node2D")
 		is.Equal(child["path"], "Child")
 		_, hasScript := child["script"]
-		is.True(!hasScript)
+		is.True(!hasScript) // nodes without a script omit the key
 
 		grandChildren, _ := child["children"].([]any)
 		is.Equal(len(grandChildren), 1)
@@ -238,7 +238,7 @@ func TestOpenScene(t *testing.T) {
 		grandChild, _ := grandChildren[0].(map[string]any)
 		is.Equal(grandChild["path"], "Child/GrandChild")
 		_, hasChildren := grandChild["children"]
-		is.True(!hasChildren)
+		is.True(!hasChildren) // leaf nodes omit the children key
 	})
 }
 
@@ -308,7 +308,7 @@ func TestInstantiateScene(t *testing.T) {
 			"node_paths": []string{"MyInstance"},
 		})
 		nodeProps, _ := props["MyInstance"].(map[string]any)
-		is.True(len(nodeProps) > 0)
+		is.True(len(nodeProps) > 0) // the instance is really in the tree
 
 		callToolOK(t, "save_scene", nil)
 		if content := readProjectFile(t, "scenes/instance_target.tscn"); content != "" {

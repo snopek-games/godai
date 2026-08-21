@@ -30,7 +30,7 @@ func TestNoticePrintsOncePerDay(t *testing.T) {
 	is.True(strings.Contains(out, "godai 0.4.0 is available"))
 	is.True(strings.Contains(out, "self-update"))
 
-	is.Equal(noticeOutput(t, updater, "0.3.0", cachePath), "")
+	is.Equal(noticeOutput(t, updater, "0.3.0", cachePath), "") // no second notice the same day
 }
 
 func TestNoticeQuietWhenUpToDate(t *testing.T) {
@@ -76,7 +76,7 @@ func TestNoticeWarnsOncePerDayWhenTheCheckFails(t *testing.T) {
 	is.True(strings.Contains(out, "warning:"))
 	is.True(strings.Contains(out, "unable to check for godai updates"))
 
-	is.Equal(noticeOutput(t, updater, "0.3.0", cachePath), "")
+	is.Equal(noticeOutput(t, updater, "0.3.0", cachePath), "") // no second warning the same day
 }
 
 func TestNoticeAbandonsASlowCheck(t *testing.T) {
@@ -86,5 +86,5 @@ func TestNoticeAbandonsASlowCheck(t *testing.T) {
 
 	buf := &bytes.Buffer{}
 	check.PrintNotice(buf, time.Millisecond, false)
-	is.Equal(buf.String(), "")
+	is.Equal(buf.String(), "") // gave up without printing anything
 }

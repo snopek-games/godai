@@ -55,7 +55,7 @@ func TestImportSettings(t *testing.T) {
 		})
 		options, _ := structured["options"].(map[string]any)
 		_, hasScale := options["svg/scale"]
-		is.True(hasScale)
+		is.True(hasScale) // get regenerated the stripped option
 	})
 
 	t.Run("set_and_reimport", func(t *testing.T) {
@@ -196,9 +196,9 @@ func TestImportSettingsChangeImporter(t *testing.T) {
 		is.Equal(after["importer"], "texture")
 		options, _ := after["options"].(map[string]any)
 		_, hasScale := options["svg/scale"]
-		is.True(hasScale)
+		is.True(hasScale) // the texture importer's options were regenerated
 		_, hasSlices := options["slices/horizontal"]
-		is.True(!hasSlices)
+		is.True(!hasSlices) // the array importer's options are gone
 	})
 
 	t.Run("old_importer_option_rejected", func(t *testing.T) {

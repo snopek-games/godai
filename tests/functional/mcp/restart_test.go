@@ -171,7 +171,7 @@ func TestRestartEditor(t *testing.T) {
 		"skip_save":    true,
 	})
 	is.NoErr(err)
-	is.True(!res.IsError)
+	is.True(!res.IsError) // restart_editor with skip_save succeeded
 
 	pidsDirty := getInstancePIDs(t, instancesDir)
 	newPID = false
@@ -180,7 +180,7 @@ func TestRestartEditor(t *testing.T) {
 			newPID = true
 		}
 	}
-	is.True(newPID)
+	is.True(newPID) // relaunched despite the unsaved scene
 
 	current = callToolOKWith(t, inst.client, "get_current_project", map[string]any{
 		"project_path": projectPath,

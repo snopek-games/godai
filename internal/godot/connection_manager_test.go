@@ -395,7 +395,7 @@ func TestConnectionManagerMultiple(t *testing.T) {
 	defer s1.Stop()
 	time.Sleep(2 * time.Second)
 	conn = l.GetFirstConn()
-	is.True(conn != nil)
+	is.True(conn != nil) // s1 connected
 	is.Equal(conn.GetPort(), 13010)
 	listc = l.GetConnections()
 	is.Equal(len(listc), 1)
@@ -454,7 +454,7 @@ func TestProjectConnectionScanner(t *testing.T) {
 	}
 
 	desired := scanner.Desired()
-	is.Equal(len(desired), 1)
+	is.Equal(len(desired), 1) // only the project under the root
 	is.Equal(desired[0].InstanceID, "inside")
 }
 

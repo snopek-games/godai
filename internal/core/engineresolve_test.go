@@ -329,5 +329,5 @@ func TestAnUninstalledProjectVersionIsReportedRatherThanIgnored(t *testing.T) {
 
 	_, err := resolve(t, session, projectWithFeatures(t, `PackedStringArray("4.7")`))
 	is.True(err != nil)
-	is.True(strings.Contains(err.Error(), "4.7"))
+	is.True(strings.Contains(err.Error(), "4.7")) // the error names the uninstalled version
 }

@@ -191,7 +191,7 @@ func TestPersistedToolDecisions(t *testing.T) {
 		requireDenied(t, callTool(t, approvalTool, nil), approvalTool)
 
 		setToolSetting(t, deniedToolsSetting, "")
-		is.Equal(callToolOK(t, approvalTool, nil)["success"], true)
+		is.Equal(callToolOK(t, approvalTool, nil)["success"], true) // clearing the denied list lifts the denial
 	})
 
 	t.Run("denied_list_is_one_tool_per_line", func(t *testing.T) {

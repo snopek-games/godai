@@ -26,7 +26,7 @@ func TestProjectGodotVersionRoundTrip(t *testing.T) {
 
 	pinned, err := UnsetProjectGodotVersion(projectPath)
 	is.NoErr(err)
-	is.True(pinned)
+	is.True(pinned) // there was a pin to remove
 
 	// Nothing else was in it, so the file goes rather than being left empty.
 	_, err = os.Stat(ProjectConfigPath(projectPath))
@@ -34,7 +34,7 @@ func TestProjectGodotVersionRoundTrip(t *testing.T) {
 
 	pinned, err = UnsetProjectGodotVersion(projectPath)
 	is.NoErr(err)
-	is.True(!pinned)
+	is.True(!pinned) // nothing left to remove
 }
 
 func TestProjectConfigKeepsSettingsItDoesNotKnow(t *testing.T) {

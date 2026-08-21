@@ -337,11 +337,11 @@ func TestWriteComment(t *testing.T) {
 			sb := strings.Builder{}
 			w := NewWriter(&sb)
 
-			err := w.WriteComment(" My comment")
+			err := w.WriteComment(tc.comment)
 			w.Flush()
 
 			is.NoErr(err)
-			is.Equal(sb.String(), "; My comment\n")
+			is.Equal(sb.String(), tc.output)
 		})
 	}
 }

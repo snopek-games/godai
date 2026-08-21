@@ -84,7 +84,7 @@ func TestCallEditorToolRefusesAMismatchedAddon(t *testing.T) {
 
 	_, err = s.CallEditorTool(ctx, "/p", "some_tool", Args{}, CallOptions{})
 	is.True(errors.Is(err, ErrAddonVersionMismatch))
-	is.True(strings.Contains(err.Error(), "0.0.1"))
+	is.True(strings.Contains(err.Error(), "0.0.1")) // the error names the addon's version
 
 	var userErr *UserError
 	is.True(errors.As(err, &userErr))

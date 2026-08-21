@@ -137,7 +137,7 @@ func TestEngineRunPropagatesSubprocessExitCode(t *testing.T) {
 
 	code, out := godaiExitCode(t, "engine", "run", stubEngineName, "--", "--exit=7")
 	is.Equal(code, 7)
-	is.True(!strings.Contains(out, "godai:"))
+	is.True(!strings.Contains(out, "godai:")) // godai adds no error output of its own
 }
 
 // A subprocess exiting with 3 used to be mistaken for urfave/cli's

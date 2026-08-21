@@ -14,11 +14,11 @@ func TestInitialize(t *testing.T) {
 	is.NoErr(err)
 	is.Equal(result.ServerInfo.Name, mcp.GodaiMcpName)
 	is.Equal(result.ServerInfo.Title, mcp.GodaiMcpTitle)
-	is.True(result.ServerInfo.Version != "" && result.ServerInfo.Version != "unknown")
+	is.True(result.ServerInfo.Version != "" && result.ServerInfo.Version != "unknown") // a real version was stamped into the build
 	is.Equal(result.ProtocolVersion, mcp.ProtocolVersion)
 	is.Equal(result.Instructions, mcp.GodaiMcpInstructions)
 	_, ok := result.Capabilities["tools"]
-	is.True(ok)
+	is.True(ok) // the capabilities advertise tools
 }
 
 func TestInitializeVersionNegotiation(t *testing.T) {

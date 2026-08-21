@@ -28,5 +28,5 @@ func TestUserErrorSentinels(t *testing.T) {
 
 	e := NewUserError("no editor for /p", ErrNoEditor, nil)
 	is.True(errors.Is(e, ErrNoEditor))
-	is.True(!errors.Is(e, ErrNotConfigured))
+	is.True(!errors.Is(e, ErrNotConfigured)) // other sentinels don't match
 }

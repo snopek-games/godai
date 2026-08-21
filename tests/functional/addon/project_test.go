@@ -25,7 +25,7 @@ func TestInitialize(t *testing.T) {
 	is.True(result.ServerInfo.Version != "" && result.ServerInfo.Version != "unknown")
 	is.Equal(result.ProtocolVersion, mcp.ProtocolVersion)
 	_, ok := result.Capabilities["tools"]
-	is.True(ok)
+	is.True(ok) // the tools capability is advertised
 }
 
 func TestInitializeVersionNegotiation(t *testing.T) {
@@ -148,7 +148,7 @@ func TestCallUnknownTool(t *testing.T) {
 	is.True(resp != nil && resp.Error != nil)
 	is.Equal(resp.Error.Code, jsonrpc.ErrorCode(jsonrpc.InvalidParamsErrorCode))
 	is.True(strings.Contains(resp.Error.Message, "Unknown tool: no_such_tool"))
-	is.Equal(len(resp.Result), 0)
+	is.Equal(len(resp.Result), 0) // an error response carries no result
 }
 
 func TestGetCurrentProject(t *testing.T) {
@@ -238,7 +238,7 @@ func TestExecuteEditorScript(t *testing.T) {
 			"code": "this is not valid gdscript ((",
 		}, "Script failed to parse")
 		_, hasOutput := structured["output"]
-		is.True(hasOutput)
+		is.True(hasOutput) // the parser's output is included
 	})
 
 	t.Run("success_with_print", func(t *testing.T) {
@@ -387,10 +387,10 @@ func TestGetLogMessages(t *testing.T) {
 	for _, raw := range messages {
 		if line, ok := raw.(string); ok && strings.Contains(line, marker) {
 			found = true
-			is.True(logTimestampRegexp.MatchString(line))
+			is.True(logTimestampRegexp.MatchString(line)) // captured log lines get timestamps
 		}
 	}
-	is.True(found)
+	is.True(found) // the marker printed by the script was captured
 }
 
 var logTimestampRegexp = regexp.MustCompile(`^\[\d{2}:\d{2}:\d{2}\.\d{3}\] `)

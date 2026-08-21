@@ -167,7 +167,7 @@ func TestInstallAndRemoveEngine(t *testing.T) {
 
 	engines, err = manager.List()
 	is.NoErr(err)
-	is.Equal(len(engines), 0)
+	is.Equal(len(engines), 0) // gone after Remove
 
 	_, err = manager.Find(testTag)
 	is.True(errors.Is(err, ErrEngineNotInstalled))

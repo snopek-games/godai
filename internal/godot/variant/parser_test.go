@@ -751,7 +751,7 @@ func TestParseValue(t *testing.T) {
 			v, err := p.ParseValue()
 
 			if expectedError, ok := tc.value.(error); ok {
-				is.Equal(v, nil)
+				is.Equal(v, nil) // a parse error yields no value
 				is.Equal(err.Error(), expectedError.Error())
 			} else {
 				is.NoErr(err)
@@ -822,7 +822,7 @@ func TestParseStatement(t *testing.T) {
 			v, err := p.ParseStatement()
 
 			if expectedError, ok := tc.value.(error); ok {
-				is.Equal(v, nil)
+				is.Equal(v, nil) // a parse error yields no value
 				is.Equal(err.Error(), expectedError.Error())
 			} else {
 				is.NoErr(err)
@@ -881,7 +881,7 @@ func TestParseStatementComplexTag(t *testing.T) {
 			v, err := p.ParseStatement()
 
 			if expectedError, ok := tc.value.(error); ok {
-				is.Equal(v, nil)
+				is.Equal(v, nil) // a parse error yields no value
 				is.Equal(err.Error(), expectedError.Error())
 			} else {
 				is.NoErr(err)

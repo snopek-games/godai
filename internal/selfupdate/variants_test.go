@@ -21,7 +21,7 @@ func TestReleaseVariantsMatchCIMatrix(t *testing.T) {
 	is.NoErr(err)
 
 	fromCI := parseCIBuildMatrix(t, string(data))
-	is.True(len(fromCI) > 0)
+	is.True(len(fromCI) > 0) // the CI matrix parsed
 
 	for platform, want := range fromCI {
 		got, ok := releaseVariants[platform]
@@ -130,11 +130,11 @@ func TestReleaseNamesMatchWhatCIPublishes(t *testing.T) {
 	is.NoErr(err)
 
 	assetPrefix := regexp.MustCompile(`CLI_ASSET_NAME:\s*"([^"]*)"`).FindStringSubmatch(string(data))
-	is.True(assetPrefix != nil)
+	is.True(assetPrefix != nil) // CLI_ASSET_NAME is defined in CI
 	is.Equal(assetPrefix[1], DefaultAssetPrefix)
 
 	binaryName := regexp.MustCompile(`CLI_BIN_NAME:\s*"([^"]*)"`).FindStringSubmatch(string(data))
-	is.True(binaryName != nil)
+	is.True(binaryName != nil) // CLI_BIN_NAME is defined in CI
 	is.Equal(binaryName[1], DefaultBinaryName)
 
 	const tag = "v0.4.0"
@@ -149,9 +149,9 @@ func TestReleaseNamesMatchWhatCIPublishes(t *testing.T) {
 
 	assetName := fmt.Sprintf("%s-%s-%s.zip", updater.assetPrefix, updater.variant.Name, tag)
 	is.Equal(assetName, "godai-cli-windows-x86_64-v0.4.0.zip")
-	is.True(strings.Contains(ci, assetName))
+	is.True(strings.Contains(ci, assetName)) // the release job publishes this asset name
 	is.True(strings.Contains(ci, ChecksumsName(tag)))
 
 	is.Equal(updater.binaryName+updater.variant.Ext, "godai.exe")
-	is.True(strings.Contains(ci, "/"+binaryName[1]+"${EXT}"))
+	is.True(strings.Contains(ci, "/"+binaryName[1]+"${EXT}")) // the zip packs the binary under this name
 }

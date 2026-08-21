@@ -124,7 +124,7 @@ func TestSetNodePropertiesVerification(t *testing.T) {
 		warnings, _ := structured["warnings"].([]any)
 		is.Equal(len(warnings), 1)
 		is.True(strings.Contains(asStrings(warnings)[0], "Fixture / clamped_value"))
-		is.True(strings.Contains(asStrings(warnings)[0], "only to 10.0"))
+		is.True(strings.Contains(asStrings(warnings)[0], "only to 10.0")) // the warning reports the clamped result
 	})
 
 	t.Run("rejecting_setter_errors_with_output", func(t *testing.T) {
@@ -138,7 +138,7 @@ func TestSetNodePropertiesVerification(t *testing.T) {
 		is.True(strings.Contains(asStrings(errs)[0], "read back unchanged"))
 
 		output, _ := structured["output"].([]any)
-		is.True(anyLineContains(output, "rejecting_value cannot be negative"))
+		is.True(anyLineContains(output, "rejecting_value cannot be negative")) // the setter's push_error is captured
 	})
 
 	t.Run("declared_dynamic_property", func(t *testing.T) {
@@ -170,7 +170,7 @@ func TestSetNodePropertiesVerification(t *testing.T) {
 		structured := setFixtureProps(t, map[string]any{"bool_value": "1"})
 		is.Equal(structured["success"], true)
 		_, hasWarnings := structured["warnings"]
-		is.True(!hasWarnings)
+		is.True(!hasWarnings) // "1" became true; not a mismatch
 	})
 
 	t.Run("write_only_property", func(t *testing.T) {
@@ -216,7 +216,7 @@ func TestSetNodePropertiesVerification(t *testing.T) {
 		structured := setFixtureProps(t, map[string]any{"noisy_value": "2.0"})
 		is.Equal(structured["success"], true)
 		output, _ := structured["output"].([]any)
-		is.True(anyLineContains(output, "noisy setter was here"))
+		is.True(anyLineContains(output, "noisy setter was here")) // the setter's print is captured
 	})
 
 	t.Run("mixed_outcomes_in_one_call", func(t *testing.T) {
@@ -242,7 +242,7 @@ func TestSetNodePropertiesVerification(t *testing.T) {
 		props := getNodeProps(t, map[string]any{
 			"node_paths": []string{"Fixture:plain_value"},
 		})
-		is.Equal(props["Fixture:plain_value"], "8.25")
+		is.Equal(props["Fixture:plain_value"], "8.25") // the good set still landed
 	})
 
 	t.Run("large_int_off_by_a_little_warns", func(t *testing.T) {

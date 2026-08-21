@@ -29,7 +29,7 @@ func TestCheckCached(t *testing.T) {
 	is.Equal(latest.String(), "0.4.0")
 
 	requests := fake.releaseRequests.Load()
-	is.True(requests > 0)
+	is.True(requests > 0) // the first check hit the network
 
 	// The second check inside the interval comes from the cache.
 	latest, newer, err = updater.CheckCached(context.Background(), cachePath, time.Hour)
@@ -67,7 +67,7 @@ func TestCheckCachedAfterUpdating(t *testing.T) {
 	_, newer, err = updated.CheckCached(context.Background(), cachePath, time.Hour)
 	is.NoErr(err)
 	is.True(!newer)
-	is.Equal(fake.releaseRequests.Load(), int64(1))
+	is.Equal(fake.releaseRequests.Load(), int64(1)) // the second check reused the cache
 }
 
 func TestCheckCachedExpires(t *testing.T) {
@@ -85,7 +85,7 @@ func TestCheckCachedExpires(t *testing.T) {
 	_, newer, err := updater.CheckCached(context.Background(), cachePath, time.Hour)
 	is.NoErr(err)
 	is.True(newer)
-	is.Equal(fake.releaseRequests.Load(), int64(2))
+	is.Equal(fake.releaseRequests.Load(), int64(2)) // the expired cache forced a fresh check
 }
 
 func TestCheckCachedWithAnUnusableCache(t *testing.T) {
@@ -102,7 +102,7 @@ func TestCheckCachedWithAnUnusableCache(t *testing.T) {
 
 		_, newer, err := updater.CheckCached(context.Background(), cachePath, time.Hour)
 		is.NoErr(err)
-		is.True(newer)
+		is.True(newer) // a bad cache falls back to a live check
 	}
 }
 
@@ -118,7 +118,7 @@ func TestCheckCachedIgnoresFutureTimestamps(t *testing.T) {
 	latest, newer, err := updater.CheckCached(context.Background(), cachePath, time.Hour)
 	is.NoErr(err)
 	is.True(newer)
-	is.Equal(latest.String(), "0.4.0")
+	is.Equal(latest.String(), "0.4.0") // refetched, not the future-stamped 9.9.9
 }
 
 func TestCheckCachedWithNoUsableRelease(t *testing.T) {

@@ -44,7 +44,7 @@ func TestMCPSetupClaudeCodeJSON(t *testing.T) {
 	}
 	is.NoErr(json.Unmarshal([]byte(out), &plan))
 	is.Equal(plan.Client, "claude-code")
-	is.True(len(plan.Register) >= 7)
+	is.True(len(plan.Register) >= 7) // prefix, binary, and server args
 	is.Equal(plan.Register[:5], []string{"claude", "mcp", "add", "godai", "--"})
 	is.Equal(plan.Register[len(plan.Register)-1], "mcp")
 }
@@ -101,7 +101,7 @@ func TestMCPSetupClaudeDesktopJSON(t *testing.T) {
 	is.Equal(plan.Client, "claude-desktop")
 	is.True(strings.Contains(plan.ConfigPath, "claude_desktop_config.json"))
 	is.True(plan.Config.MCPServers.Godai.Command != "")
-	is.True(contains(plan.Config.MCPServers.Godai.Args, "--global"))
+	is.True(contains(plan.Config.MCPServers.Godai.Args, "--global")) // a desktop app has no working directory
 	is.Equal(plan.Extension, releasesURL)
 }
 

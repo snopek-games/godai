@@ -32,7 +32,7 @@ func TestEngineRemoveUnsetsTheDefault(t *testing.T) {
 
 	_, err = runCLI(t, []string{"godai", "engine", "remove", other})
 	is.NoErr(err)
-	is.Equal(readSavedConfig(t, configPath).GodotVersion, version)
+	is.Equal(readSavedConfig(t, configPath).GodotVersion, version) // untouched by removing the other engine
 
 	_, err = runCLI(t, []string{"godai", "engine", "remove", version})
 	is.NoErr(err)

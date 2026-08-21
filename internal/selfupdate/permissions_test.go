@@ -42,8 +42,8 @@ func TestUpdateWithoutWritePermission(t *testing.T) {
 	is.Equal(permissionErr.Dir, installDir)
 	is.True(strings.Contains(err.Error(), "sudo"))
 
-	is.Equal(readFile(t, exePath), binaryContent("v0.3.2"))
-	is.Equal(fake.assetRequests.Load(), int64(0)) // failed before downloading anything
+	is.Equal(readFile(t, exePath), binaryContent("v0.3.2")) // the executable is untouched
+	is.Equal(fake.assetRequests.Load(), int64(0))           // failed before downloading anything
 }
 
 func TestRollbackWithoutWritePermission(t *testing.T) {
@@ -66,7 +66,7 @@ func TestRollbackWithoutWritePermission(t *testing.T) {
 
 	var permissionErr *PermissionError
 	is.True(errors.As(err, &permissionErr))
-	is.Equal(readFile(t, exePath), binaryContent("v0.4.0"))
+	is.Equal(readFile(t, exePath), binaryContent("v0.4.0")) // the executable is untouched
 }
 
 func TestPermissionErrorHint(t *testing.T) {

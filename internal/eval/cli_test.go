@@ -42,7 +42,7 @@ func TestCLISurfaceResolvesGodaiToTheShim(t *testing.T) {
 
 	args := strings.Join(s.args, " ")
 	is.True(strings.Contains(args, "Bash,Read,Glob,Grep"))
-	is.True(!strings.Contains(args, "Write"))
+	is.True(!strings.Contains(args, "Write")) // file tools need --full-tools
 	is.True(strings.Contains(args, cliInstructions))
 }
 
@@ -83,7 +83,7 @@ func TestShimAnsweredNeedsAGodaiCallToWorryAbout(t *testing.T) {
 
 	w := cliWorkspace(t)
 	is.NoErr(checkShimAnswered(w, 0))
-	is.True(checkShimAnswered(w, 3) != nil)
+	is.True(checkShimAnswered(w, 3) != nil) // tool calls happened but none reached the shim
 
 	shim, err := w.GodaiShim(w.GodaiArgs()...)
 	is.NoErr(err)

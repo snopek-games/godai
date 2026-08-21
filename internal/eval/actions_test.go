@@ -99,7 +99,7 @@ func TestBypassRateCountsOnlyMutatingActions(t *testing.T) {
 
 	st := ScoreActions(actions, &Spec{})
 	is.Equal(st.GodaiCalls, 3)
-	is.Equal(st.MutatingCalls, 1)
+	is.Equal(st.MutatingCalls, 1) // just the Write; the godai calls only read
 	is.Equal(st.BypassRate, 1.0)
 }
 
@@ -108,7 +108,7 @@ func TestBaselineDeniesBashUnlessFullTools(t *testing.T) {
 
 	denied := strings.Join(baselineArgs(false), " ")
 	is.True(strings.Contains(denied, "--disallowedTools Bash"))
-	is.True(!strings.Contains(denied, "Grep,Bash"))
+	is.True(!strings.Contains(denied, "Grep,Bash")) // Bash is not in the allowed list either
 
 	allowed := strings.Join(baselineArgs(true), " ")
 	is.True(!strings.Contains(allowed, "--disallowedTools"))
@@ -145,7 +145,7 @@ func TestHelpIsNotAnAction(t *testing.T) {
 	is.Equal(st.GodaiCalls, 1)
 	is.Equal(st.FirstGodaiAction, "add_node")
 	is.True(st.FirstActionCorrect)
-	is.Equal(st.Precision, 1.0)
+	is.Equal(st.Precision, 1.0) // help calls don't count against precision
 }
 
 func TestRedundantCallsComparesArguments(t *testing.T) {
@@ -163,7 +163,7 @@ func TestRedundantCallsComparesArguments(t *testing.T) {
 		bashCall("ls"),
 	})
 
-	is.Equal(ScoreActions(actions, &Spec{}).RedundantCalls, 1)
+	is.Equal(ScoreActions(actions, &Spec{}).RedundantCalls, 1) // only the identical add_node pair
 }
 
 func TestScoreActionsMeasuresSelectionAndBypass(t *testing.T) {

@@ -17,10 +17,10 @@ func TestMCPToolsetsListsAllToolsets(t *testing.T) {
 	is.NoErr(err)
 
 	for _, name := range core.ToolsetNames {
-		is.True(strings.Contains(out, name+":\n"))
+		is.True(strings.Contains(out, name+":\n")) // every toolset gets a heading
 	}
-	is.True(strings.Contains(out, "  get_current_scene\n"))
-	is.True(strings.Contains(out, "  install_godot_version\n"))
+	is.True(strings.Contains(out, "  get_current_scene\n"))     // a remote tool is listed
+	is.True(strings.Contains(out, "  install_godot_version\n")) // a local tool is listed
 	is.True(strings.Contains(out, "default = "))
 	is.True(strings.Contains(out, "(everything except engine)"))
 }
@@ -44,11 +44,11 @@ func TestMCPToolsetsJSON(t *testing.T) {
 	byName := map[string]bool{}
 	for _, toolset := range result.Toolsets {
 		byName[toolset.Name] = true
-		is.True(len(toolset.Tools) > 0)
-		is.Equal(toolset.InDefault, toolset.Name != "engine")
+		is.True(len(toolset.Tools) > 0)                       // no toolset is empty
+		is.Equal(toolset.InDefault, toolset.Name != "engine") // only engine is out of the default set
 	}
 	for _, name := range core.ToolsetNames {
-		is.True(byName[name])
+		is.True(byName[name]) // every toolset is in the JSON
 	}
 }
 

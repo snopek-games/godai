@@ -19,7 +19,7 @@ func TestParseListKeys(t *testing.T) {
 	is.Equal(parseListKeys([]byte{0x03}), []listKey{keyCancel})
 	is.Equal(parseListKeys([]byte{0x04}), []listKey{keyCancel})
 	is.Equal(parseListKeys([]byte{0x1b}), []listKey{keyCancel})
-	is.Equal(parseListKeys([]byte{'x'}), []listKey{})
+	is.Equal(parseListKeys([]byte{'x'}), []listKey{}) // unrecognized bytes are ignored
 	is.Equal(parseListKeys([]byte{0x1b, '[', 'C'}), []listKey{})
 }
 
@@ -54,12 +54,12 @@ func TestListSelectorRenderMarksTheSelection(t *testing.T) {
 	is.Equal(len(lines), 2)
 	is.True(strings.Contains(lines[0], "    a"))
 	is.True(strings.Contains(lines[1], "  > b"))
-	is.True(!strings.Contains(buf.String(), "\x1b[36m"))
+	is.True(!strings.Contains(buf.String(), "\x1b[36m")) // no color codes when color is off
 
 	buf.Reset()
 	s.color = true
 	s.render()
-	is.True(strings.Contains(buf.String(), "\x1b[36m> b\x1b[0m"))
+	is.True(strings.Contains(buf.String(), "\x1b[36m> b\x1b[0m")) // the selection is cyan
 }
 
 func TestListSelectorFinishShowsTheChoice(t *testing.T) {

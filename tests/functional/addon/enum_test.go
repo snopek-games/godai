@@ -50,13 +50,13 @@ func TestEnumNodeProperties(t *testing.T) {
 		structured := setProps(t, map[string]any{"speed_mode": "Fast"})
 		is.Equal(structured["success"], true)
 		_, hasWarnings := structured["warnings"]
-		is.True(!hasWarnings)
+		is.True(!hasWarnings) // an exact name match must not warn
 
 		props := getNodeProps(t, map[string]any{
 			"node_paths":    []string{"Fixture:speed_mode"},
 			"enums_as_ints": true,
 		})
-		is.Equal(props["Fixture:speed_mode"], "2")
+		is.Equal(props["Fixture:speed_mode"], "2") // "Fast" is enum value 2
 	})
 
 	t.Run("get_translates_with_note", func(t *testing.T) {
@@ -114,7 +114,7 @@ func TestEnumNodeProperties(t *testing.T) {
 		}, "did you mean 'Fast'")
 		errs, _ := structured["errors"].([]any)
 		is.Equal(len(errs), 1)
-		is.True(strings.Contains(asStrings(errs)[0], "'Slow' (0)"))
+		is.True(strings.Contains(asStrings(errs)[0], "'Slow' (0)")) // the error lists the valid options
 	})
 
 	t.Run("set_unmatched_int_warns_but_applies", func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestEnumNodeProperties(t *testing.T) {
 		is.Equal(structured["success"], true)
 		warnings, _ := structured["warnings"].([]any)
 		is.True(anyLineContains(warnings, "9 does not match any option of this enum"))
-		is.True(anyLineContains(warnings, "'Slow' (0)"))
+		is.True(anyLineContains(warnings, "'Slow' (0)")) // the warning lists the valid options
 
 		// No option name to show, so the value stays an int on get too.
 		props := getNodeProps(t, map[string]any{
@@ -148,7 +148,7 @@ func TestEnumNodeProperties(t *testing.T) {
 			"node_paths":    []string{"Fixture:power"},
 			"enums_as_ints": true,
 		})
-		is.Equal(props["Fixture:power"], "10")
+		is.Equal(props["Fixture:power"], "10") // "High" has the explicit value 10
 	})
 
 	t.Run("clamping_setter_warns_with_option_name", func(t *testing.T) {
@@ -157,7 +157,7 @@ func TestEnumNodeProperties(t *testing.T) {
 		structured := setProps(t, map[string]any{"clamped_mode": "C"})
 		is.Equal(structured["success"], true)
 		warnings, _ := structured["warnings"].([]any)
-		is.True(anyLineContains(warnings, "only to B"))
+		is.True(anyLineContains(warnings, "only to B")) // the warning names the option it clamped to
 	})
 }
 
@@ -196,7 +196,7 @@ func TestEnumResourceProperties(t *testing.T) {
 			"properties":    []string{"texture_filter"},
 			"enums_as_ints": true,
 		})
-		is.Equal(props["texture_filter"], "0")
+		is.Equal(props["texture_filter"], "0") // "Nearest" is enum value 0
 	})
 
 	t.Run("set_by_int_notes_option_name", func(t *testing.T) {
@@ -238,7 +238,7 @@ func TestEnumProjectSettings(t *testing.T) {
 			"names": []string{settingName},
 		})
 		value, _ := structured["settings"].(map[string]any)[settingName].(string)
-		is.True(value != original)
+		is.True(value != original) // translated to the option name, not the int
 
 		notes, _ := structured["notes"].([]any)
 		is.True(anyLineContains(notes, settingName))
@@ -271,7 +271,7 @@ func TestEnumProjectSettings(t *testing.T) {
 			"names":         []string{settingName},
 			"enums_as_ints": true,
 		})
-		is.Equal(after["settings"].(map[string]any)[settingName], "0")
+		is.Equal(after["settings"].(map[string]any)[settingName], "0") // "Nearest" is enum value 0
 	})
 
 	t.Run("set_by_int_notes_option_name", func(t *testing.T) {

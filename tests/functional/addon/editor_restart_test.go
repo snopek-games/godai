@@ -26,7 +26,7 @@ func TestRestartEditor(t *testing.T) {
 		settleEditor(t)
 
 		content := readProjectFile(t, "scenes/restart_save_test.tscn")
-		is.True(strings.Contains(content, "MyChild"))
+		is.True(strings.Contains(content, "MyChild")) // the restart saved the modified scene
 
 		callToolOK(t, "get_current_project", nil)
 	})

@@ -82,7 +82,7 @@ func TestResPathRejectsPathsOutsideTheProject(t *testing.T) {
 		_, err := resPath(input, project, "file-path")
 		is.True(err != nil)
 		is.True(strings.Contains(err.Error(), "outside the project"))
-		is.True(strings.Contains(err.Error(), "--file-path"))
+		is.True(strings.Contains(err.Error(), "--file-path")) // the error names the flag
 		is.Equal(ExitCodeFor(err), ExitUsage)
 	}
 }
@@ -107,7 +107,7 @@ func TestNormalizeResPathArgs(t *testing.T) {
 
 	is.Equal(string(args["file_path"]), `"res://spin.gd"`)
 	is.Equal(string(args["file_paths"]), `["res://a.png","res://b.png"]`)
-	is.Equal(string(args["content"]), `"extends Node"`)
+	is.Equal(string(args["content"]), `"extends Node"`) // non-path args are untouched
 }
 
 func TestNormalizeResPathArgsLeavesWrongShapesForTheEditor(t *testing.T) {

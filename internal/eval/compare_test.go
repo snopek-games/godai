@@ -74,7 +74,7 @@ func TestCompareNotesUnevenTaskCoverage(t *testing.T) {
 	is.True(strings.Contains(c.Notes[0], "haiku/cli"))
 	is.True(strings.Contains(c.Notes[0], "b"))
 
-	is.True(strings.Contains(taskRow(c.Markdown(), "b"), "—"))
+	is.True(strings.Contains(taskRow(c.Markdown(), "b"), "—")) // the unrun task renders as a dash
 }
 
 func TestCompareNotesAnEditedTask(t *testing.T) {
@@ -139,7 +139,7 @@ func TestCompareNamesEveryFailingRepeat(t *testing.T) {
 	is.True(strings.Contains(md, "main_scene_loads: main.tscn is missing or failed to parse"))
 	is.True(strings.Contains(md, "| r3 "))
 	is.True(strings.Contains(md, "verifier produced no report"))
-	is.True(!strings.Contains(md, "| r2 "))
+	is.True(!strings.Contains(md, "| r2 ")) // the passing repeat is not listed
 }
 
 func TestCompareCapsTheFailureListAndSaysSo(t *testing.T) {
@@ -168,10 +168,10 @@ func TestLoadResultsReadsADirectory(t *testing.T) {
 
 	loaded, err := LoadResults([]string{dir})
 	is.NoErr(err)
-	is.Equal(len(loaded), 1)
+	is.Equal(len(loaded), 1) // non-JSON files are ignored
 	is.Equal(loaded[0].Model, "haiku")
 
 	is.NoErr(os.WriteFile(filepath.Join(dir, "other.json"), []byte(`{"hello":"world"}`), 0o644))
 	_, err = LoadResults([]string{dir})
-	is.True(err != nil)
+	is.True(err != nil) // a JSON file that isn't results is an error
 }

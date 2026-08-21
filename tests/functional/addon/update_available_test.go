@@ -37,7 +37,7 @@ func mcpStatusText(t *testing.T, ctx context.Context) string {
 
 	result, err := client.CallTool(ctx, "execute_editor_script", map[string]any{"code": readMCPStatus})
 	is.NoErr(err)
-	is.True(!result.IsError)
+	is.True(!result.IsError) // the status-reading script ran
 
 	var script struct {
 		Output []string `json:"output"`
@@ -75,7 +75,7 @@ func TestUpdateAvailableShowsInTheStatusBar(t *testing.T) {
 	defer cancel()
 
 	before := mcpStatusText(t, ctx)
-	is.True(!strings.Contains(before, "is available"))
+	is.True(!strings.Contains(before, "is available")) // no leftover update notice from an earlier test
 
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -90,7 +90,7 @@ func TestUpdateAvailableShowsInTheStatusBar(t *testing.T) {
 		status := waitForMCPStatus(t, cleanupCtx, func(s string) bool {
 			return !strings.Contains(s, "is available")
 		})
-		is.True(!strings.Contains(status, "is available"))
+		is.True(!strings.Contains(status, "is available")) // the blank notification clears the notice
 	})
 
 	err := client.Notify(ctx, "notifications/godai/update_available", map[string]any{

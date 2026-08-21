@@ -26,7 +26,7 @@ func TestCloseEditor(t *testing.T) {
 		settleEditor(t)
 
 		content := readProjectFile(t, "scenes/close_save_test.tscn")
-		is.True(strings.Contains(content, "MyChild"))
+		is.True(strings.Contains(content, "MyChild")) // the close saved the modified scene
 
 		callToolOK(t, "get_current_project", nil)
 	})

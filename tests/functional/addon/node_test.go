@@ -83,7 +83,7 @@ func TestAddNode(t *testing.T) {
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
-		is.True(nodeProps != nil)
+		is.True(nodeProps != nil) // the created node is in the scene
 		is.Equal(nodeProps["position"], "Vector2(10, 20)")
 	})
 
@@ -111,7 +111,7 @@ func TestAddNode(t *testing.T) {
 				"position": "Vector2(1 2)",
 			},
 		})
-		is.Equal(structured["success"], true)
+		is.Equal(structured["success"], true) // a bad property value doesn't fail the call
 		warnings, _ := structured["warnings"].([]any)
 		is.Equal(len(warnings), 1)
 		is.True(strings.Contains(asStrings(warnings)[0], "Cannot parse"))
@@ -120,7 +120,7 @@ func TestAddNode(t *testing.T) {
 			"node_paths": []string{"PartiallyCreated"},
 		})
 		nodeProps, _ := props["PartiallyCreated"].(map[string]any)
-		is.Equal(nodeProps["name"], "PartiallyCreated")
+		is.Equal(nodeProps["name"], "PartiallyCreated") // created despite the bad position value
 	})
 
 	t.Run("duplicate_name_warns", func(t *testing.T) {
@@ -139,7 +139,7 @@ func TestAddNode(t *testing.T) {
 		is.True(strings.Contains(asStrings(warnings)[0], "name"))
 
 		nodePath, _ := structured["node_path"].(string)
-		is.True(nodePath != "MyChild")
+		is.True(nodePath != "MyChild") // Godot renamed the duplicate
 		is.True(strings.Contains(asStrings(warnings)[0], nodePath))
 	})
 }
@@ -231,7 +231,7 @@ func TestNodeProperties(t *testing.T) {
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
-		is.Equal(nodeProps["position"], "Vector2(99, 99)")
+		is.Equal(nodeProps["position"], "Vector2(99, 99)") // the existing node was still set
 	})
 
 	t.Run("get_nonexistent_node", func(t *testing.T) {
@@ -271,7 +271,7 @@ func TestNodeProperties(t *testing.T) {
 			"node_paths": []string{"MyLabel"},
 		})
 		nodeProps, _ := props["MyLabel"].(map[string]any)
-		is.Equal(nodeProps["text"], "Hello World")
+		is.Equal(nodeProps["text"], "Hello World") // plain strings come back unquoted
 	})
 
 	t.Run("embedded_resource", func(t *testing.T) {
@@ -291,7 +291,7 @@ func TestNodeProperties(t *testing.T) {
 			"node_paths": []string{"MyMesh"},
 		})
 		nodeProps, _ := props["MyMesh"].(map[string]any)
-		is.Equal(nodeProps["mesh"], "Object(SphereMesh)")
+		is.Equal(nodeProps["mesh"], "Object(SphereMesh)") // summarized without its properties
 
 		props = getNodeProps(t, map[string]any{
 			"node_paths": []string{"MyMesh:mesh"},
@@ -427,7 +427,7 @@ func TestNodeProperties(t *testing.T) {
 			"node_paths": []string{"MyChild"},
 		})
 		nodeProps, _ := props["MyChild"].(map[string]any)
-		is.Equal(nodeProps["position"], "Vector2(9, 9)")
+		is.Equal(nodeProps["position"], "Vector2(9, 9)") // the valid property was still set
 	})
 
 	t.Run("unknown_property", func(t *testing.T) {
@@ -468,9 +468,9 @@ func TestNodeProperties(t *testing.T) {
 
 		// "position" was changed by earlier subtests; "rotation" is still at its default.
 		_, hasPosition := nodeProps["position"]
-		is.True(hasPosition)
+		is.True(hasPosition) // changed earlier, so reported
 		_, hasRotation := nodeProps["rotation"]
-		is.True(!hasRotation)
+		is.True(!hasRotation) // still at its default, so omitted
 	})
 
 	t.Run("include_defaults", func(t *testing.T) {
@@ -483,7 +483,7 @@ func TestNodeProperties(t *testing.T) {
 		nodeProps, _ := props["MyChild"].(map[string]any)
 
 		_, hasRotation := nodeProps["rotation"]
-		is.True(hasRotation)
+		is.True(hasRotation) // still at its default, but reported now
 	})
 
 	// Neither saved nor shown in the inspector: derived from "transform"
@@ -502,7 +502,7 @@ func TestNodeProperties(t *testing.T) {
 			nodeProps, _ := props["MyChild"].(map[string]any)
 			for _, name := range hiddenProps {
 				_, has := nodeProps[name]
-				is.True(!has)
+				is.True(!has) // hidden even with include_defaults
 			}
 		}
 	})
@@ -529,7 +529,7 @@ func TestNodeProperties(t *testing.T) {
 		// Godot tracks no default for these, but an empty one still isn't worth
 		// reporting; the node's name always is.
 		_, hasSceneFilePath := nodeProps["scene_file_path"]
-		is.True(!hasSceneFilePath)
+		is.True(!hasSceneFilePath) // empty, so omitted
 		is.Equal(nodeProps["name"], "MyChild")
 	})
 }
@@ -804,7 +804,7 @@ func TestNodeScript(t *testing.T) {
 				host = child
 			}
 		}
-		is.True(host != nil)
+		is.True(host != nil) // ScriptHost is in the scene tree
 		is.Equal(host["script"], "res://scripts/ns_compatible.gd")
 	})
 
@@ -832,7 +832,7 @@ func TestNodeScript(t *testing.T) {
 			"node_paths": []string{"ScriptHost"},
 		})
 		nodeProps, _ := props["ScriptHost"].(map[string]any)
-		is.Equal(nodeProps["script"], `Resource("res://scripts/ns_compatible.gd")`)
+		is.Equal(nodeProps["script"], `Resource("res://scripts/ns_compatible.gd")`) // the incompatible script was not attached
 	})
 
 	t.Run("attach_and_detach_via_set_node_properties", func(t *testing.T) {
@@ -850,7 +850,7 @@ func TestNodeScript(t *testing.T) {
 		})
 		nodeProps, _ := props["ScriptHost"].(map[string]any)
 		_, hasScript := nodeProps["script"]
-		is.True(!hasScript)
+		is.True(!hasScript) // "null" detached the script
 
 		callToolOK(t, "set_node_properties", map[string]any{
 			"action": "Attach a script by property",
@@ -912,7 +912,7 @@ func TestNodeScript(t *testing.T) {
 			child, _ := raw.(map[string]any)
 			if child["name"] == "ScriptHost" {
 				_, hasScript := child["script"]
-				is.True(!hasScript)
+				is.True(!hasScript) // the detached script is gone from the tree
 			}
 		}
 	})

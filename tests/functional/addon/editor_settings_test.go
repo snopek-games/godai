@@ -21,7 +21,7 @@ func TestEditorSettings(t *testing.T) {
 		settings, _ := structured["settings"].(map[string]any)
 		is.Equal(len(settings), 1)
 		value, ok := settings[editorSettingName].(string)
-		is.True(ok)
+		is.True(ok) // values come back as strings
 		is.True(value != "")
 	})
 
@@ -44,7 +44,7 @@ func TestEditorSettings(t *testing.T) {
 
 		is.True(len(allSettings) > len(modified))
 		_, ok := allSettings[editorSettingName]
-		is.True(ok)
+		is.True(ok) // the full listing includes the known setting
 
 		for name := range allSettings {
 			if strings.HasPrefix(name, "_") {
@@ -60,7 +60,7 @@ func TestEditorSettings(t *testing.T) {
 			"names": []string{"_editor_settings_advanced_mode"},
 		})
 		settings, _ := structured["settings"].(map[string]any)
-		is.Equal(len(settings), 1)
+		is.Equal(len(settings), 1) // an underscored setting is still gettable by name
 	})
 
 	t.Run("set_roundtrip", func(t *testing.T) {
@@ -94,7 +94,7 @@ func TestEditorSettings(t *testing.T) {
 
 		modified := callToolOK(t, "get_editor_settings", nil)
 		_, ok := modified["settings"].(map[string]any)[editorSettingName]
-		is.True(ok)
+		is.True(ok) // the change shows up in the modified-only listing
 	})
 
 	t.Run("set_invalid_typed_value", func(t *testing.T) {

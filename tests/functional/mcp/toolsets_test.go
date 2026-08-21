@@ -40,7 +40,7 @@ func TestToolsetsLimitAdvertisedTools(t *testing.T) {
 	is.True(!names["restart_editor"])
 
 	_, err = inst.client.CallTool(testContext(t), "list_projects", nil)
-	is.True(err != nil)
+	is.True(err != nil) // a filtered-out tool can't be called either
 	is.True(strings.Contains(err.Error(), "Unknown tool"))
 }
 

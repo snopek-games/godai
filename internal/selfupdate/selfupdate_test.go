@@ -378,7 +378,7 @@ func TestUpdateWithATamperedAsset(t *testing.T) {
 
 	_, err = updater.Update(context.Background(), release, exePath)
 	is.True(errors.Is(err, ErrChecksumMismatch))
-	is.Equal(readFile(t, exePath), binaryContent("v0.3.2"))
+	is.Equal(readFile(t, exePath), binaryContent("v0.3.2")) // the executable is untouched
 }
 
 func TestUpdateWithAnUnlistedAsset(t *testing.T) {
@@ -393,7 +393,7 @@ func TestUpdateWithAnUnlistedAsset(t *testing.T) {
 
 	_, err = updater.Update(context.Background(), release, exePath)
 	is.True(errors.Is(err, ErrChecksumMissing))
-	is.Equal(readFile(t, exePath), binaryContent("v0.3.2"))
+	is.Equal(readFile(t, exePath), binaryContent("v0.3.2")) // the executable is untouched
 }
 
 func TestFindChecksum(t *testing.T) {
@@ -414,7 +414,7 @@ func TestFindChecksum(t *testing.T) {
 	is.Equal(got, strings.Repeat("b", 64))
 
 	_, ok = findChecksum(checksums, "short-hash.zip")
-	is.True(!ok)
+	is.True(!ok) // a truncated hash doesn't count
 
 	_, ok = findChecksum(checksums, "godai-cli-windows-x86_64-v0.4.0.zip")
 	is.True(!ok)
@@ -444,7 +444,7 @@ func TestIsNewer(t *testing.T) {
 	is.True(!updater.IsNewer(release))
 
 	updater = newTestUpdater(t, fake, "0.4.0-dev")
-	is.True(updater.IsNewer(release))
+	is.True(updater.IsNewer(release)) // a -dev build updates to its own release
 }
 
 func TestUpdate(t *testing.T) {
@@ -497,7 +497,7 @@ func TestUpdateRefusesInsecureAssetURL(t *testing.T) {
 	_, err = updater.Update(context.Background(), release, exePath)
 	is.True(err != nil)
 	is.True(strings.Contains(err.Error(), "refusing"))
-	is.Equal(readFile(t, exePath), binaryContent("v0.3.2"))
+	is.Equal(readFile(t, exePath), binaryContent("v0.3.2")) // the executable is untouched
 }
 
 func TestUpdateRefusesRedirectToInsecureAssetURL(t *testing.T) {
@@ -520,7 +520,7 @@ func TestUpdateRefusesRedirectToInsecureAssetURL(t *testing.T) {
 	_, err = updater.Update(context.Background(), release, exePath)
 	is.True(err != nil)
 	is.True(strings.Contains(err.Error(), "refusing"))
-	is.Equal(readFile(t, exePath), binaryContent("v0.3.2"))
+	is.Equal(readFile(t, exePath), binaryContent("v0.3.2")) // the executable is untouched
 }
 
 func TestUpdateWithoutTheExecutableInTheAsset(t *testing.T) {
@@ -535,7 +535,7 @@ func TestUpdateWithoutTheExecutableInTheAsset(t *testing.T) {
 
 	_, err = updater.Update(context.Background(), release, exePath)
 	is.True(errors.Is(err, ErrBinaryNotFound))
-	is.Equal(readFile(t, exePath), binaryContent("v0.3.2"))
+	is.Equal(readFile(t, exePath), binaryContent("v0.3.2")) // the executable is untouched
 }
 
 func TestRollback(t *testing.T) {
@@ -553,7 +553,7 @@ func TestRollback(t *testing.T) {
 	is.NoErr(Rollback(exePath))
 	is.Equal(readFile(t, exePath), binaryContent("v0.3.2"))
 
-	is.Equal(readFile(t, BackupPath(exePath)), binaryContent("v0.4.0"))
+	is.Equal(readFile(t, BackupPath(exePath)), binaryContent("v0.4.0")) // the rolled-back version becomes the backup
 	is.NoErr(Rollback(exePath))
 	is.Equal(readFile(t, exePath), binaryContent("v0.4.0"))
 	is.Equal(readFile(t, BackupPath(exePath)), binaryContent("v0.3.2"))
@@ -566,5 +566,5 @@ func TestRollbackWithoutABackup(t *testing.T) {
 
 	err := Rollback(exePath)
 	is.True(errors.Is(err, ErrNoBackup))
-	is.Equal(readFile(t, exePath), binaryContent("v0.3.2"))
+	is.Equal(readFile(t, exePath), binaryContent("v0.3.2")) // the executable is untouched
 }

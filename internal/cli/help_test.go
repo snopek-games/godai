@@ -66,7 +66,7 @@ func TestHelpMarksRepeatableFlagsWithoutBrackets(t *testing.T) {
 	is.NoErr(err)
 
 	is.True(strings.Contains(out, "(repeatable)"))
-	is.True(!strings.Contains(out, "[ --"))
+	is.True(!strings.Contains(out, "[ --")) // no [ --flag ] repeat brackets
 }
 
 func TestEditorToolHelpGroupsByToolsetAndHidesAliases(t *testing.T) {
@@ -138,7 +138,7 @@ func TestCommandHelpPointsAtGlobalOptionsInstead(t *testing.T) {
 	is.NoErr(err)
 	is.True(!strings.Contains(out, "GLOBAL OPTIONS:"))
 	is.True(!strings.Contains(out, "--godot-version"))
-	is.True(strings.Contains(out, "--headless"))
+	is.True(strings.Contains(out, "--headless")) // the command's own flags remain
 	is.True(strings.Contains(out, globalOptionsNote))
 }
 

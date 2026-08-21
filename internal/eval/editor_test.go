@@ -53,7 +53,7 @@ func TestAwaitStreamWaitsForAWholeResultLine(t *testing.T) {
 
 	m, err := ParseStream(bytes.NewReader(blob))
 	is.NoErr(err)
-	is.Equal(m.MalformedLines, 0)
+	is.Equal(m.MalformedLines, 0) // the split result line was read whole
 	is.Equal(m.NumTurns, 2)
 	is.Equal(m.Model, "claude-haiku-4-5-20251001")
 	is.True(strings.Contains(live.String(), "session started"))
@@ -88,7 +88,7 @@ func TestAwaitStreamReportsEditorExit(t *testing.T) {
 
 	blob, err := awaitStream(ctx, path, nil)
 	is.True(errors.Is(err, errEditorExited))
-	is.Equal(string(blob), lines)
+	is.Equal(string(blob), lines) // keeps what streamed before the exit
 }
 
 func TestWatchEditorExitCancelsWhenTheProcessDies(t *testing.T) {

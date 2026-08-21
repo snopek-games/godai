@@ -25,7 +25,7 @@ func TestBuildEveryRemoteTool(t *testing.T) {
 			continue
 		}
 
-		is.Equal(len(flags), len(specs))
+		is.Equal(len(flags), len(specs)) // one spec per generated flag
 
 		seen := map[string]bool{}
 		for _, spec := range specs {
@@ -50,7 +50,7 @@ func TestBuildRejectsCollidingProperties(t *testing.T) {
 	_, _, err := Build(json.RawMessage(
 		`{"type":"object","properties":{"a_b":{"type":"string"},"a-b":{"type":"string"}}}`))
 	is.True(err != nil)
-	is.True(strings.Contains(err.Error(), "--a-b"))
+	is.True(strings.Contains(err.Error(), "--a-b")) // the error names the colliding flag
 }
 
 func TestCheckRequired(t *testing.T) {
@@ -64,7 +64,7 @@ func TestCheckRequired(t *testing.T) {
 
 	for _, flag := range flags {
 		if required, ok := flag.(cli.RequiredFlag); ok {
-			is.True(!required.IsRequired())
+			is.True(!required.IsRequired()) // enforced by CheckRequired, not urfave/cli
 		}
 	}
 
@@ -73,7 +73,7 @@ func TestCheckRequired(t *testing.T) {
 	err = CheckRequired(specs, core.Args{"c": json.RawMessage(`"x"`)})
 	is.True(err != nil)
 	is.True(strings.Contains(err.Error(), "a_b"))
-	is.True(strings.Contains(err.Error(), "--a-b"))
+	is.True(strings.Contains(err.Error(), "--a-b")) // the error shows the flag spelling too
 }
 
 func TestKinds(t *testing.T) {
@@ -279,5 +279,5 @@ func TestCollectRejectsInvalidJSON(t *testing.T) {
 
 	err = cmd.Run(context.Background(), []string{"tool", "--nodes", "not json"})
 	is.True(err != nil)
-	is.True(strings.Contains(err.Error(), "--nodes"))
+	is.True(strings.Contains(err.Error(), "--nodes")) // the error names the flag
 }

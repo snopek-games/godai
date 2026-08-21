@@ -64,7 +64,7 @@ func TestEditorToolCommandRoutesLifecycleTools(t *testing.T) {
 	toolCommand := editorToolCommand("")
 	for name := range editorLifecycleTools {
 		def, ok := core.RemoteToolDefinitions()[name]
-		is.True(ok)
+		is.True(ok) // every lifecycle tool is a real remote tool
 		is.True(!def.DoNotForward)
 
 		is.True(toolCommand.Command(name) != nil)
@@ -270,7 +270,7 @@ func TestSetNodePropertiesSugarBuildsTheNodesArgument(t *testing.T) {
 
 			if tc.nodes == "" {
 				_, ok := args["nodes"]
-				is.True(!ok)
+				is.True(!ok) // the sugar left nodes alone
 				return
 			}
 			is.Equal(string(args["nodes"]), tc.nodes)

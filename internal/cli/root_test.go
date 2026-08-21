@@ -57,7 +57,7 @@ func TestStaleSavedGodotVersionDoesNotBlockCommands(t *testing.T) {
 	is.NoErr(runQuietly(t, []string{"godai", "config"}))
 
 	err = runQuietly(t, []string{"godai", "--godot-path", filepath.Join(dir, "gone", "godot"), "config"})
-	is.Equal(ExitCodeFor(err), ExitUsage)
+	is.Equal(ExitCodeFor(err), ExitUsage) // an explicit --godot-path must exist
 }
 
 func TestUnusableGodotEnvVarDoesNotBlockCommands(t *testing.T) {

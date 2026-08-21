@@ -86,7 +86,7 @@ func TestCreateResource(t *testing.T) {
 		})
 		is.Equal(structured["success"], true)
 		_, hasErrors := structured["errors"]
-		is.True(!hasErrors)
+		is.True(!hasErrors) // the bad property is a warning, not an error
 		warnings, _ := structured["warnings"].([]any)
 		is.Equal(len(warnings), 1)
 		is.True(strings.Contains(asStrings(warnings)[0], `font_size: "garbage" is not a variant type`))
@@ -253,7 +253,7 @@ return OK`)
 			"file_path":  materialPath,
 			"properties": []string{"albedo_color"},
 		})
-		is.Equal(structured["albedo_color"], "Color(0, 1, 0, 1)")
+		is.Equal(structured["albedo_color"], "Color(0, 1, 0, 1)") // the sub-property edit was undone
 
 		if content := readMaterialFile(t); content != "" {
 			is.True(strings.Contains(content, "albedo_color = Color(0, 1, 0, 1)"))
@@ -274,7 +274,7 @@ return OK`)
 		props := getResourceProps(t, map[string]any{
 			"file_path": materialPath,
 		})
-		is.Equal(props["albedo_texture"], "Object(GradientTexture1D)")
+		is.Equal(props["albedo_texture"], "Object(GradientTexture1D)") // embedded resources are summarized by type
 
 		structured := getResourceProps(t, map[string]any{
 			"file_path":  materialPath,
@@ -415,7 +415,7 @@ script = ExtResource("1_fix")
 		warnings, _ := structured["warnings"].([]any)
 		is.Equal(len(warnings), 1)
 		is.True(strings.Contains(asStrings(warnings)[0], "clamped_value"))
-		is.True(strings.Contains(asStrings(warnings)[0], "only to 10.0"))
+		is.True(strings.Contains(asStrings(warnings)[0], "only to 10.0")) // the warning shows what it clamped to
 	})
 
 	t.Run("rejecting_setter_errors_with_output", func(t *testing.T) {
@@ -429,7 +429,7 @@ script = ExtResource("1_fix")
 		is.True(strings.Contains(asStrings(errs)[0], "read back unchanged"))
 
 		output, _ := structured["output"].([]any)
-		is.True(anyLineContains(output, "rejecting_value cannot be negative"))
+		is.True(anyLineContains(output, "rejecting_value cannot be negative")) // the setter's push_error is surfaced
 	})
 
 	t.Run("indexing_into_non_object_hints_discovery", func(t *testing.T) {

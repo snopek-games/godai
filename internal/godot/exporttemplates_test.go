@@ -103,7 +103,7 @@ func TestTemplatesReportsFilesItDoesNotKnow(t *testing.T) {
 	templates, err := manager.Templates(version)
 	is.NoErr(err)
 	is.Equal(templates.Other, []string{"visionos.zip"})
-	is.True(templates.FromArchive)
+	is.True(templates.FromArchive) // version.txt marks a .tpz install
 }
 
 func TestTemplatesWhenThereAreNone(t *testing.T) {
@@ -130,7 +130,7 @@ func TestListTemplatesFindsVersionsWithNoEngine(t *testing.T) {
 
 	installed, err := manager.ListTemplates()
 	is.NoErr(err)
-	is.Equal(len(installed), 2)
+	is.Equal(len(installed), 2) // the 4.4 dir doesn't count
 	is.Equal(installed[0].Name, "4.5-stable-mono")
 	is.Equal(installed[1].Name, "4.7-stable")
 }

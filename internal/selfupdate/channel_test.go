@@ -48,7 +48,7 @@ func TestInstallChannelNodeModulesFallback(t *testing.T) {
 		"godai-linux-x64", "bin", "godai")
 	is.Equal(InstallChannel(npmPath), "npm")
 
-	is.Equal(InstallChannel(filepath.Join("/opt", "node_modules_backup", "godai")), "")
+	is.Equal(InstallChannel(filepath.Join("/opt", "node_modules_backup", "godai")), "") // only a real node_modules path component counts
 }
 
 func TestPackageManagerHint(t *testing.T) {
@@ -72,7 +72,7 @@ func TestPackageManagerHint(t *testing.T) {
 	writeChannelFile(t, unknownDir, "scoop")
 	is.True(strings.Contains(PackageManagerHint(filepath.Join(unknownDir, "godai")), "scoop"))
 
-	is.Equal(PackageManagerHint(filepath.Join("/usr", "local", "bin", "godai")), "")
+	is.Equal(PackageManagerHint(filepath.Join("/usr", "local", "bin", "godai")), "") // no channel file, no hint
 }
 
 func TestInstallInstruction(t *testing.T) {

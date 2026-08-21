@@ -55,7 +55,7 @@ func TestRunningEditorIsFoundBeforeItConnects(t *testing.T) {
 	is.True(s.hasRunningEditorForProject(projectPath)) // but the editor is running
 
 	other := t.TempDir()
-	is.True(!s.hasRunningEditorForProject(other))
+	is.True(!s.hasRunningEditorForProject(other)) // nothing advertised for this project
 }
 
 func TestOpenProjectTimeoutIsReportedAsATimeout(t *testing.T) {
