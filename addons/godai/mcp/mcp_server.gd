@@ -14,6 +14,7 @@ const SUPPORTED_PROTOCOL_VERSIONS = {
 }
 
 const TIMEOUT_META_KEY = "godai/timeout_ms"
+const GODAI_VERSION_META_KEY = "godai/godai_version"
 
 ## Only used by a client that talks to us directly; matches the MCP server's own default.
 const DEFAULT_TIMEOUT := 300.0
@@ -74,6 +75,7 @@ var _server_state: ServerState = ServerState.STOPPED
 var _transport: Transport = Transport.WEBSOCKET
 var _client_state: ClientState = ClientState.NOT_CONNECTED
 var _client_info: Dictionary
+var _client_godai_version: String
 var _update_available: Dictionary
 var _last_peer_id := 1
 var _last_tool_id := 0
@@ -192,6 +194,7 @@ func _stop_server_complete() -> void:
 
 func _rpc_initialize(p_params: Dictionary):
 	_client_info = p_params['clientInfo']
+	_client_godai_version = _get_godai_version(p_params)
 	_client_state = ClientState.CONNECTED
 	client_state_changed.emit(_client_state)
 
@@ -261,12 +264,13 @@ func _rpc_call_tool(p_params: Dictionary):
 
 	# A mismatched godai gets to close the editor (the way out of the mismatch)
 	# and to identify it (part of the connection handshake), nothing else.
+	# A client that never reported a godai version isn't godai (or predates
+	# version reporting), so there's nothing to compare against.
 	if name not in ["close_editor", "get_current_project"]:
-		var client_version := str(_client_info.get('version', ''))
-		if client_version != GODAI_VERSION:
+		if not _client_godai_version.is_empty() and _client_godai_version != GODAI_VERSION:
 			return JSONRPCDispatcher.ResponseError.new(
 				JSONRPCDispatcher.ErrorCode.INVALID_REQUEST_ERROR,
-				"The godai addon in this editor is version %s, but the connected godai is version %s. Run 'godai editor restart' to relaunch the editor with the matching addon, or close it with 'godai editor close' and open it again." % [GODAI_VERSION, client_version])
+				"The godai addon in this editor is version %s, but the connected godai is version %s. Run 'godai editor restart' to relaunch the editor with the matching addon, or close it with 'godai editor close' and open it again." % [GODAI_VERSION, _client_godai_version])
 
 	_last_tool_id += 1
 	var id: String = "mcp:" + str(_last_tool_id)
@@ -313,6 +317,13 @@ static func _get_timeout(p_params: Dictionary) -> float:
 	return DEFAULT_TIMEOUT
 
 
+static func _get_godai_version(p_params: Dictionary) -> String:
+	var meta = p_params.get("_meta")
+	if meta is Dictionary:
+		return str(meta.get(GODAI_VERSION_META_KEY, ""))
+	return ""
+
+
 func _unauthorized_tool_result(p_id: String, p_name: String, p_timed_out: bool):
 	var result := ToolAuth.timed_out_result(p_name) if p_timed_out else ToolAuth.denied_result(p_name)
 	return _process_tool_result(p_id, result)
@@ -352,9 +363,7 @@ func _process_tool_result(p_id: String, p_result: ToolManager.ToolResult):
 		}
 	]
 
-	var emit_signal = func():
-		tool_use_completed.emit(p_id, content)
-	emit_signal.call_deferred()
+	tool_use_completed.emit.call_deferred(p_id, content)
 
 	return ret
 
@@ -449,6 +458,7 @@ func _remove_peer(p_peer: Peer) -> void:
 
 	if _transport == Transport.WEBSOCKET:
 		_client_info = {}
+		_client_godai_version = ""
 		_update_available = {}
 		update_available_changed.emit(_update_available)
 		_client_state = ClientState.NOT_CONNECTED

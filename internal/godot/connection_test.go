@@ -37,7 +37,7 @@ func TestCallMethodOnADroppedConnection(t *testing.T) {
 		t.Fatalf("dialing the mock editor: %v", err)
 	}
 
-	conn := NewConnection(ws, 0, 0)
+	conn := NewConnection(ws, 0, 0, nil)
 	go conn.Run()
 	defer conn.Close()
 
@@ -90,7 +90,7 @@ func TestConnectionConcurrentWrites(t *testing.T) {
 		t.Fatalf("dialing the mock editor: %v", err)
 	}
 
-	conn := NewConnection(ws, 0, 0)
+	conn := NewConnection(ws, 0, 0, nil)
 	go conn.Run()
 	defer conn.Close()
 
@@ -120,4 +120,30 @@ func TestConnectionConcurrentWrites(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestInjectRequestMeta(t *testing.T) {
+	meta := map[string]any{"godai/godai_version": "1.2.3"}
+
+	tests := []struct {
+		name   string
+		params string
+		meta   map[string]any
+		want   string
+	}{
+		{"nil meta", `{"name":"x"}`, nil, `{"name":"x"}`},
+		{"params without meta", `{"name":"x"}`, meta, `{"_meta":{"godai/godai_version":"1.2.3"},"name":"x"}`},
+		{"merged into existing meta", `{"_meta":{"godai/timeout_ms":1000},"name":"x"}`, meta, `{"_meta":{"godai/godai_version":"1.2.3","godai/timeout_ms":1000},"name":"x"}`},
+		{"existing keys win", `{"_meta":{"godai/godai_version":"9.9.9"}}`, meta, `{"_meta":{"godai/godai_version":"9.9.9"}}`},
+		{"non-object params", `[1,2]`, meta, `[1,2]`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := string(injectRequestMeta([]byte(tt.params), tt.meta))
+			if got != tt.want {
+				t.Fatalf("got %s, want %s", got, tt.want)
+			}
+		})
+	}
 }

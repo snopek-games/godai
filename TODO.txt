@@ -12,7 +12,6 @@ For a 1.0
 - CLI: `godai mcp setup`
   - Should we ask about setting up for user or project for the command (`--scope=user|project`)?
   - Should we mark all tools as approved (since we have our own approval)?
-- MCP: Sending wrong version to addon? Seems to want to use the Claude version, although, how have we not hit this before?
 - Mirror project to GitHub via CI?
 - Add to MCP Registry
   - https://registry.modelcontextprotocol.io/

@@ -20,7 +20,7 @@ config/icon="uid://cegulex1888ld"
 
 [autoload]
 
-Godai="*uid://cx3445acrymoq"
+Godai="*res://addons/godai/game/godai.gd"
 
 [editor_plugins]
 

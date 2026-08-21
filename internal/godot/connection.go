@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"gitlab.com/snopek-games/godai/internal/jsonrpc"
 	"log/slog"
 	"strconv"
 	"sync"
 	"time"
+
+	"gitlab.com/snopek-games/godai/internal/jsonrpc"
 
 	"github.com/gorilla/websocket"
 )
@@ -24,6 +25,7 @@ type Connection struct {
 	ws               *websocket.Conn
 	port             int
 	pid              int
+	requestMeta      map[string]any
 	writeMutex       sync.Mutex
 	requestMutex     sync.Mutex
 	lastRequestID    int
@@ -35,11 +37,12 @@ type Connection struct {
 	closing bool
 }
 
-func NewConnection(ws *websocket.Conn, port int, pid int) *Connection {
+func NewConnection(ws *websocket.Conn, port int, pid int, requestMeta map[string]any) *Connection {
 	return &Connection{
 		ws:               ws,
 		port:             port,
 		pid:              pid,
+		requestMeta:      requestMeta,
 		pendingResponses: map[int]chan *jsonrpc.Response{},
 		doneCh:           make(chan struct{}),
 	}
@@ -138,6 +141,7 @@ func (c *Connection) CallMethod(ctx context.Context, name string, rawParams any)
 	if err != nil {
 		return nil, err
 	}
+	params = injectRequestMeta(params, c.requestMeta)
 
 	req := jsonrpc.NewRequest(strconv.Itoa(id), name, params)
 
@@ -176,10 +180,49 @@ func (c *Connection) SendNotification(ctx context.Context, name string, rawParam
 			return err
 		}
 	}
+	params = injectRequestMeta(params, c.requestMeta)
 
 	req := jsonrpc.NewRequest("", name, params)
 
 	return c.writeJSON(req)
+}
+
+func injectRequestMeta(params []byte, meta map[string]any) []byte {
+	if len(meta) == 0 {
+		return params
+	}
+
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(params, &obj); err != nil {
+		return params
+	}
+	if obj == nil {
+		obj = map[string]json.RawMessage{}
+	}
+
+	merged := map[string]any{}
+	if raw, ok := obj["_meta"]; ok {
+		if err := json.Unmarshal(raw, &merged); err != nil {
+			return params
+		}
+	}
+	for k, v := range meta {
+		if _, ok := merged[k]; !ok {
+			merged[k] = v
+		}
+	}
+
+	mergedRaw, err := json.Marshal(merged)
+	if err != nil {
+		return params
+	}
+	obj["_meta"] = mergedRaw
+
+	result, err := json.Marshal(obj)
+	if err != nil {
+		return params
+	}
+	return result
 }
 
 func (c *Connection) writeJSON(req *jsonrpc.Request) error {

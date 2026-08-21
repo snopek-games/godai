@@ -27,6 +27,7 @@ type ConnectionManagerConfig struct {
 	RetryDelay   time.Duration
 	OnConnect    func(*Connection) error
 	OnDisconnect func(*Connection)
+	RequestMeta  map[string]any
 }
 
 // Connects to every live editor advertised in the global instances directory.
@@ -265,7 +266,7 @@ func (m *ConnectionManager) connectionLoop(inst instance, stopCh chan struct{}) 
 		}
 
 		slog.Info("connected to editor", "port", port)
-		conn := NewConnection(ws, port, inst.PID)
+		conn := NewConnection(ws, port, inst.PID, m.config.RequestMeta)
 
 		// Start the connection's run loop.
 		connErrCh := make(chan error, 1)

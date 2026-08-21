@@ -89,6 +89,7 @@ func New(config Config) (*Session, error) {
 		RetryDelay:   config.EditorRetryDelay,
 		OnConnect:    s.onEditorConnect,
 		OnDisconnect: s.onEditorDisconnect,
+		RequestMeta:  map[string]any{godaiVersionMetaKey: Version},
 	})
 
 	return s, nil

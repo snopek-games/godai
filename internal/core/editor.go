@@ -19,7 +19,10 @@ const (
 	AppTitle = "Godai: AI agent integration with the Godot Engine"
 )
 
-const timeoutMetaKey = "godai/timeout_ms"
+const (
+	timeoutMetaKey      = "godai/timeout_ms"
+	godaiVersionMetaKey = "godai/godai_version"
+)
 
 type callToolParams struct {
 	Name      string          `json:"name"`
