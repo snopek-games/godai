@@ -1,7 +1,7 @@
 Godai - Godot automation (and AI agent integration)
 ===================================================
 
-<img src="./assets/godai-logo.svg" align="left" width="200" /><br />
+<img src="./assets/godai-logo.svg" align="left" width="200" />
 
 **Godai provides Godot automation, including driving the Godot editor.**
 
