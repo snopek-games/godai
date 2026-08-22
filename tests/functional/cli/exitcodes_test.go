@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
+	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 
 	"github.com/matryer/is"
@@ -20,8 +22,8 @@ import (
 const stubEngineName = "stub-build"
 
 var (
-	exitBase       string
-	stubConfigHome string
+	exitBase string
+	stubBase string
 
 	// Resolving an engine falls back to any godot on PATH, so the exit code
 	// tests run with one that can't have any, keeping them hermetic.
@@ -37,8 +39,8 @@ func setupExitCodeTests(base string) error {
 		return err
 	}
 
-	stubConfigHome = filepath.Join(base, "stub-config")
-	configDir := filepath.Join(stubConfigHome, "godai")
+	stubBase = filepath.Join(base, "stub-home")
+	configDir := isolation.GodaiConfigDir(stubBase)
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return err
 	}
@@ -62,22 +64,31 @@ func setupExitCodeTests(base string) error {
 // code and combined output.
 func godaiExitCode(t *testing.T, args ...string) (int, string) {
 	t.Helper()
-	return godaiExitCodeWithConfigHome(t, stubConfigHome, args...)
+	return godaiExitCodeWithBase(t, stubBase, args...)
 }
 
-func godaiExitCodeWithConfigHome(t *testing.T, configHome string, args ...string) (int, string) {
+func godaiExitCodeWithBase(t *testing.T, base string, args ...string) (int, string) {
 	t.Helper()
 
 	if runtime.GOOS == "windows" {
 		t.Skip("the stub engine is a shell script")
 	}
 
+	isolationEnv, err := isolation.Env(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Resolution also honors the GODOT variable the suite itself is pointed at
+	// a Godot with, so it has to go for these tests to stay hermetic.
+	env := slices.DeleteFunc(os.Environ(), func(kv string) bool {
+		return strings.HasPrefix(kv, "GODOT=")
+	})
+
 	cmd := exec.Command(godaiBin, args...)
 	cmd.Dir = exitBase
-	cmd.Env = append(os.Environ(),
-		"XDG_CONFIG_HOME="+configHome,
-		"XDG_DATA_HOME="+filepath.Join(exitBase, "stub-data"),
-		"XDG_CACHE_HOME="+filepath.Join(exitBase, "stub-cache"),
+	cmd.Env = append(env, isolationEnv...)
+	cmd.Env = append(cmd.Env,
 		"GODAI_NO_UPDATE_CHECK=1",
 		"PATH="+emptyPath,
 	)
@@ -123,12 +134,12 @@ func TestExitCodeUnknownHelpTopic(t *testing.T) {
 	is.Equal(code, 2)
 }
 
-// With a config home that has no engines linked or installed, there's nothing
-// for `engine which` to resolve.
+// With a home that has no engines linked or installed, there's nothing for
+// `engine which` to resolve.
 func TestExitCodeNotConfigured(t *testing.T) {
 	is := is.New(t)
 
-	code, _ := godaiExitCodeWithConfigHome(t, t.TempDir(), "engine", "which")
+	code, _ := godaiExitCodeWithBase(t, t.TempDir(), "engine", "which")
 	is.Equal(code, 3)
 }
 

@@ -7,58 +7,58 @@ import (
 	"testing"
 
 	"github.com/matryer/is"
+
+	"gitlab.com/snopek-games/godai/internal/isolation"
+	"gitlab.com/snopek-games/godai/internal/isolationtest"
 )
 
+// The isolation accessors promise where godai will put things once the
+// isolation env is applied, so the two must agree on every platform.
 func TestGetConfigPath(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("XDG config path logic is linux-specific")
-	}
 	is := is.New(t)
 
-	// XDG_CONFIG_HOME, when set, is used directly.
-	t.Setenv("XDG_CONFIG_HOME", "/xdg/cfg")
+	base := isolationtest.Isolate(t)
 	path, err := GetConfigPath()
 	is.NoErr(err)
-	is.Equal(path, "/xdg/cfg/godai/config.json")
-
-	// Otherwise it falls back to ~/.config.
-	t.Setenv("XDG_CONFIG_HOME", "")
-	home, err := os.UserHomeDir()
-	is.NoErr(err)
-	path, err = GetConfigPath()
-	is.NoErr(err)
-	is.Equal(path, filepath.Join(home, ".config", "godai", "config.json"))
+	is.Equal(path, filepath.Join(isolation.GodaiConfigDir(base), "config.json"))
 }
 
 func TestGetCachePath(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("XDG cache path logic is linux-specific")
-	}
 	is := is.New(t)
 
-	t.Setenv("XDG_CACHE_HOME", "/xdg/cache")
+	base := isolationtest.Isolate(t)
 	path, err := GetCachePath()
 	is.NoErr(err)
-	is.Equal(path, "/xdg/cache/godai")
-
-	t.Setenv("XDG_CACHE_HOME", "")
-	home, err := os.UserHomeDir()
-	is.NoErr(err)
-	path, err = GetCachePath()
-	is.NoErr(err)
-	is.Equal(path, filepath.Join(home, ".cache", "godai"))
+	is.Equal(path, isolation.GodaiCacheDir(base))
 }
 
 func TestGetInstancesPath(t *testing.T) {
+	is := is.New(t)
+
+	base := isolationtest.Isolate(t)
+	path, err := GetInstancesPath()
+	is.NoErr(err)
+	is.Equal(path, isolation.GodaiInstancesDir(base))
+}
+
+func TestPathsFallBackToHomeWithoutXDG(t *testing.T) {
 	if runtime.GOOS != "linux" {
-		t.Skip("XDG cache path logic is linux-specific")
+		t.Skip("the XDG fallback only exists on linux")
 	}
 	is := is.New(t)
 
-	t.Setenv("XDG_CACHE_HOME", "/xdg/cache")
-	path, err := GetInstancesPath()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("XDG_CACHE_HOME", "")
+	home, err := os.UserHomeDir()
 	is.NoErr(err)
-	is.Equal(path, "/xdg/cache/godai/instances")
+
+	path, err := GetConfigPath()
+	is.NoErr(err)
+	is.Equal(path, filepath.Join(home, ".config", "godai", "config.json"))
+
+	path, err = GetCachePath()
+	is.NoErr(err)
+	is.Equal(path, filepath.Join(home, ".cache", "godai"))
 }
 
 func TestSaveAndLoadConfig(t *testing.T) {

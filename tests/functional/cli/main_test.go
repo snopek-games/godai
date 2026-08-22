@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
@@ -97,10 +98,10 @@ func testMain(m *testing.M) int {
 		return 1
 	}
 
-	// The editor writes its instance file under the XDG dirs the harness points
-	// into the project, which is where --editor-instances-path sends the CLI
-	// looking. Nothing touches the real ~/.cache.
-	instancesDir = filepath.Join(projectPath, ".xdg", "XDG_CACHE_HOME", "godai", "instances")
+	// The editor writes its instance file under the isolated dirs the harness
+	// points into the project, which is where --editor-instances-path sends the
+	// CLI looking. Nothing touches the user's real cache.
+	instancesDir = isolation.GodaiInstancesDir(harness.IsolationDir(projectPath))
 
 	// WebSocket, because that's the transport the CLI speaks.
 	editor, logPath, err := harness.LaunchEditor(godotBin, projectPath, harness.EditorOptions{

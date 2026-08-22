@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"gitlab.com/snopek-games/godai/internal/core"
+	"gitlab.com/snopek-games/godai/internal/isolation"
+	"gitlab.com/snopek-games/godai/internal/isolationtest"
 
 	"github.com/matryer/is"
 )
@@ -19,10 +21,8 @@ func TestEngineRemoveUnsetsTheDefault(t *testing.T) {
 		t.Skip("stands in for a Godot binary by being an executable shell script")
 	}
 
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", dir)
-	t.Setenv("XDG_CACHE_HOME", dir)
-	configPath := filepath.Join(dir, "godai", "config.json")
+	dir := isolationtest.Isolate(t)
+	configPath := filepath.Join(isolation.GodaiConfigDir(dir), "config.json")
 
 	version := linkTestEngine(t, dir)
 	other := linkOtherTestEngine(t, dir)
@@ -46,9 +46,7 @@ func TestEngineLinkRecordsTheVersionTheBuildReports(t *testing.T) {
 		t.Skip("stands in for a Godot binary by being an executable shell script")
 	}
 
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", dir)
-	t.Setenv("XDG_CACHE_HOME", dir)
+	dir := isolationtest.Isolate(t)
 
 	linkTestEngine(t, dir)
 

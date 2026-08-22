@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 
 	"github.com/matryer/is"
@@ -78,7 +78,7 @@ func startEditorWithoutAutoApproval(t *testing.T) *harness.MCPClient {
 
 	// The editor advertises the port it bound once the addon is up, and the
 	// first launch has to import the whole project first, which can be slow.
-	instancesDir := filepath.Join(dir, ".xdg", "XDG_CACHE_HOME", "godai", "instances")
+	instancesDir := isolation.GodaiInstancesDir(harness.IsolationDir(dir))
 	port, err := harness.WaitForInstancePort(instancesDir, harness.OpenTimeout(180*time.Second))
 	if err != nil {
 		t.Fatalf("%v (editor log: %s)", err, logPath)

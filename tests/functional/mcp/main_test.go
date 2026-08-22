@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
@@ -109,7 +110,7 @@ func testMain(m *testing.M) int {
 	}
 	projectPath = projectDir
 
-	instancesDir = filepath.Join(base, "cache", "godai", "instances")
+	instancesDir = isolation.GodaiInstancesDir(base)
 
 	if err := harness.CreateTestProject(projectDir, harness.ProjectOptions{Name: projectName}); err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: creating test project: %v\n", err)
@@ -163,8 +164,8 @@ func testMain(m *testing.M) int {
 	return code
 }
 
-func linkTestEngine(xdgBase, executable string) error {
-	configDir := filepath.Join(xdgBase, "config", "godai")
+func linkTestEngine(base, executable string) error {
+	configDir := isolation.GodaiConfigDir(base)
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return err
 	}
@@ -214,20 +215,22 @@ func dumpLogOnFailure(t *testing.T, label, pattern string) {
 	})
 }
 
-func startServer(xdgBase string, args, extraEnv []string, verbose bool) (*serverInstance, error) {
-	return startServerWithClient(xdgBase, args, extraEnv, verbose, harness.ClientConfig{})
+func startServer(base string, args, extraEnv []string, verbose bool) (*serverInstance, error) {
+	return startServerWithClient(base, args, extraEnv, verbose, harness.ClientConfig{})
 }
 
-func startServerWithClient(xdgBase string, args, extraEnv []string, verbose bool, cfg harness.ClientConfig) (*serverInstance, error) {
+func startServerWithClient(base string, args, extraEnv []string, verbose bool, cfg harness.ClientConfig) (*serverInstance, error) {
+	isolationEnv, err := isolation.Env(base)
+	if err != nil {
+		return nil, err
+	}
+
 	cmd := exec.Command(serverBin, append([]string{"mcp", "--no-update-check"}, args...)...)
-	cmd.Env = append(os.Environ(),
-		"XDG_CONFIG_HOME="+filepath.Join(xdgBase, "config"),
-		"XDG_DATA_HOME="+filepath.Join(xdgBase, "data"),
-		"XDG_CACHE_HOME="+filepath.Join(xdgBase, "cache"),
-		// Editors the server spawns log to cache/godai/editor-logs, so a
-		// connection timeout shows what Godot printed instead of nothing.
-		"GODAI_EDITOR_LOG=1",
-	)
+	cmd.Env = append(os.Environ(), isolationEnv...)
+	// Editors the server spawns log to the isolated godai cache dir under
+	// editor-logs, so a connection timeout shows what Godot printed instead of
+	// nothing.
+	cmd.Env = append(cmd.Env, "GODAI_EDITOR_LOG=1")
 	cmd.Env = append(cmd.Env, extraEnv...)
 	if coverDir != "" {
 		cmd.Env = append(cmd.Env, "GOCOVERDIR="+coverDir)
@@ -242,7 +245,7 @@ func startServerWithClient(xdgBase string, args, extraEnv []string, verbose bool
 		return nil, err
 	}
 
-	logPath := filepath.Join(xdgBase, "server.log")
+	logPath := filepath.Join(base, "server.log")
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		return nil, err

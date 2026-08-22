@@ -6,10 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"gitlab.com/snopek-games/godai/internal/core"
+	"gitlab.com/snopek-games/godai/internal/isolation"
+	"gitlab.com/snopek-games/godai/internal/isolationtest"
 
 	"github.com/matryer/is"
 )
@@ -41,14 +42,8 @@ func TestUnknownCommandIsAUsageError(t *testing.T) {
 func TestStaleSavedGodotVersionDoesNotBlockCommands(t *testing.T) {
 	is := is.New(t)
 
-	if runtime.GOOS == "windows" {
-		t.Skip("XDG config path logic is unix-specific")
-	}
-
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", dir)
-
-	configPath := filepath.Join(dir, "godai", "config.json")
+	dir := isolationtest.Isolate(t)
+	configPath := filepath.Join(isolation.GodaiConfigDir(dir), "config.json")
 	is.NoErr(os.MkdirAll(filepath.Dir(configPath), 0o755))
 	saved, err := json.Marshal(core.SavedConfig{GodotVersion: "4.5-stable"})
 	is.NoErr(err)

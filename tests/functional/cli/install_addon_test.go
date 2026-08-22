@@ -8,6 +8,7 @@ import (
 
 	"github.com/matryer/is"
 
+	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
@@ -68,12 +69,9 @@ func TestProjectOpenAddsAutoload(t *testing.T) {
 
 	// The editor godai spawns inherits this environment, so its instance file
 	// lands where --editor-instances-path sends the CLI looking.
-	env := []string{
-		"XDG_CACHE_HOME=" + filepath.Join(projectPath, ".xdg", "XDG_CACHE_HOME"),
-		"XDG_CONFIG_HOME=" + filepath.Join(projectPath, ".xdg", "XDG_CONFIG_HOME"),
-		"XDG_DATA_HOME=" + filepath.Join(projectPath, ".xdg", "XDG_DATA_HOME"),
-		"GODAI_EDITOR_LOG=1",
-	}
+	env, err := isolation.Env(harness.IsolationDir(projectPath))
+	is.NoErr(err)
+	env = append(env, "GODAI_EDITOR_LOG=1")
 
 	t.Cleanup(func() {
 		_, _ = godaiWithEnv(env, "editor", "close", dir, "--skip-save")

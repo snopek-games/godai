@@ -10,30 +10,31 @@ import (
 	"github.com/matryer/is"
 
 	"gitlab.com/snopek-games/godai/internal/godot"
+	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
 func TestGlobalMode(t *testing.T) {
 	is := is.New(t)
 
-	xdgBase := t.TempDir()
-	if resolved, err := filepath.EvalSymlinks(xdgBase); err == nil {
-		xdgBase = resolved
+	base := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(base); err == nil {
+		base = resolved
 	}
 
-	basePathDir := filepath.Join(xdgBase, "base-projects")
+	basePathDir := filepath.Join(base, "base-projects")
 	baseProject := filepath.Join(basePathDir, "from_base_path")
 	mustCreateProject(t, baseProject, "From Base Path")
 
 	// Discovered via the project manager's projects.cfg, which the server reads
-	// from XDG_DATA_HOME/godot; writing it under our isolated XDG_DATA_HOME (not
-	// the real one) keeps the test off the developer's actual project list.
-	pmProject := filepath.Join(xdgBase, "elsewhere", "from_project_manager")
+	// from the editor data dir; writing it under our isolated one (not the real
+	// one) keeps the test off the developer's actual project list.
+	pmProject := filepath.Join(base, "elsewhere", "from_project_manager")
 	mustCreateProject(t, pmProject, "From Project Manager")
-	writeProjectsCfg(t, filepath.Join(xdgBase, "data", "godot", "projects.cfg"), pmProject)
+	writeProjectsCfg(t, filepath.Join(isolation.GodotEditorDataDir(base), "projects.cfg"), pmProject)
 
-	globalInstances := filepath.Join(xdgBase, "cache", "godai", "instances")
-	inst, err := startServer(xdgBase, []string{
+	globalInstances := isolation.GodaiInstancesDir(base)
+	inst, err := startServer(base, []string{
 		"--global",
 		"--project-base-path", basePathDir,
 		"--godot-path", godotWrapperPath,
@@ -52,7 +53,7 @@ func TestGlobalMode(t *testing.T) {
 	cfg := getConfig(t, inst.client)
 	is.Equal(cfg["project_base_path"], basePathDir)
 
-	newBase := filepath.Join(xdgBase, "base-projects-2")
+	newBase := filepath.Join(base, "base-projects-2")
 	mustCreateProject(t, filepath.Join(newBase, "another"), "Another")
 	out := callToolOKWith(t, inst.client, "set_godai_settings", map[string]any{
 		"project_base_path": newBase,
@@ -111,17 +112,17 @@ func getConfig(t *testing.T, c *harness.MCPClient) map[string]any {
 func TestGlobalModeOpenAndConnect(t *testing.T) {
 	is := is.New(t)
 
-	xdgBase := t.TempDir()
-	if resolved, err := filepath.EvalSymlinks(xdgBase); err == nil {
-		xdgBase = resolved
+	base := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(base); err == nil {
+		base = resolved
 	}
 
-	project := filepath.Join(xdgBase, "anywhere", "global_proj")
+	project := filepath.Join(base, "anywhere", "global_proj")
 	mustCreateProject(t, project, "Global Project")
 
-	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
+	instances := isolation.GodaiInstancesDir(base)
 
-	inst, err := startServer(xdgBase, []string{
+	inst, err := startServer(base, []string{
 		"--global",
 		"--godot-path", godotWrapperPath,
 		"--editor-instances-path", instances,
@@ -138,7 +139,7 @@ func TestGlobalModeOpenAndConnect(t *testing.T) {
 		stopServer(inst.cmd)
 	})
 	dumpLogOnFailure(t, "server log", inst.logPath)
-	dumpLogOnFailure(t, "editor log", filepath.Join(xdgBase, "cache", "godai", "editor-logs", "*.log"))
+	dumpLogOnFailure(t, "editor log", filepath.Join(isolation.GodaiCacheDir(base), "editor-logs", "*.log"))
 
 	// Succeeds even though the project is under no root: global mode spawns the
 	// editor and the GlobalConnectionScanner connects back to it.

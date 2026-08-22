@@ -9,7 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
+
+	"gitlab.com/snopek-games/godai/internal/isolation"
 )
 
 // Everything the editor and the import cache generate is noise in the diff we
@@ -22,6 +25,7 @@ type Workspace struct {
 	Repeat  int
 
 	cfg          Config
+	isolationEnv []string
 	editorClosed bool
 	closeErr     error
 }
@@ -37,13 +41,17 @@ func StageWorkspace(ctx context.Context, cfg Config, spec *Spec, repeat int) (*W
 	if err != nil {
 		return nil, err
 	}
+	// Resolve symlinks (macOS puts temp dirs behind /var -> /private/var) so
+	// the workspace paths compare equal to paths godai canonicalizes.
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = resolved
+	}
 
 	w := &Workspace{Root: dir, Project: filepath.Join(dir, "project"), Repeat: repeat, cfg: cfg}
 
-	for _, p := range []string{w.CachePath(), w.ConfigPath(), w.DataPath()} {
-		if err := os.MkdirAll(p, 0o755); err != nil {
-			return w, err
-		}
+	w.isolationEnv, err = isolation.Env(dir)
+	if err != nil {
+		return w, err
 	}
 	if err := copyTree(spec.FixtureDir(), w.Project); err != nil {
 		return w, fmt.Errorf("copy fixture: %w", err)
@@ -70,16 +78,6 @@ func (w *Workspace) InstallAddon(ctx context.Context) error {
 	return nil
 }
 
-// Both godai and the addon (via OS.get_cache_dir) derive the instances
-// directory from XDG_CACHE_HOME, so this is what isolates a run's editors.
-func (w *Workspace) CachePath() string { return filepath.Join(w.Root, "cache") }
-
-// Editor settings live under XDG_CONFIG_HOME, so without this a task that
-// changes them would edit the developer's real Godot configuration.
-func (w *Workspace) ConfigPath() string { return filepath.Join(w.Root, "config") }
-
-func (w *Workspace) DataPath() string { return filepath.Join(w.Root, "data") }
-
 func (w *Workspace) Env() []string {
 	return append(os.Environ(), w.IsolationEnv()...)
 }
@@ -92,16 +90,13 @@ const (
 )
 
 func (w *Workspace) IsolationEnv() []string {
-	env := []string{
-		"XDG_CACHE_HOME=" + w.CachePath(),
-		"XDG_CONFIG_HOME=" + w.ConfigPath(),
-		"XDG_DATA_HOME=" + w.DataPath(),
+	env := append(slices.Clone(w.isolationEnv),
 		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", mcpBasePort),
 		fmt.Sprintf("GODAI_MCP_PORT_COUNT=%d", max(w.cfg.Concurrency, 1)+mcpPortBuffer),
 		// Editors log to the workspace cache dir, so a connection timeout
 		// shows what Godot printed instead of nothing.
 		"GODAI_EDITOR_LOG=1",
-	}
+	)
 	if w.cfg.OpenTimeout > 0 {
 		env = append(env, fmt.Sprintf("GODAI_OPEN_TIMEOUT=%g", w.cfg.OpenTimeout.Seconds()))
 	}

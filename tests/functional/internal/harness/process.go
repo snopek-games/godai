@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"strconv"
 	"time"
+
+	"gitlab.com/snopek-games/godai/internal/isolation"
 )
 
 func RepoRoot() string {
@@ -57,6 +59,13 @@ func MCPPortEnv() []string {
 		fmt.Sprintf("GODAI_MCP_BASE_PORT=%d", MCPPortBase),
 		fmt.Sprintf("GODAI_MCP_PORT_COUNT=%d", MCPPortCount),
 	}
+}
+
+// IsolationDir returns the directory LaunchEditor redirects the editor's
+// user dirs into: dot-prefixed under base so the Godot importer ignores it
+// when base is the project directory.
+func IsolationDir(base string) string {
+	return filepath.Join(base, ".home")
 }
 
 // OpenTimeout returns GODAI_OPEN_TIMEOUT (the same variable godai itself
@@ -168,8 +177,9 @@ script = ExtResource("1_script")
 type EditorOptions struct {
 	// "http" or "websocket"/"ws"; empty means the editor default (WebSocket).
 	Transport string
-	// Directory holding per-editor .xdg/<VAR> dirs. Defaults to projectDir.
-	XDGBase string
+	// Directory the editor's isolated user dirs go under (see IsolationDir).
+	// Defaults to projectDir.
+	IsolationBase string
 	// Lets the restart_editor and close_editor tools run end-to-end without
 	// actually shutting down the editor the harness manages.
 	DisableShutdown bool
@@ -203,20 +213,18 @@ func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, s
 		env = append(env, "GODAI_DISABLE_CLOSE=1")
 	}
 
-	// Point Godot's config/data/cache at temporary XDG dirs so the tests get a
+	// Point Godot's config/data/cache at temporary dirs so the tests get a
 	// deterministic default and don't touch the user's real editor settings or
-	// ~/.cache/godai/instances.
-	xdgBase := opts.XDGBase
-	if xdgBase == "" {
-		xdgBase = projectDir
+	// godai's real instances dir.
+	base := opts.IsolationBase
+	if base == "" {
+		base = projectDir
 	}
-	for _, v := range []string{"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME"} {
-		xdgDir := filepath.Join(xdgBase, ".xdg", v)
-		if err := os.MkdirAll(xdgDir, 0o755); err != nil {
-			return nil, "", err
-		}
-		env = append(env, fmt.Sprintf("%s=%s", v, xdgDir))
+	isolationEnv, err := isolation.Env(IsolationDir(base))
+	if err != nil {
+		return nil, "", err
 	}
+	env = append(env, isolationEnv...)
 
 	env = append(env, opts.ExtraEnv...)
 	cmd.Env = env

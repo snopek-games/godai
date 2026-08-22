@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"gitlab.com/snopek-games/godai/internal/core"
+	"gitlab.com/snopek-games/godai/internal/isolation"
+	"gitlab.com/snopek-games/godai/internal/isolationtest"
 
 	"github.com/matryer/is"
 )
@@ -20,10 +22,8 @@ func TestConfigReadsAndWritesSettings(t *testing.T) {
 		t.Skip("stands in for a Godot binary by being an executable shell script")
 	}
 
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", dir)
-	t.Setenv("XDG_CACHE_HOME", dir)
-	configPath := filepath.Join(dir, "godai", "config.json")
+	dir := isolationtest.Isolate(t)
+	configPath := filepath.Join(isolation.GodaiConfigDir(dir), "config.json")
 
 	version := linkTestEngine(t, dir)
 	basePath := filepath.Join(dir, "projects")
@@ -67,8 +67,7 @@ func linkTestEngine(t *testing.T, dir string) string {
 }
 
 func TestConfigRejectsBadArguments(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", dir)
+	dir := isolationtest.Isolate(t)
 
 	for _, args := range [][]string{
 		{"godai", "config", "godto_path"},
@@ -83,7 +82,7 @@ func TestConfigRejectsBadArguments(t *testing.T) {
 		}
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, "godai", "config.json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(isolation.GodaiConfigDir(dir), "config.json")); !os.IsNotExist(err) {
 		t.Error("a rejected `godai config` wrote the config file anyway")
 	}
 }

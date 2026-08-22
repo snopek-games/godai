@@ -13,6 +13,7 @@ import (
 
 	"github.com/matryer/is"
 
+	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/internal/jsonrpc"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
@@ -66,7 +67,7 @@ func TestClientRoots(t *testing.T) {
 		},
 	}
 
-	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
+	instances := isolation.GodaiInstancesDir(xdgBase)
 	inst, err := startServerWithClient(xdgBase, []string{
 		"--root", staticRoot,
 		"--godot-path", godotWrapperPath,
@@ -100,7 +101,7 @@ func TestClientRootsUnsupported(t *testing.T) {
 		Capabilities: map[string]any{"roots": map[string]any{}},
 	}
 
-	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
+	instances := isolation.GodaiInstancesDir(xdgBase)
 	inst, err := startServerWithClient(xdgBase, []string{
 		"--root", staticRoot,
 		"--godot-path", godotWrapperPath,
@@ -154,7 +155,7 @@ func TestClientRootsListChanged(t *testing.T) {
 		},
 	}
 
-	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
+	instances := isolation.GodaiInstancesDir(xdgBase)
 	inst, err := startServerWithClient(xdgBase, []string{
 		"--root", staticRoot,
 		"--godot-path", godotWrapperPath,
@@ -194,7 +195,7 @@ func TestListProjectsWithoutBasePath(t *testing.T) {
 
 	pmProject := filepath.Join(xdgBase, "elsewhere", "from_project_manager")
 	mustCreateProject(t, pmProject, "From Project Manager")
-	writeProjectsCfg(t, filepath.Join(xdgBase, "data", "godot", "projects.cfg"), pmProject)
+	writeProjectsCfg(t, filepath.Join(isolation.GodotEditorDataDir(xdgBase), "projects.cfg"), pmProject)
 
 	var elicitCalls atomic.Int32
 	cfg := harness.ClientConfig{
@@ -210,7 +211,7 @@ func TestListProjectsWithoutBasePath(t *testing.T) {
 		},
 	}
 
-	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
+	instances := isolation.GodaiInstancesDir(xdgBase)
 	inst, err := startServerWithClient(xdgBase, []string{
 		"--global",
 		"--godot-path", godotWrapperPath,

@@ -2,11 +2,12 @@ package core
 
 import (
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/matryer/is"
+
+	"gitlab.com/snopek-games/godai/internal/isolationtest"
 )
 
 func TestEditorLogFileDisabledByDefault(t *testing.T) {
@@ -20,12 +21,9 @@ func TestEditorLogFileDisabledByDefault(t *testing.T) {
 }
 
 func TestEditorLogCaptureAndTail(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("XDG cache path logic is linux-specific")
-	}
 	is := is.New(t)
 
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	isolationtest.Isolate(t)
 	t.Setenv(editorLogEnv, "1")
 
 	f, path, err := editorLogFile("/some/project")

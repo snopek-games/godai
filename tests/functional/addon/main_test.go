@@ -9,11 +9,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
+	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
@@ -95,7 +95,7 @@ func testMain(m *testing.M) int {
 
 	// The editor advertises the port it bound once the addon is up, and the
 	// first launch has to import the whole project first, which can be slow.
-	instancesDir := filepath.Join(projectDir, ".xdg", "XDG_CACHE_HOME", "godai", "instances")
+	instancesDir := isolation.GodaiInstancesDir(harness.IsolationDir(projectDir))
 	port, err := harness.WaitForInstancePort(instancesDir, harness.OpenTimeout(180*time.Second))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: %v\n", err)

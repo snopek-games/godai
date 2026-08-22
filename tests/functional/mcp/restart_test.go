@@ -11,21 +11,22 @@ import (
 
 	"github.com/matryer/is"
 
+	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
-func editorInstancesDir(xdgBase string) string {
-	return filepath.Join(xdgBase, ".xdg", "XDG_CACHE_HOME", "godai", "instances")
+func editorInstancesDir(base string) string {
+	return isolation.GodaiInstancesDir(harness.IsolationDir(base))
 }
 
 // launchConnectableEditor starts a headless editor a scanning server will
 // connect to. Restart is NOT disabled, so restart_editor genuinely restarts it.
-func launchConnectableEditor(t *testing.T, godotBin, projectDir, xdgBase string) *exec.Cmd {
+func launchConnectableEditor(t *testing.T, godotBin, projectDir, base string) *exec.Cmd {
 	t.Helper()
 	cmd, logPath, err := harness.LaunchEditor(godotBin, projectDir, harness.EditorOptions{
-		Transport: "websocket",
-		XDGBase:   xdgBase,
-		Verbose:   os.Getenv("GODAI_TEST_VERBOSE") != "",
+		Transport:     "websocket",
+		IsolationBase: base,
+		Verbose:       os.Getenv("GODAI_TEST_VERBOSE") != "",
 	})
 	if err != nil {
 		t.Fatalf("launching editor: %v", err)
@@ -75,12 +76,12 @@ func TestRestartEditor(t *testing.T) {
 	godotBin, err := harness.FindGodot()
 	is.NoErr(err)
 
-	xdgBase := t.TempDir()
-	if resolved, err := filepath.EvalSymlinks(xdgBase); err == nil {
-		xdgBase = resolved
+	base := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(base); err == nil {
+		base = resolved
 	}
 
-	rootDir := filepath.Join(xdgBase, "projects")
+	rootDir := filepath.Join(base, "projects")
 	projectDir := filepath.Join(rootDir, "restart_proj")
 	if err := os.MkdirAll(projectDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -92,11 +93,11 @@ func TestRestartEditor(t *testing.T) {
 	projectPath, err := filepath.EvalSymlinks(projectDir)
 	is.NoErr(err)
 
-	// The server spawns nothing here (the editor advertises into editorXDG, which
-	// the server scans), so it needs no editor/MCP env.
-	editorXDG := filepath.Join(xdgBase, "editor")
-	instancesDir := editorInstancesDir(editorXDG)
-	inst, err := startServer(xdgBase, []string{
+	// The server spawns nothing here (the editor advertises into editorBase,
+	// which the server scans), so it needs no editor/MCP env.
+	editorBase := filepath.Join(base, "editor")
+	instancesDir := editorInstancesDir(editorBase)
+	inst, err := startServer(base, []string{
 		"--root", rootDir,
 		"--godot-path", godotWrapperPath,
 		"--editor-instances-path", instancesDir,
@@ -117,7 +118,7 @@ func TestRestartEditor(t *testing.T) {
 	is.True(notConnected.IsError) // no editor connected for the project yet
 
 	// The first launch imports the project, which can be slow.
-	editor := launchConnectableEditor(t, godotBin, projectDir, editorXDG)
+	editor := launchConnectableEditor(t, godotBin, projectDir, editorBase)
 	t.Cleanup(func() { harness.StopEditor(editor) })
 	waitForOpenProject(t, inst.client, projectPath, harness.OpenTimeout(180*time.Second))
 

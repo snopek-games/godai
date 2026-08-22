@@ -10,6 +10,9 @@ import (
 	"testing"
 
 	"github.com/matryer/is"
+
+	"gitlab.com/snopek-games/godai/internal/isolation"
+	"gitlab.com/snopek-games/godai/internal/isolationtest"
 )
 
 type stubPrompter struct {
@@ -74,16 +77,14 @@ func engineSession(t *testing.T, godotVersion string) *Session {
 func engineSessionFor(t *testing.T, godotVersion string, explicit bool) *Session {
 	t.Helper()
 
-	if runtime.GOOS != "linux" {
-		t.Skip("relies on the XDG paths and on a shell script standing in for Godot")
+	if runtime.GOOS == "windows" {
+		t.Skip("relies on a shell script standing in for Godot")
 	}
 
-	dir := t.TempDir()
-	t.Setenv("XDG_CACHE_HOME", filepath.Join(dir, "cache"))
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, "config"))
+	base := isolationtest.Isolate(t)
 
 	session, err := New(Config{
-		SavedConfigPath:        filepath.Join(dir, "config", "godai", "config.json"),
+		SavedConfigPath:        filepath.Join(isolation.GodaiConfigDir(base), "config.json"),
 		GodotVersion:           godotVersion,
 		GodotVersionIsExplicit: explicit,
 		NoAutoInstall:          true,

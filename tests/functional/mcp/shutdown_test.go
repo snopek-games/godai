@@ -9,6 +9,7 @@ import (
 
 	"github.com/matryer/is"
 
+	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
@@ -38,21 +39,21 @@ func waitForProcessExit(t *testing.T, pid int, timeout time.Duration) {
 func TestCloseHeadlessEditorsOnShutdown(t *testing.T) {
 	is := is.New(t)
 
-	xdgBase := t.TempDir()
-	if resolved, err := filepath.EvalSymlinks(xdgBase); err == nil {
-		xdgBase = resolved
+	base := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(base); err == nil {
+		base = resolved
 	}
 
-	project := filepath.Join(xdgBase, "anywhere", "headless_proj")
+	project := filepath.Join(base, "anywhere", "headless_proj")
 	mustCreateProject(t, project, "Headless Project")
 
-	// The server spawns the editor inheriting its own XDG_CACHE_HOME, so it
-	// advertises into the server's cache dir.
-	instances := filepath.Join(xdgBase, "cache", "godai", "instances")
+	// The server spawns the editor inheriting its own isolated cache dir, so
+	// that's where it advertises itself.
+	instances := isolation.GodaiInstancesDir(base)
 
 	// GODAI_DISABLE_CLOSE is deliberately omitted: we want the editor to really
 	// save and quit when the server closes it on shutdown.
-	inst, err := startServer(xdgBase, []string{
+	inst, err := startServer(base, []string{
 		"--global",
 		"--godot-path", godotWrapperPath,
 		"--editor-instances-path", instances,
@@ -70,7 +71,7 @@ func TestCloseHeadlessEditorsOnShutdown(t *testing.T) {
 		stopServer(inst.cmd)
 	})
 	dumpLogOnFailure(t, "server log", inst.logPath)
-	dumpLogOnFailure(t, "editor log", filepath.Join(xdgBase, "cache", "godai", "editor-logs", "*.log"))
+	dumpLogOnFailure(t, "editor log", filepath.Join(isolation.GodaiCacheDir(base), "editor-logs", "*.log"))
 
 	out := callToolOKWith(t, inst.client, "open_godot_project", map[string]any{
 		"project_path": project,
@@ -80,7 +81,7 @@ func TestCloseHeadlessEditorsOnShutdown(t *testing.T) {
 
 	waitForOpenProject(t, inst.client, project, harness.OpenTimeout(180*time.Second))
 
-	logs, _ := filepath.Glob(filepath.Join(xdgBase, "cache", "godai", "editor-logs", "*.log"))
+	logs, _ := filepath.Glob(filepath.Join(isolation.GodaiCacheDir(base), "editor-logs", "*.log"))
 	is.True(len(logs) > 0) // GODAI_EDITOR_LOG made the server capture the editor's output
 
 	pids := getInstancePIDs(t, instances)

@@ -35,7 +35,7 @@ func runSolution(ctx context.Context, spec *Spec, work *Workspace) agentRun {
 	cmd := exec.CommandContext(ctx, script, shim, work.Project)
 	cmd.Dir = work.Project
 	cmd.Env = work.Env()
-	// The isolated XDG_DATA_HOME has no installed engines, so a script that
+	// The isolated workspace has no installed engines, so a script that
 	// opens a project needs to be told which Godot to use.
 	if work.cfg.GodotBin != "" {
 		cmd.Env = append(cmd.Env, "GODOT="+work.cfg.GodotBin)
