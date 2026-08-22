@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -127,8 +128,14 @@ func GetConfigPath() (string, error) {
 func GetCachePath() (string, error) {
 	switch runtime.GOOS {
 	case "windows":
-		appdata := os.Getenv("TEMP")
-		return filepath.Join(appdata, "godai"), nil
+		cache := os.Getenv("LOCALAPPDATA")
+		if cache == "" {
+			cache = os.Getenv("TEMP")
+		}
+		if cache == "" {
+			return "", errors.New("neither LOCALAPPDATA nor TEMP is set")
+		}
+		return filepath.Join(cache, "godai"), nil
 	case "linux":
 		xdg_cache_home := os.Getenv("XDG_CACHE_HOME")
 		if xdg_cache_home != "" {

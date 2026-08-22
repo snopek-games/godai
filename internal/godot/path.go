@@ -1,6 +1,7 @@
 package godot
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -70,8 +71,14 @@ func GetEditorSettingsPath() (string, error) {
 func GetEditorCachePath() (string, error) {
 	switch runtime.GOOS {
 	case "windows":
-		temp := os.Getenv("TEMP")
-		return filepath.Join(temp, "Godot"), nil
+		cache := os.Getenv("LOCALAPPDATA")
+		if cache == "" {
+			cache = os.Getenv("TEMP")
+		}
+		if cache == "" {
+			return "", errors.New("neither LOCALAPPDATA nor TEMP is set")
+		}
+		return filepath.Join(cache, "Godot"), nil
 	case "linux":
 		dir, err := xdgDir("XDG_CACHE_HOME", ".cache")
 		if err != nil {
