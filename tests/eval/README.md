@@ -22,8 +22,11 @@ The harness builds `./cmd/godai` from the working tree, so an eval measures the
 code in front of you rather than whatever `godai` is on `PATH`. Pass `--godai`
 to test a released binary instead.
 
-The harness runs on Linux and macOS. It deliberately doesn't build for Windows,
-because it leans on Unix process groups; on Windows, run it in Docker.
+> [!CAUTION]
+> The harness runs on Linux and macOS. It deliberately doesn't build for Windows,
+> because it relies on Unix process group. On Windows, run it in Docker (see below).
+
+## Flags
 
 | Flag | Effect |
 | --- | --- |
@@ -41,6 +44,32 @@ because it leans on Unix process groups; on Windows, run it in Docker.
 | `--keep-work` | Keep the scratch project to poke at after a failure |
 | `--bare` | See "Reproducibility" below |
 | `--godot` | Godot binary; defaults to whatever `godai engine which` reports |
+
+## Docker
+
+`tests/eval/docker/` packages the harness and everything it needs — `godai`,
+`godai-eval`, Godot and Claude Code — into one image:
+
+```sh
+tests/eval/docker/build.sh                 # build (or rebuild) the image
+tests/eval/docker/run.sh run --solution
+tests/eval/docker/run.sh run --model haiku --bare --out results.json
+```
+
+`run.sh` hands its arguments to `godai-eval` with the repo mounted at `/work`,
+so tasks are read from — and results written to — your working tree. The
+binaries come from the image (`GODAI` and `GODOT` point at the baked-in
+`godai` and Godot, so nothing is built at runtime): after
+changing Go code, rebuild the image. The Godot and Claude Code versions are
+pinned; `build.sh --build-arg GODOT_VERSION=...` overrides them.
+
+The container has no OAuth login, so model runs need `--bare` and
+`ANTHROPIC_API_KEY` — from the host environment or a `.env` in the repo root.
+
+### Windows
+
+On Windows, run `build.bat` and `run.bat` (instead of the `*.sh` versions).
+Otherwise, everything should work the same!
 
 ## What one attempt does
 

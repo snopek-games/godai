@@ -47,8 +47,9 @@ func sharedFlags() []cli.Flag {
 			Usage: "how long (in seconds) godai waits for a launched editor to import and connect; raise it with high --concurrency",
 		},
 		&cli.StringFlag{
-			Name:  "godot",
-			Usage: "path to a Godot executable, instead of the one godai would pick",
+			Name:    "godot",
+			Usage:   "path to a Godot executable, instead of the one godai would pick",
+			Sources: cli.EnvVars("GODOT"),
 		},
 		&cli.StringFlag{
 			Name:  "claude",
@@ -56,8 +57,9 @@ func sharedFlags() []cli.Flag {
 			Value: "claude",
 		},
 		&cli.StringFlag{
-			Name:  "godai",
-			Usage: "path to a godai binary, instead of building ./cmd/godai",
+			Name:    "godai",
+			Usage:   "path to a godai binary, instead of building ./cmd/godai",
+			Sources: cli.EnvVars("GODAI"),
 		},
 		&cli.StringFlag{
 			Name:  "work",
