@@ -7,15 +7,12 @@ For a 1.0
 0.4: Finish critical CLI stuff
 ------------------------------
 
-- CLI: Test thoroughly on Windows and MacOS!
 - Mirror project to GitHub via CI?
 - Add to MCP Registry
   - https://registry.modelcontextprotocol.io/
   - See: https://modelcontextprotocol.info/tools/registry/publishing/
 - Add MCPB to Claude directory
   - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
-- After release - deprecate the old NPM package:
-  `npm deprecate "@snopek-games/godai-mcp@*" "Renamed to @snopek-games/godai"`
 - Eval: Look at existing gamedev benchmarking suites and see if we can use them with Godai
   - Can we run those test suites with Godai added to the mix?
   - Can we adapt their tasks and bring them into our eval framework?

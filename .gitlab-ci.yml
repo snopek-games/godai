@@ -55,6 +55,62 @@ godot-test:
     # since its temporary project directory is gone by the time the job ends.
     - GODAI_TEST_VERBOSE=1 go test -v -count=1 -timeout 10m ./tests/functional/...
 
+# Native (macOS/Windows) equivalents of go-test + godot-test, combined into one
+# job per platform. Manual because those runners aren't always online; Go comes
+# from the machine, Godot is installed per-job via godai itself.
+.native-test:
+  stage: test
+  rules:
+    - when: manual
+  allow_failure: true
+  cache: []
+  variables:
+    # Empty means unset to Go: use the machine's own persistent caches instead
+    # of the Linux jobs' in-project paths.
+    GOPATH: ""
+    GOCACHE: ""
+    GODAI_TEST_VERBOSE: "1"
+
+test-macos:
+  extends: .native-test
+  tags:
+    - self-hosted
+    - osx
+  script:
+    - go version
+    # Test that we can build without the "selfupdate" tag.
+    # Everywhere else, we always test and build with that tag enabled.
+    - go build ./...
+    - go test -tags selfupdate -short ./...
+    - go run ./cmd/godai engine which "$GODOT_VERSION" || go run ./cmd/godai engine install "$GODOT_VERSION"
+    - export GODOT="$(go run ./cmd/godai engine which "$GODOT_VERSION")"
+    - '"$GODOT" --headless --import'
+    - set -o pipefail
+    - '"$GODOT" --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/gut -gexit 2>&1 | tee gut-output.log'
+    - '! grep -q "Nothing was run" gut-output.log'
+    - go test -v -count=1 -timeout 10m ./tests/functional/...
+
+test-windows:
+  extends: .native-test
+  tags:
+    - self-hosted
+    - windows
+  script:
+    - go version
+    # Test that we can build without the "selfupdate" tag.
+    # Everywhere else, we always test and build with that tag enabled.
+    - go build ./cmd/godai
+    # The eval suite intentionally doesn't build on Windows.
+    - go test -tags selfupdate -short (go list ./... | Where-Object { $_ -notmatch 'godai-eval' })
+    - go run ./cmd/godai engine which $env:GODOT_VERSION || go run ./cmd/godai engine install $env:GODOT_VERSION
+    - $env:GODOT = go run ./cmd/godai engine which $env:GODOT_VERSION
+    # The console wrapper, so Godot's output and exit code reach the shell.
+    - $GodotConsole = $env:GODOT -replace '\.exe$', '_console.exe'
+    - '& $GodotConsole --headless --import'
+    - '& $GodotConsole --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/gut -gexit 2>&1 | Tee-Object gut-output.log; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+    - if (Select-String -Path gut-output.log -Pattern "Nothing was run" -Quiet) { exit 1 }
+    - go test -v -count=1 -timeout 10m ./tests/functional/...
+
 # plugin.cfg is the single source of truth for the version.
 version-check:
   stage: test
