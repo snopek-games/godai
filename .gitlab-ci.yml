@@ -372,6 +372,24 @@ website-publish:
         git push origin HEAD:main
       fi
 
+github-mirror:
+  stage: release
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+  needs: []
+  image: alpine:latest
+  cache: []
+  variables:
+    # The default shallow clone can't be pushed; fetch full history.
+    GIT_DEPTH: 0
+  before_script:
+    - apk add git
+  script:
+    - MIRROR_URL="https://x-access-token:${MIRROR_GITHUB_TOKEN}@github.com/snopek-games/godai.git"
+    - if [ -n "$CI_COMMIT_BRANCH" ]; then git push --force "$MIRROR_URL" "HEAD:refs/heads/main"; fi
+    - git push --force --tags "$MIRROR_URL"
+
 release:
   stage: release
   rules:

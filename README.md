@@ -14,6 +14,11 @@ where you can collaborate with an AI agent on your project using natural languag
 
 <br clear="left" />
 
+> [!IMPORTANT]
+> The canonical source of Godai is its [GitLab project](https://gitlab.com/snopek-games/godai).
+> There is a [read-only mirror on GitHub](https://github.com/snopek-games/godai) for convenience.
+> You're welcome to submit PRs on GitHub, but they may get less attention.
+
 Features
 --------
 
