@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -40,12 +41,17 @@ var mcpClientDefs = []mcpClientDef{
 
 type mcpSetupPlan struct {
 	Client     string   `json:"client"`
+	Scope      string   `json:"scope"`
 	Register   []string `json:"register_command,omitempty"`
+	Registered bool     `json:"registered,omitempty"`
 	ConfigPath string   `json:"config_path,omitempty"`
 	Config     any      `json:"config,omitempty"`
+	ConfigTOML string   `json:"config_toml,omitempty"`
 	Deeplink   string   `json:"deeplink,omitempty"`
 	Extension  string   `json:"extension_url,omitempty"`
 }
+
+var mcpScopeNames = []string{"local", "project", "user"}
 
 func mcpSetupCommand() *cli.Command {
 	return &cli.Command{
@@ -53,8 +59,21 @@ func mcpSetupCommand() *cli.Command {
 		Usage:     "connect Godai to an MCP client",
 		ArgsUsage: "[client]",
 		Description: "Builds the MCP server registration for one of these clients: " + clientNameList() + ".\n\n" +
-			"Clients with their own CLI (claude, codex, gemini, code) get a registration command, which is shown first and only run with your approval. The others get the exact configuration to paste; no file is ever changed directly.\n\n" +
+			"Clients with their own CLI (claude, codex, gemini, code) get a registration command, which is shown first and only run with your approval (--yes skips the question and runs it immediately; with --json it registers silently and reports \"registered\": true in the plan). The others get the exact configuration to paste; no file is ever changed directly.\n\n" +
+			"--scope picks who gets the registration: user (all your projects, the default), project (shared with everyone working on the project), or local (this project, just for you). Asking for a scope the client can't do is an error.\n\n" +
 			"Options for the server itself (like --global, --root or --toolsets) are baked into the registration when given, for example: godai mcp --toolsets=all setup claude-code",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "scope",
+				Value: "user",
+				Usage: "registration scope: user (all your projects), project (shared with the project), or local (this project, just for you)",
+			},
+			&cli.BoolFlag{
+				Name:    "yes",
+				Aliases: []string{"y"},
+				Usage:   "skip all prompts: run the registration command right away, with the default scope unless --scope is given",
+			},
+		},
 		ShellComplete: func(_ context.Context, cmd *cli.Command) {
 			for _, def := range mcpClientDefs {
 				fmt.Fprintln(cmd.Root().Writer, def.name)
@@ -70,7 +89,8 @@ func runMCPSetup(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	out := printer(cmd)
-	interactive := !cmd.Bool("no-input") && !out.JSON && isInteractive()
+	yes := cmd.Bool("yes")
+	interactive := !yes && !cmd.Bool("no-input") && !out.JSON && isInteractive()
 
 	prompted := false
 	name := cmd.Args().First()
@@ -91,16 +111,59 @@ func runMCPSetup(ctx context.Context, cmd *cli.Command) error {
 		return newUsageError("unknown MCP client %q; expected one of: %s", name, clientNameList())
 	}
 
+	projectDir, err := os.Getwd()
+	if err != nil {
+		projectDir = "."
+	}
+
+	scope := cmd.String("scope")
+	supported := supportedScopes(def)
+	switch {
+	case cmd.IsSet("scope"):
+		if !contains(mcpScopeNames, scope) {
+			return newUsageError("unknown scope %q; expected one of: %s", scope, strings.Join(mcpScopeNames, ", "))
+		}
+		if !contains(supported, scope) {
+			return newUsageError("%s only supports --scope %s", def.label, strings.Join(supported, " or "))
+		}
+	case interactive && len(supported) > 1:
+		scope, err = promptForScope(ctx, supported, projectDir)
+		if err != nil {
+			return err
+		}
+		prompted = true
+	}
+
 	serverCmd, serverArgs, err := serverInvocation(cmd, def)
 	if err != nil {
 		return err
 	}
 
-	plan := buildSetupPlan(def, serverCmd, serverArgs)
+	plan := buildSetupPlan(def, scope, projectDir, serverCmd, serverArgs)
 
-	if len(plan.Register) > 0 && interactive {
-		if _, err := exec.LookPath(def.cli); err == nil {
-			return offerToRegister(ctx, out, def, plan.Register)
+	if len(plan.Register) > 0 {
+		if yes {
+			if _, err := exec.LookPath(def.cli); err != nil {
+				if err := out.Value(plan, func(io.Writer) error {
+					printSetupInstructions(out, def, plan)
+					return nil
+				}); err != nil {
+					return err
+				}
+				return fmt.Errorf("nothing was registered: the %q command isn't on your PATH; install %s, then run the command above", def.cli, def.label)
+			}
+			if out.JSON {
+				if err := registerQuietly(ctx, def, plan.Register); err != nil {
+					return err
+				}
+				plan.Registered = true
+			} else {
+				return registerNow(ctx, out, def, plan.Register)
+			}
+		} else if interactive {
+			if _, err := exec.LookPath(def.cli); err == nil {
+				return offerToRegister(ctx, out, def, plan.Register)
+			}
 		}
 	}
 
@@ -152,6 +215,53 @@ func promptForClient(ctx context.Context) (string, error) {
 
 	name, _ := answers["client"].(string)
 	return name, nil
+}
+
+func supportedScopes(def mcpClientDef) []string {
+	switch def.name {
+	case "claude-code":
+		return []string{"user", "project", "local"}
+	case "codex", "cursor", "gemini", "vscode":
+		return []string{"user", "project"}
+	default:
+		return []string{"user"}
+	}
+}
+
+func promptForScope(ctx context.Context, supported []string, projectDir string) (string, error) {
+	explanations := map[string]string{
+		"local":   "local: this project only, just for you",
+		"project": "project: everyone working on this project, via a file you commit",
+		"user":    "user: all your projects",
+	}
+
+	lines := make([]string, 0, len(supported)+2)
+	lines = append(lines, "Who should get this registration?")
+	values := make([]any, 0, len(supported))
+	for _, scope := range supported {
+		lines = append(lines, "  "+explanations[scope])
+		values = append(values, scope)
+	}
+	lines = append(lines, fmt.Sprintf("(\"this project\" = %s)", projectDir))
+
+	answers, err := (&ttyPrompter{}).Prompt(ctx, "Godai can be registered at more than one scope.", map[string]any{
+		"type":     "object",
+		"required": []any{"scope"},
+		"properties": map[string]any{
+			"scope": map[string]any{
+				"type":        "string",
+				"description": strings.Join(lines, "\n  ") + "\n",
+				"enum":        values,
+				"default":     "user",
+			},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	scope, _ := answers["scope"].(string)
+	return scope, nil
 }
 
 func serverInvocation(cmd *cli.Command, def mcpClientDef) (string, []string, error) {
@@ -213,18 +323,32 @@ func godaiCommand() (string, []string) {
 	return "godai", nil
 }
 
-func buildSetupPlan(def mcpClientDef, command string, args []string) mcpSetupPlan {
-	plan := mcpSetupPlan{Client: def.name}
+func buildSetupPlan(def mcpClientDef, scope, projectDir, command string, args []string) mcpSetupPlan {
+	plan := mcpSetupPlan{Client: def.name, Scope: scope}
 
 	switch def.name {
 	case "claude-code":
-		plan.Register = append([]string{"claude", "mcp", "add", "godai", "--", command}, args...)
+		plan.Register = append([]string{"claude", "mcp", "add", "--scope", scope, "godai", "--", command}, args...)
 	case "codex":
-		plan.Register = append([]string{"codex", "mcp", "add", "godai", "--", command}, args...)
+		if scope == "project" {
+			plan.ConfigPath = filepath.Join(projectDir, ".codex", "config.toml")
+			plan.ConfigTOML = codexServerTOML(command, args)
+		} else {
+			plan.Register = append([]string{"codex", "mcp", "add", "godai", "--", command}, args...)
+		}
 	case "gemini":
-		plan.Register = geminiRegister(command, args)
+		plan.Register = geminiRegister(scope, command, args)
 	case "vscode":
-		plan.Register = vscodeRegister(command, args)
+		if scope == "project" {
+			plan.ConfigPath = filepath.Join(projectDir, ".vscode", "mcp.json")
+			plan.Config = map[string]any{
+				"servers": map[string]any{
+					"godai": mcpServerEntry{Command: command, Args: args},
+				},
+			}
+		} else {
+			plan.Register = vscodeRegister(command, args)
+		}
 	case "other":
 		plan.Config = mcpServersConfig(command, args)
 	case "claude-desktop":
@@ -232,9 +356,13 @@ func buildSetupPlan(def mcpClientDef, command string, args []string) mcpSetupPla
 		plan.Config = mcpServersConfig(command, args)
 		plan.Extension = releasesURL
 	case "cursor":
-		plan.ConfigPath = "~/.cursor/mcp.json"
 		plan.Config = mcpServersConfig(command, args)
-		plan.Deeplink = cursorDeeplink(command, args)
+		if scope == "project" {
+			plan.ConfigPath = filepath.Join(projectDir, ".cursor", "mcp.json")
+		} else {
+			plan.ConfigPath = "~/.cursor/mcp.json"
+			plan.Deeplink = cursorDeeplink(command, args)
+		}
 	}
 
 	return plan
@@ -242,8 +370,8 @@ func buildSetupPlan(def mcpClientDef, command string, args []string) mcpSetupPla
 
 // gemini takes the command and arguments positionally, with `--` only where
 // needed to stop it parsing a dashed server argument as its own option.
-func geminiRegister(command string, args []string) []string {
-	argv := []string{"gemini", "mcp", "add", "godai", command}
+func geminiRegister(scope, command string, args []string) []string {
+	argv := []string{"gemini", "mcp", "add", "-s", scope, "godai", command}
 	for i, arg := range args {
 		if strings.HasPrefix(arg, "-") {
 			argv = append(argv, "--")
@@ -268,6 +396,20 @@ func vscodeRegister(command string, args []string) []string {
 		return nil
 	}
 	return []string{"code", "--add-mcp", string(entry)}
+}
+
+func codexServerTOML(command string, args []string) string {
+	quoted := make([]string, 0, len(args))
+	for _, arg := range args {
+		quoted = append(quoted, tomlString(arg))
+	}
+	return fmt.Sprintf("[mcp_servers.godai]\ncommand = %s\nargs = [%s]\n", tomlString(command), strings.Join(quoted, ", "))
+}
+
+// JSON string escaping is a subset of TOML basic-string escaping.
+func tomlString(s string) string {
+	data, _ := json.Marshal(s)
+	return string(data)
 }
 
 func mcpServersConfig(command string, args []string) map[string]any {
@@ -321,6 +463,21 @@ func offerToRegister(ctx context.Context, out *Printer, def mcpClientDef, argv [
 		return nil
 	}
 
+	return registerNow(ctx, out, def, argv)
+}
+
+// The JSON document must be the only thing on stdout, so the client CLI's
+// output is captured instead of inherited.
+func registerQuietly(ctx context.Context, def mcpClientDef, argv []string) error {
+	register := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	combined, err := register.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("registering with %s: %w: %s", def.label, err, strings.TrimSpace(string(combined)))
+	}
+	return nil
+}
+
+func registerNow(ctx context.Context, out *Printer, def mcpClientDef, argv []string) error {
 	register := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	register.Stdin = os.Stdin
 	register.Stdout = os.Stdout
@@ -335,31 +492,38 @@ func offerToRegister(ctx context.Context, out *Printer, def mcpClientDef, argv [
 }
 
 func printSetupInstructions(out *Printer, def mcpClientDef, plan mcpSetupPlan) {
-	switch def.name {
-	case "claude-code", "codex", "gemini", "vscode":
+	switch {
+	case len(plan.Register) > 0:
 		if _, err := exec.LookPath(def.cli); err != nil {
 			out.Printf("The %q command isn't on your PATH, so %s needs to be installed first.\n\n", def.cli, def.label)
 		}
 		out.Printf("To connect Godai to %s, run:\n", def.label)
 		out.Printf("\n  %s\n\n", out.Paint(output.BoldCyan, shellJoin(plan.Register)))
 		out.Printf("Then restart %s if it's already running.\n", def.label)
-	case "claude-desktop":
-		out.Printf("Merge this into %s:\n", plan.ConfigPath)
-		out.Printf("\n%s\n", out.Paint(output.Cyan, indentJSON(plan.Config)))
-		out.Printf("Then restart Claude Desktop.\n")
-		if runtime.GOOS == "linux" {
-			out.Printf("\nIf launching Godot fails, check `echo $DISPLAY` in a terminal and adjust the --x11-display argument to match.\n")
-		}
-	case "cursor":
-		out.Printf("To connect Godai to Cursor, open this link (your browser will hand it to Cursor):\n")
-		out.Printf("\n  %s\n\n", out.Paint(output.BoldCyan, plan.Deeplink))
-		out.Printf("Or merge this into %s (or .cursor/mcp.json inside one project):\n", plan.ConfigPath)
-		out.Printf("\n%s\n", out.Paint(output.Cyan, indentJSON(plan.Config)))
-		out.Printf("Then restart Cursor if it's already running.\n")
-	case "other":
+	case def.name == "other":
 		out.Printf("Most MCP clients accept configuration similar to this (check the documentation for where to put it):\n")
 		out.Printf("\n%s\n", out.Paint(output.Cyan, indentJSON(plan.Config)))
 		out.Printf("Then restart the client if it's already running.\n")
+	default:
+		if plan.Deeplink != "" {
+			out.Printf("To connect Godai to %s, open this link (your browser will hand it to %s):\n", def.label, def.label)
+			out.Printf("\n  %s\n\n", out.Paint(output.BoldCyan, plan.Deeplink))
+			out.Printf("Or merge this into %s:\n", plan.ConfigPath)
+		} else {
+			out.Printf("Merge this into %s:\n", plan.ConfigPath)
+		}
+		if plan.ConfigTOML != "" {
+			out.Printf("\n%s\n", out.Paint(output.Cyan, indentLines(plan.ConfigTOML)))
+		} else {
+			out.Printf("\n%s\n", out.Paint(output.Cyan, indentJSON(plan.Config)))
+		}
+		out.Printf("Then restart %s if it's already running.\n", def.label)
+		if def.name == "codex" {
+			out.Printf("\nCodex only reads project config from trusted projects; approve this project in Codex if the server doesn't appear.\n")
+		}
+		if def.name == "claude-desktop" && runtime.GOOS == "linux" {
+			out.Printf("\nIf launching Godot fails, check `echo $DISPLAY` in a terminal and adjust the --x11-display argument to match.\n")
+		}
 	}
 }
 
@@ -382,6 +546,10 @@ func indentJSON(v any) string {
 		return ""
 	}
 	return "  " + string(data) + "\n"
+}
+
+func indentLines(s string) string {
+	return "  " + strings.ReplaceAll(strings.TrimSuffix(s, "\n"), "\n", "\n  ") + "\n"
 }
 
 func shellJoin(argv []string) string {
