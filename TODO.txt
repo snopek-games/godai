@@ -8,10 +8,6 @@ For a 1.0
 ------------------------------
 
 - CLI: Test thoroughly on Windows and MacOS!
-- CLI: XDG_* vars only work to isolate tests on Linux -- we need something that'll work on MacOS (and maybe Windows?) too
-- CLI: `godai mcp setup`
-  - Should we ask about setting up for user or project for the command (`--scope=user|project`)?
-  - Should we mark all tools as approved (since we have our own approval)?
 - Mirror project to GitHub via CI?
 - Add to MCP Registry
   - https://registry.modelcontextprotocol.io/

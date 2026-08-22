@@ -4,7 +4,6 @@ package isolationtest
 
 import (
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -28,10 +27,6 @@ func Isolate(t testing.TB) string {
 // Apply sets the isolation environment for base on the current process.
 func Apply(t testing.TB, base string) {
 	t.Helper()
-	if runtime.GOOS == "windows" {
-		// TODO(windows): remove this skip once isolation.Env supports Windows.
-		t.Skip("directory isolation is not implemented on windows")
-	}
 	env, err := isolation.Env(base)
 	if err != nil {
 		t.Fatal(err)

@@ -31,6 +31,15 @@ func RepoRoot() string {
 	return dir
 }
 
+// ExePath is where to build a binary named name. Windows needs the extension:
+// nothing will run the file without it.
+func ExePath(dir, name string) string {
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(dir, name)
+}
+
 func FindGodot() (string, error) {
 	if bin := os.Getenv("GODOT"); bin != "" {
 		path, err := exec.LookPath(bin)
@@ -230,14 +239,9 @@ func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, s
 	cmd.Env = env
 
 	logPath := filepath.Join(projectDir, "editor.log")
-	logFile, err := os.Create(logPath)
+	out, release, err := CaptureOutput(logPath, opts.Verbose)
 	if err != nil {
 		return nil, "", err
-	}
-
-	var out io.Writer = logFile
-	if opts.Verbose {
-		out = io.MultiWriter(logFile, os.Stderr)
 	}
 	cmd.Stdout = out
 	cmd.Stderr = out
@@ -245,12 +249,38 @@ func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, s
 	// Fix hang on the restart editor test.
 	cmd.WaitDelay = 10 * time.Second
 
-	if err := cmd.Start(); err != nil {
-		logFile.Close()
+	err = cmd.Start()
+	release()
+	if err != nil {
 		return nil, "", err
 	}
 
 	return cmd, logPath, nil
+}
+
+// CaptureOutput opens path for a child process to write to. The returned func
+// must be called once the child has started: Windows won't remove a
+// directory holding a file anything still has open.
+func CaptureOutput(path string, verbose bool) (*os.File, func(), error) {
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !verbose {
+		return file, func() { file.Close() }, nil
+	}
+
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		file.Close()
+		return nil, nil, err
+	}
+	go func() {
+		io.Copy(io.MultiWriter(file, os.Stderr), reader)
+		reader.Close()
+		file.Close()
+	}()
+	return writer, func() { writer.Close() }, nil
 }
 
 func StopEditor(cmd *exec.Cmd) {
@@ -258,7 +288,7 @@ func StopEditor(cmd *exec.Cmd) {
 		return
 	}
 
-	cmd.Process.Signal(os.Interrupt)
+	AskToStop(cmd.Process)
 
 	done := make(chan struct{})
 	go func() {

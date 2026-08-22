@@ -156,7 +156,7 @@ func TestPinAndUnpinProjectGodotVersion(t *testing.T) {
 	}, "isn't installed")
 
 	callToolErr(t, "pin_project_to_godot_version", map[string]any{
-		"project_path":  "/tmp",
+		"project_path":  t.TempDir(),
 		"godot_version": testEngineName,
 	}, "roots")
 }

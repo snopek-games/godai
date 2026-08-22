@@ -105,7 +105,7 @@ func TestRestartEditor(t *testing.T) {
 		"--editor-retry-delay", "1",
 	}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
-	t.Cleanup(func() { stopServer(inst.cmd) })
+	t.Cleanup(func() { stopServer(inst) })
 	dumpLogOnFailure(t, "server log", inst.logPath)
 	// When the editor restarts itself the relaunched process is orphaned (not the
 	// harness's child), so clean it up by PID from the instances dir.

@@ -789,8 +789,8 @@ func TestParseStatement(t *testing.T) {
 		},
 		{
 			"TagEscaping",
-			`[sec\t\ion\]]`,
-			Statement{StatementTypeTag, "section]", nil},
+			`[sec\tion\]]`,
+			Statement{StatementTypeTag, `sec\tion]`, nil},
 		},
 		{
 			"Assignment",
@@ -828,6 +828,46 @@ func TestParseStatement(t *testing.T) {
 				is.NoErr(err)
 				is.Equal(v, tc.value)
 			}
+		})
+	}
+}
+
+func TestParseSimpleTagEscaping(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  any
+	}{
+		{"UnescapedBracketEndsIt", `[a]b]`, "a"},
+		{"EscapedBracket", `[a\]b]`, "a]b"},
+		{"WindowsPath", `[C:\Users\me]`, `C:\Users\me`},
+		{"LoneBackslashIsLiteral", `[a\b]`, `a\b`},
+		{"BackslashPairIsLiteral", `[a\\b]`, `a\\b`},
+		{"BackslashThenEscapedBracket", `[a\\]b]`, `a\]b`},
+		{"TwoBackslashesThenEscapedBracket", `[a\\\]b]`, `a\\]b`},
+		// Godot can't read this one back either: the trailing backslash eats
+		// the closing bracket and the parse runs off the end.
+		{"TrailingBackslashIsUnreadable", `[trailing\]`, ErrUnexpectedEOF},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			is := is.New(t)
+
+			p := NewParser(strings.NewReader(tc.input))
+			p.SetSimpleTag(true)
+
+			s, err := p.ParseStatement()
+
+			if wantErr, ok := tc.want.(error); ok {
+				is.Equal(err, wantErr)
+				return
+			}
+			is.NoErr(err)
+			is.Equal(s, Statement{StatementTypeTag, tc.want.(string), nil})
 		})
 	}
 }

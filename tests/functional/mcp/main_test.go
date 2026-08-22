@@ -13,10 +13,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"syscall"
 	"testing"
 	"time"
 
+	"gitlab.com/snopek-games/godai/internal/fakebin"
 	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
@@ -31,14 +31,14 @@ var (
 	client           *harness.MCPClient
 	projectPath      string
 	instancesDir     string
-	serverCmd        *exec.Cmd
+	serverInst       *serverInstance
 	serverBin        string
 	godotWrapperPath string
 	enginesPath      string
 
 	// When set (via GODAI_COVERDIR), the binary is built with -cover and each
 	// server runs with GOCOVERDIR pointing here. Coverage is flushed only on the
-	// SIGINT-driven graceful shutdown in stopServer.
+	// graceful shutdown in stopServer.
 	coverDir string
 )
 
@@ -50,10 +50,6 @@ func TestMain(m *testing.M) {
 func testMain(m *testing.M) int {
 	if testing.Short() {
 		fmt.Fprintln(os.Stderr, "SKIP: functional tests don't run in -short mode")
-		return 0
-	}
-	if runtime.GOOS == "windows" {
-		fmt.Fprintln(os.Stderr, "SKIP: mcp functional tests use a shell wrapper and don't run on Windows")
 		return 0
 	}
 
@@ -92,7 +88,7 @@ func testMain(m *testing.M) int {
 	code := 1
 	defer func() {
 		killEditorInstances(instancesDir)
-		stopServer(serverCmd)
+		stopServer(serverInst)
 		if code != 0 {
 			fmt.Fprintf(os.Stderr, "Temp dir kept at %s\n", base)
 		} else if os.Getenv("GODAI_TEST_KEEP") != "" {
@@ -119,9 +115,11 @@ func testMain(m *testing.M) int {
 
 	// A wrapper that forces --headless, so the editor open_godot_project spawns
 	// doesn't try to open a window.
-	godotWrapper := filepath.Join(base, "godot-headless")
-	wrapper := fmt.Sprintf("#!/bin/sh\nexec %q --headless \"$@\"\n", godotBin)
-	if err := os.WriteFile(godotWrapper, []byte(wrapper), 0o755); err != nil {
+	godotWrapper, err := fakebin.Write(filepath.Join(base, "godot-headless"),
+		fmt.Sprintf("exec %q --headless \"$@\"\n", godotBin),
+		// Not %q: cmd.exe takes a quoted path literally, backslashes and all.
+		fmt.Sprintf("\"%s\" --headless %%*\r\n", godotBin))
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: writing godot wrapper: %v\n", err)
 		return 1
 	}
@@ -154,7 +152,7 @@ func testMain(m *testing.M) int {
 		fmt.Fprintf(os.Stderr, "FAIL: starting godai: %v\n", err)
 		return 1
 	}
-	serverCmd = inst.cmd
+	serverInst = inst
 	client = inst.client
 
 	code = m.Run()
@@ -187,6 +185,7 @@ func writeLinkedEngines(linked map[string]any) error {
 
 type serverInstance struct {
 	cmd     *exec.Cmd
+	stdin   io.WriteCloser
 	client  *harness.MCPClient
 	logPath string
 }
@@ -246,17 +245,15 @@ func startServerWithClient(base string, args, extraEnv []string, verbose bool, c
 	}
 
 	logPath := filepath.Join(base, "server.log")
-	logFile, err := os.Create(logPath)
+	logOut, releaseLog, err := harness.CaptureOutput(logPath, verbose)
 	if err != nil {
 		return nil, err
 	}
-	if verbose {
-		cmd.Stderr = io.MultiWriter(logFile, os.Stderr)
-	} else {
-		cmd.Stderr = logFile
-	}
+	cmd.Stderr = logOut
 
-	if err := cmd.Start(); err != nil {
+	err = cmd.Start()
+	releaseLog()
+	if err != nil {
 		return nil, err
 	}
 
@@ -267,11 +264,11 @@ func startServerWithClient(base string, args, extraEnv []string, verbose bool, c
 		return nil, fmt.Errorf("%w (server log: %s)", err, logPath)
 	}
 
-	return &serverInstance{cmd: cmd, client: c, logPath: logPath}, nil
+	return &serverInstance{cmd: cmd, stdin: stdin, client: c, logPath: logPath}, nil
 }
 
 func buildServer(dir string) (string, error) {
-	binPath := filepath.Join(dir, "godai")
+	binPath := harness.ExePath(dir, "godai")
 	args := []string{"build", "-tags", "selfupdate"}
 	if coverDir != "" {
 		args = append(args, "-cover", "-coverpkg=gitlab.com/snopek-games/godai/cmd/godai,gitlab.com/snopek-games/godai/internal/...")
@@ -285,21 +282,27 @@ func buildServer(dir string) (string, error) {
 	return binPath, nil
 }
 
-func stopServer(cmd *exec.Cmd) {
-	if cmd == nil || cmd.Process == nil {
+// stopServer sends SIGINT where there is one, and otherwise closes stdin,
+// which ends the same read loop that triggers closeHeadlessEditors.
+func stopServer(inst *serverInstance) {
+	if inst == nil || inst.cmd == nil || inst.cmd.Process == nil {
 		return
 	}
-	cmd.Process.Signal(os.Interrupt)
+	if runtime.GOOS == "windows" {
+		inst.stdin.Close()
+	} else {
+		inst.cmd.Process.Signal(os.Interrupt)
+	}
 
 	done := make(chan struct{})
 	go func() {
-		cmd.Wait()
+		inst.cmd.Wait()
 		close(done)
 	}()
 	select {
 	case <-done:
 	case <-time.After(10 * time.Second):
-		cmd.Process.Kill()
+		inst.cmd.Process.Kill()
 		<-done
 	}
 }
@@ -333,17 +336,17 @@ func killEditorInstances(dir string) {
 }
 
 // killProcess terminates an editor the server spawned. It isn't our child, so
-// we can't Wait on it; we poll for its exit with signal 0 instead.
+// we can't Wait on it; we poll for its exit instead.
 func killProcess(pid int) {
 	proc, err := os.FindProcess(pid)
 	if err != nil {
 		return
 	}
-	proc.Signal(os.Interrupt)
+	harness.AskToStop(proc)
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		if err := proc.Signal(syscall.Signal(0)); err != nil {
-			return // already gone
+		if !harness.Alive(pid) {
+			return
 		}
 		time.Sleep(200 * time.Millisecond)
 	}

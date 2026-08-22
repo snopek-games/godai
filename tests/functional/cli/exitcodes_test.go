@@ -6,11 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
 
+	"gitlab.com/snopek-games/godai/internal/fakebin"
 	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 
@@ -33,9 +33,11 @@ var (
 func setupExitCodeTests(base string) error {
 	exitBase = base
 
-	stub := filepath.Join(base, "godot-stub")
-	script := "#!/bin/sh\nfor arg in \"$@\"; do\n\tcase \"$arg\" in\n\t--exit=*) exit \"${arg#--exit=}\" ;;\n\tesac\ndone\nexit 0\n"
-	if err := os.WriteFile(stub, []byte(script), 0o755); err != nil {
+	shell := "for arg in \"$@\"; do\n\tcase \"$arg\" in\n\t--exit=*) exit \"${arg#--exit=}\" ;;\n\tesac\ndone\nexit 0\n"
+	// cmd.exe splits an argument at "=", so --exit=N arrives as two arguments.
+	batch := ":loop\r\nif \"%~1\"==\"\" exit /b 0\r\nif \"%~1\"==\"--exit\" exit /b %~2\r\nshift\r\ngoto loop\r\n"
+	stub, err := fakebin.Write(filepath.Join(base, "godot-stub"), shell, batch)
+	if err != nil {
 		return err
 	}
 
@@ -69,10 +71,6 @@ func godaiExitCode(t *testing.T, args ...string) (int, string) {
 
 func godaiExitCodeWithBase(t *testing.T, base string, args ...string) (int, string) {
 	t.Helper()
-
-	if runtime.GOOS == "windows" {
-		t.Skip("the stub engine is a shell script")
-	}
 
 	isolationEnv, err := isolation.Env(base)
 	if err != nil {

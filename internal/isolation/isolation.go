@@ -13,6 +13,7 @@ import (
 
 func Env(base string) ([]string, error) {
 	var env []string
+	dirs := []string{ConfigHome(base), DataHome(base), CacheHome(base)}
 	switch runtime.GOOS {
 	case "linux":
 		env = []string{
@@ -22,17 +23,30 @@ func Env(base string) ([]string, error) {
 		}
 	case "darwin":
 		env = []string{"HOME=" + base}
+	case "windows":
+		env = []string{
+			"USERPROFILE=" + base,
+			"APPDATA=" + ConfigHome(base),
+			"LOCALAPPDATA=" + CacheHome(base),
+			"TMP=" + tempDir(base),
+			"TEMP=" + tempDir(base),
+		}
+		dirs = append(dirs, tempDir(base))
 	default:
-		// TODO(windows): set APPDATA, LOCALAPPDATA, USERPROFILE, and TMP/TEMP to
-		// redirect the directories the accessors below already describe.
 		return nil, fmt.Errorf("directory isolation is not implemented on %s", runtime.GOOS)
 	}
-	for _, dir := range []string{ConfigHome(base), DataHome(base), CacheHome(base)} {
+	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, err
 		}
 	}
 	return env, nil
+}
+
+// tempDir is only needed on Windows: Godot falls back to TEMP when
+// LOCALAPPDATA is unset, so leaving it at the real one would leak cache dirs.
+func tempDir(base string) string {
+	return filepath.Join(base, "Temp")
 }
 
 func ConfigHome(base string) string {

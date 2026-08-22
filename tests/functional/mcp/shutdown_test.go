@@ -3,7 +3,6 @@ package mcp
 import (
 	"os"
 	"path/filepath"
-	"syscall"
 	"testing"
 	"time"
 
@@ -13,19 +12,11 @@ import (
 	"gitlab.com/snopek-games/godai/tests/functional/internal/harness"
 )
 
-func processAlive(pid int) bool {
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	return proc.Signal(syscall.Signal(0)) == nil
-}
-
 func waitForProcessExit(t *testing.T, pid int, timeout time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if !processAlive(pid) {
+		if !harness.Alive(pid) {
 			return
 		}
 		time.Sleep(200 * time.Millisecond)
@@ -68,7 +59,7 @@ func TestCloseHeadlessEditorsOnShutdown(t *testing.T) {
 	is.NoErr(err)
 	t.Cleanup(func() {
 		killEditorInstances(instances)
-		stopServer(inst.cmd)
+		stopServer(inst)
 	})
 	dumpLogOnFailure(t, "server log", inst.logPath)
 	dumpLogOnFailure(t, "editor log", filepath.Join(isolation.GodaiCacheDir(base), "editor-logs", "*.log"))
@@ -87,9 +78,9 @@ func TestCloseHeadlessEditorsOnShutdown(t *testing.T) {
 	pids := getInstancePIDs(t, instances)
 	is.True(len(pids) > 0) // the headless editor advertised itself
 
-	// Stopping the server (SIGINT) runs closeHeadlessEditors, which asks the
-	// editor to save and quit.
-	stopServer(inst.cmd)
+	// Stopping the server runs closeHeadlessEditors, which asks the editor to
+	// save and quit.
+	stopServer(inst)
 
 	for pid := range pids {
 		waitForProcessExit(t, pid, 30*time.Second)

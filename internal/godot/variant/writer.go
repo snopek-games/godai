@@ -52,6 +52,21 @@ func (w *Writer) WriteComment(s string) error {
 	return nil
 }
 
+// WriteSimpleTag writes the kind of tag Parser reads with SetSimpleTag. A
+// name ending in a backslash can't be written: it would escape the ']'.
+func (w *Writer) WriteSimpleTag(name string) error {
+	if _, err := w.w.WriteRune('['); err != nil {
+		return err
+	}
+	if _, err := w.w.WriteString(strings.ReplaceAll(name, "]", "\\]")); err != nil {
+		return err
+	}
+	if _, err := w.w.WriteString("]\n"); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (w *Writer) WriteTag(name string, fields OrderedMap[string, any]) error {
 	if _, err := w.w.WriteRune('['); err != nil {
 		return err

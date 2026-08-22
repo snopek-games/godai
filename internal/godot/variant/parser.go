@@ -195,6 +195,8 @@ func (p *Parser) parseSimpleTag() (string, error) {
 		return "", errors.New("expected '['")
 	}
 
+	// Only "\]" is an escape; any other backslash stands for itself, so it's
+	// held back for one rune and written out again if no ']' follows.
 	escaping := false
 	for {
 		c, _, err := p.r.ReadRune()
@@ -205,17 +207,21 @@ func (p *Parser) parseSimpleTag() (string, error) {
 			return "", err
 		}
 
-		if c == ']' {
-			if escaping {
-				escaping = false
-			} else {
-				break
+		if escaping {
+			escaping = false
+			if c == ']' {
+				p.buf.WriteRune(c)
+				continue
 			}
-		} else if c == '\\' {
+			p.buf.WriteRune('\\')
+		}
+
+		if c == '\\' {
 			escaping = true
 			continue
-		} else {
-			escaping = false
+		}
+		if c == ']' {
+			break
 		}
 
 		p.buf.WriteRune(c)

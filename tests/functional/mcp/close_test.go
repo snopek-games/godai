@@ -57,7 +57,7 @@ func TestCloseEditor(t *testing.T) {
 		"--editor-retry-delay", "1",
 	}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
-	t.Cleanup(func() { stopServer(inst.cmd) })
+	t.Cleanup(func() { stopServer(inst) })
 	dumpLogOnFailure(t, "server log", inst.logPath)
 
 	_, errBad := inst.client.CallTool(testContext(t), "close_editor", map[string]any{"project_path": "/definitely/not/a/real/path"})

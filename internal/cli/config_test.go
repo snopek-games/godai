@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
 	"gitlab.com/snopek-games/godai/internal/core"
+	"gitlab.com/snopek-games/godai/internal/fakebin"
 	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/internal/isolationtest"
 
@@ -17,10 +17,6 @@ import (
 
 func TestConfigReadsAndWritesSettings(t *testing.T) {
 	is := is.New(t)
-
-	if runtime.GOOS == "windows" {
-		t.Skip("stands in for a Godot binary by being an executable shell script")
-	}
 
 	dir := isolationtest.Isolate(t)
 	configPath := filepath.Join(isolation.GodaiConfigDir(dir), "config.json")
@@ -55,8 +51,8 @@ func TestConfigReadsAndWritesSettings(t *testing.T) {
 func linkTestEngine(t *testing.T, dir string) string {
 	t.Helper()
 
-	godotPath := filepath.Join(dir, "godot")
-	if err := os.WriteFile(godotPath, []byte("#!/bin/sh\necho 4.5.stable.official.a2b3c4d5e\n"), 0o755); err != nil {
+	godotPath, err := fakebin.Print(filepath.Join(dir, "godot"), "4.5.stable.official.a2b3c4d5e")
+	if err != nil {
 		t.Fatal(err)
 	}
 

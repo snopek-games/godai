@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/matryer/is"
 
+	"gitlab.com/snopek-games/godai/internal/fakebin"
 	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/internal/isolationtest"
 )
@@ -41,12 +41,12 @@ func installEngineFor(t *testing.T, version string) string {
 		t.Fatal(err)
 	}
 
-	executable := filepath.Join(dir, "godot")
-	if err := os.WriteFile(executable, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+	executable, err := fakebin.Exit(filepath.Join(dir, "godot"), 0)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	record := fmt.Sprintf(`{"version":%q,"executable":"godot"}`, version)
+	record := fmt.Sprintf(`{"version":%q,"executable":%q}`, version, filepath.Base(executable))
 	if err := os.WriteFile(filepath.Join(dir, "godai-engine.json"), []byte(record), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -76,10 +76,6 @@ func engineSession(t *testing.T, godotVersion string) *Session {
 
 func engineSessionFor(t *testing.T, godotVersion string, explicit bool) *Session {
 	t.Helper()
-
-	if runtime.GOOS == "windows" {
-		t.Skip("relies on a shell script standing in for Godot")
-	}
 
 	base := isolationtest.Isolate(t)
 

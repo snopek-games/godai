@@ -19,6 +19,12 @@ import (
 )
 
 func fileURI(path string) string {
+	// A Windows path is "C:\dir": it needs slashes, and a root of its own so
+	// the drive letter doesn't land where the host belongs.
+	path = filepath.ToSlash(path)
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
 	u := url.URL{Scheme: "file", Path: path}
 	return u.String()
 }
@@ -75,7 +81,7 @@ func TestClientRoots(t *testing.T) {
 		"--editor-scan-interval", "1",
 	}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "", cfg)
 	is.NoErr(err)
-	t.Cleanup(func() { stopServer(inst.cmd) })
+	t.Cleanup(func() { stopServer(inst) })
 
 	projects := listProjects(t, inst.client)
 	is.Equal(projects[clientProject], "From Client Roots") // found via client-provided roots
@@ -109,7 +115,7 @@ func TestClientRootsUnsupported(t *testing.T) {
 		"--editor-scan-interval", "1",
 	}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "", cfg)
 	is.NoErr(err)
-	t.Cleanup(func() { stopServer(inst.cmd) })
+	t.Cleanup(func() { stopServer(inst) })
 
 	projects := listProjects(t, inst.client)
 	is.Equal(projects[staticProject], "From Static Root") // fell back to the static --root
@@ -163,7 +169,7 @@ func TestClientRootsListChanged(t *testing.T) {
 		"--editor-scan-interval", "1",
 	}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "", cfg)
 	is.NoErr(err)
-	t.Cleanup(func() { stopServer(inst.cmd) })
+	t.Cleanup(func() { stopServer(inst) })
 
 	eventually(t, func() bool {
 		_, ok := listProjects(t, inst.client)[projectA]
@@ -219,7 +225,7 @@ func TestListProjectsWithoutBasePath(t *testing.T) {
 		"--editor-scan-interval", "1",
 	}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "", cfg)
 	is.NoErr(err)
-	t.Cleanup(func() { stopServer(inst.cmd) })
+	t.Cleanup(func() { stopServer(inst) })
 
 	structured := callToolOKWith(t, inst.client, "list_projects", nil)
 	note, _ := structured["note"].(string)

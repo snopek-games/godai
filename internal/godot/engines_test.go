@@ -18,6 +18,8 @@ import (
 	"testing"
 
 	"github.com/matryer/is"
+
+	"gitlab.com/snopek-games/godai/internal/fakebin"
 )
 
 const testTag = "4.5-stable"
@@ -257,13 +259,9 @@ func TestLinkedEngines(t *testing.T) {
 func TestLinkingRecordsTheVersionTheBuildReports(t *testing.T) {
 	is := is.New(t)
 
-	if runtime.GOOS == "windows" {
-		t.Skip("stands in for a Godot build by being an executable shell script")
-	}
-
 	manager := testManager(t, map[string][]byte{})
-	executable := filepath.Join(t.TempDir(), "godot")
-	is.NoErr(os.WriteFile(executable, []byte("#!/bin/sh\necho 4.4.1.stable.mono.official.b09f793f5\n"), 0o755))
+	executable, err := fakebin.Print(filepath.Join(t.TempDir(), "godot"), "4.4.1.stable.mono.official.b09f793f5")
+	is.NoErr(err)
 
 	engine, err := manager.Link(context.Background(), "my-build", executable)
 	is.NoErr(err)

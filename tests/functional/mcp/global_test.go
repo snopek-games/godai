@@ -42,7 +42,7 @@ func TestGlobalMode(t *testing.T) {
 		"--editor-scan-interval", "1",
 	}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
-	t.Cleanup(func() { stopServer(inst.cmd) })
+	t.Cleanup(func() { stopServer(inst) })
 
 	projects := listProjects(t, inst.client)
 	is.Equal(projects[baseProject], "From Base Path")     // found via --project-base-path
@@ -81,7 +81,9 @@ func writeProjectsCfg(t *testing.T, path, projectPath string) {
 		t.Fatal(err)
 	}
 	cf := godot.NewConfigFile()
-	cf.Set(projectPath, "favorite", false)
+	// Godot writes project paths with forward slashes on every platform, so
+	// that's what the server has to cope with reading back.
+	cf.Set(filepath.ToSlash(projectPath), "favorite", false)
 	if err := cf.WriteFile(path); err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +138,7 @@ func TestGlobalModeOpenAndConnect(t *testing.T) {
 	is.NoErr(err)
 	t.Cleanup(func() {
 		killEditorInstances(instances)
-		stopServer(inst.cmd)
+		stopServer(inst)
 	})
 	dumpLogOnFailure(t, "server log", inst.logPath)
 	dumpLogOnFailure(t, "editor log", filepath.Join(isolation.GodaiCacheDir(base), "editor-logs", "*.log"))

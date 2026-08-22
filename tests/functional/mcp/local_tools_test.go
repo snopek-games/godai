@@ -83,7 +83,7 @@ func TestOpenGodotProject(t *testing.T) {
 	is.Equal(out["already_open"], true)
 
 	callToolErr(t, "open_godot_project", map[string]any{
-		"project_path": "/tmp",
+		"project_path": t.TempDir(),
 	}, "")
 }
 

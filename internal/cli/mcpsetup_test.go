@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/matryer/is"
+
+	"gitlab.com/snopek-games/godai/internal/fakebin"
 )
 
 func TestMCPSetupUnknownClientIsAUsageError(t *testing.T) {
@@ -231,13 +232,10 @@ func fakeClientCLI(t *testing.T, name string, exitCode int) {
 	t.Helper()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, name)
-	script := fmt.Sprintf("#!/bin/sh\necho added-by-fake\nexit %d\n", exitCode)
-	if runtime.GOOS == "windows" {
-		path += ".bat"
-		script = fmt.Sprintf("@echo added-by-fake\r\n@exit /b %d\r\n", exitCode)
-	}
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+	_, err := fakebin.Write(filepath.Join(dir, name),
+		fmt.Sprintf("echo added-by-fake\nexit %d\n", exitCode),
+		fmt.Sprintf("echo added-by-fake\r\nexit /b %d\r\n", exitCode))
+	if err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))

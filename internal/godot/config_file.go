@@ -180,7 +180,7 @@ func (c *ConfigFile) Write(w io.Writer) error {
 
 	for _, s := range c.sections {
 		if s.name != "" {
-			if err := vw.WriteTag(s.name, nil); err != nil {
+			if err := vw.WriteSimpleTag(s.name); err != nil {
 				return err
 			}
 		}

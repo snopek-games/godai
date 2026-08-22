@@ -3,11 +3,12 @@ package core
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/matryer/is"
+
+	"gitlab.com/snopek-games/godai/internal/fakebin"
 )
 
 // Godai stores canonical paths, but t.TempDir() hands back one that still has
@@ -60,13 +61,9 @@ func TestResolveGodotExecutable(t *testing.T) {
 	_, err = ResolveGodotExecutable(notExec)
 	is.True(err != nil)
 
-	if runtime.GOOS == "windows" {
-		t.Skip("the success path uses a shell-script stand-in")
-	}
-
 	// A regular executable that exits 0 on `--version` resolves to itself.
-	godot := filepath.Join(dir, "fake-godot")
-	is.NoErr(os.WriteFile(godot, []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	godot, err := fakebin.Exit(filepath.Join(dir, "fake-godot"), 0)
+	is.NoErr(err)
 	canonical, err := CanonicalPath(godot)
 	is.NoErr(err)
 	resolved, err := ResolveGodotExecutable(godot)
@@ -75,8 +72,8 @@ func TestResolveGodotExecutable(t *testing.T) {
 
 	// An executable that runs but fails `--version` says so, rather than
 	// passing on the "exit status 1" from os/exec.
-	failing := filepath.Join(dir, "failing-godot")
-	is.NoErr(os.WriteFile(failing, []byte("#!/bin/sh\nexit 1\n"), 0o755))
+	failing, err := fakebin.Exit(filepath.Join(dir, "failing-godot"), 1)
+	is.NoErr(err)
 	_, err = ResolveGodotExecutable(failing)
 	is.True(err != nil)
 	is.True(!strings.Contains(err.Error(), "exit status"))
@@ -93,7 +90,7 @@ func TestResolveGodotExecutable(t *testing.T) {
 
 	// A relative path is resolved against the working directory, not PATH.
 	t.Chdir(dir)
-	resolved, err = ResolveGodotExecutable("./fake-godot")
+	resolved, err = ResolveGodotExecutable("./" + filepath.Base(godot))
 	is.NoErr(err)
 	is.Equal(resolved, canonical)
 }

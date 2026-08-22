@@ -1,13 +1,12 @@
 package cli
 
 import (
-	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
 	"gitlab.com/snopek-games/godai/internal/core"
+	"gitlab.com/snopek-games/godai/internal/fakebin"
 	"gitlab.com/snopek-games/godai/internal/isolation"
 	"gitlab.com/snopek-games/godai/internal/isolationtest"
 
@@ -16,10 +15,6 @@ import (
 
 func TestEngineRemoveUnsetsTheDefault(t *testing.T) {
 	is := is.New(t)
-
-	if runtime.GOOS == "windows" {
-		t.Skip("stands in for a Godot binary by being an executable shell script")
-	}
 
 	dir := isolationtest.Isolate(t)
 	configPath := filepath.Join(isolation.GodaiConfigDir(dir), "config.json")
@@ -42,10 +37,6 @@ func TestEngineRemoveUnsetsTheDefault(t *testing.T) {
 func TestEngineLinkRecordsTheVersionTheBuildReports(t *testing.T) {
 	is := is.New(t)
 
-	if runtime.GOOS == "windows" {
-		t.Skip("stands in for a Godot binary by being an executable shell script")
-	}
-
 	dir := isolationtest.Isolate(t)
 
 	linkTestEngine(t, dir)
@@ -58,8 +49,8 @@ func TestEngineLinkRecordsTheVersionTheBuildReports(t *testing.T) {
 func linkOtherTestEngine(t *testing.T, dir string) string {
 	t.Helper()
 
-	godotPath := filepath.Join(dir, "other-godot")
-	if err := os.WriteFile(godotPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+	godotPath, err := fakebin.Exit(filepath.Join(dir, "other-godot"), 0)
+	if err != nil {
 		t.Fatal(err)
 	}
 

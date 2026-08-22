@@ -29,7 +29,7 @@ func TestToolsetsLimitAdvertisedTools(t *testing.T) {
 
 	inst, err := startServer(t.TempDir(), []string{"--toolsets", "scene"}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
-	t.Cleanup(func() { stopServer(inst.cmd) })
+	t.Cleanup(func() { stopServer(inst) })
 
 	names := listToolNames(t, inst)
 	is.True(names["get_current_scene"])
@@ -49,7 +49,7 @@ func TestDefaultToolsetsExcludeEngineTools(t *testing.T) {
 
 	inst, err := startServer(t.TempDir(), nil, nil, os.Getenv("GODAI_TEST_VERBOSE") != "")
 	is.NoErr(err)
-	t.Cleanup(func() { stopServer(inst.cmd) })
+	t.Cleanup(func() { stopServer(inst) })
 
 	names := listToolNames(t, inst)
 	is.True(names["list_projects"])
