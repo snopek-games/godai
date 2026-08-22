@@ -37,7 +37,8 @@ Files in this directory
 - `package.json` - the main package. The `version` is a `0.0.0-dev`
   placeholder; CI stamps the real version in at publish time. Its
   `optionalDependencies` keys are the source of truth for which platforms
-  exist.
+  exist. Its `mcpName` field is how the MCP registry verifies we own this
+  package (see `packaging/mcp-registry/PUBLISHING.md`).
 - `godai.js` - the launcher script.
 - `README.md` - the README shown on npmjs.com for the main package.
 - `prepare-packages.mjs` - generates the actual publishable packages into

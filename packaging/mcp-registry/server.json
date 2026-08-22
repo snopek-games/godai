@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.snopekgames/godai",
+  "title": "Godai",
+  "description": "Automate the Godot Engine editor: edit scenes and scripts, run projects, manage engine versions",
+  "websiteUrl": "https://godai.sh",
+  "repository": {
+    "url": "https://gitlab.com/snopek-games/godai",
+    "source": "gitlab"
+  },
+  "version": "0.0.0-dev",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@snopek-games/godai",
+      "version": "0.0.0-dev",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
+    }
+  ]
+}

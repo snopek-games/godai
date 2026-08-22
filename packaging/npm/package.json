@@ -2,6 +2,7 @@
   "name": "@snopek-games/godai",
   "version": "0.0.0-dev",
   "description": "Godot automation CLI, with an MCP server for AI agents",
+  "mcpName": "com.snopekgames/godai",
   "license": "MIT",
   "homepage": "https://gitlab.com/snopek-games/godai",
   "repository": {
