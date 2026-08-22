@@ -23,6 +23,25 @@
         {
           "type": "positional",
           "value": "mcp"
+        },
+        {
+          "type": "positional",
+          "value": "--global",
+          "isRequired": false,
+          "description": "Use any Godot editor instance, wherever its project lives, instead of only projects under the client's working directory or MCP roots. Recommended for clients not tied to a project directory."
+        },
+        {
+          "type": "named",
+          "name": "--project-base-path",
+          "format": "filepath",
+          "isRequired": false,
+          "description": "The base path where your Godot projects usually live (used with --global)"
+        },
+        {
+          "type": "named",
+          "name": "--toolsets",
+          "isRequired": false,
+          "description": "The toolsets to expose as MCP tools (run 'godai mcp toolsets' to list them)"
         }
       ]
     }
