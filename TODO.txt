@@ -1,27 +1,8 @@
 TODO
 ====
 
-For a 1.0
----------
-
-0.4: Finish critical CLI stuff
-------------------------------
-
-- Mirror project to GitHub via CI?
-- Add to MCP Registry
-  - https://registry.modelcontextprotocol.io/
-  - See: https://modelcontextprotocol.info/tools/registry/publishing/
-- Add MCPB to Claude directory
-  - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
-- Eval: Look at existing gamedev benchmarking suites and see if we can use them with Godai
-  - Can we run those test suites with Godai added to the mix?
-  - Can we adapt their tasks and bring them into our eval framework?
-  - Links:
-    - See https://github.com/waynchi/gamedevbench
-    - See https://github.com/FreedomIntelligence/gamecraft-bench
-
-0.5: Finish critical API mode stuff
------------------------------------
+0.5: Finish critical addon stuff
+--------------------------------
 
 - Addon: Clearer separation between MCP and API mode (one disables the other?)
 - Addon: allow enabling/disabling MCP or API mode entirely
@@ -34,6 +15,7 @@ For a 1.0
     - How does this overlap with our tools for script editing?
   - Having a way to "reload" the tools would help iteration during development
 - Addon: Allow resuming the conversation after a `restart_editor`
+  - Needed for `godai-eval` test of restarting the editor to work with `--surface editor`
 - Addon: Add in game tools
   - Sending input
   - Taking a screenshot
@@ -67,6 +49,14 @@ For a 1.0
 Backlog
 -------
 
+- Add MCPB to Claude Desktop directory
+  - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
+- Eval: Look at existing gamedev benchmarking suites and see if we can use them with Godai
+  - Can we run those test suites with Godai added to the mix?
+  - Can we adapt their tasks and bring them into our eval framework?
+  - Links:
+    - See https://github.com/waynchi/gamedevbench
+    - See https://github.com/FreedomIntelligence/gamecraft-bench
 - CLI: Add command to create a new project
     - Sketch:
       ```
