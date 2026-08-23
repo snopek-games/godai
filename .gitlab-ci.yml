@@ -372,8 +372,8 @@ brew-publish:
       fi
 
 # Keeps the website's copies of shared files up to date: the install scripts
-# (served at https://godai.sh/install and /install.ps1 from src/install-scripts/)
-# and the CLI demo video.
+# (served at https://godai.sh/install and /install.ps1 from src/install-scripts/),
+# the CLI demo video, and the branding SVGs.
 website-publish:
   stage: release
   rules:
@@ -381,6 +381,8 @@ website-publish:
       changes:
         - packaging/install/**/*
         - assets/cli-demo.webm
+        - assets/hub/*.svg
+        - assets/wordmark/*.svg
   needs: []
   image: alpine:latest
   cache: []
@@ -398,10 +400,11 @@ website-publish:
     - cp packaging/install/install.sh website/src/install-scripts/install
     - cp packaging/install/install.ps1 website/src/install-scripts/install.ps1
     - cp assets/cli-demo.webm website/src/assets/videos/cli-demo.webm
+    - cp assets/hub/*.svg assets/wordmark/*.svg website/src/assets/branding/
     - cd website
     - git config user.name "GitLab CI"
     - git config user.email "dsnopek@gmail.com"
-    - git add src/install-scripts src/assets/videos
+    - git add src/install-scripts src/assets/videos src/assets/branding
     - |
       if git diff --cached --quiet; then
         echo "Website files unchanged; nothing to push."
