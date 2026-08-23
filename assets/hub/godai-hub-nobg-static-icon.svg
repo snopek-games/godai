@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<title>godai — active hub</title>
+<line stroke="#ffffff" opacity="0.8" stroke-width="13" x1="128.4" y1="204" x2="55" y2="149.3">
+  
+</line>
+<line stroke="#ffffff" opacity="0.8" stroke-width="13" x1="55" y1="149.3" x2="73.3" y2="58.2">
+  
+</line>
+<line stroke="#ffffff" opacity="0.8" stroke-width="13" x1="73.3" y1="58.2" x2="180.4" y2="54.3">
+  
+</line>
+<line stroke="#ffffff" opacity="0.8" stroke-width="13" x1="180.4" y1="54.3" x2="201" y2="146.9">
+  
+</line>
+<line stroke="#ffffff" opacity="0.8" stroke-width="13" x1="201" y1="146.9" x2="128.4" y2="204">
+  
+</line>
+<line stroke="#ffffff" stroke-width="13" x1="128" y1="124" x2="128.4" y2="204">
+  
+</line>
+<line stroke="#ffffff" stroke-width="13" x1="128" y1="124" x2="55" y2="149.3">
+  
+</line>
+<line stroke="#ffffff" stroke-width="13" x1="128" y1="124" x2="73.3" y2="58.2">
+  
+</line>
+<line stroke="#ffffff" stroke-width="13" x1="128" y1="124" x2="180.4" y2="54.3">
+  
+</line>
+<line stroke="#ffffff" stroke-width="13" x1="128" y1="124" x2="201" y2="146.9">
+  
+</line>
+<circle fill="#ffffff" cx="128.4" cy="204" r="20">
+  
+</circle>
+<circle fill="#ffffff" cx="55" cy="149.3" r="20">
+  
+</circle>
+<circle fill="#ffffff" cx="73.3" cy="58.2" r="23.4">
+  
+</circle>
+<circle fill="#ffffff" cx="180.4" cy="54.3" r="22.5">
+  
+</circle>
+<circle fill="#ffffff" cx="201" cy="146.9" r="20">
+  
+</circle>
+<circle fill="#ffffff" cx="128" cy="124" r="19.2">
+  
+</circle>
+</svg>
