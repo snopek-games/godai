@@ -87,8 +87,7 @@ Or, you can use a package manager:
 <summary>brew</summary>
 
 ```bash
-brew tap snopek-games/godai
-brew install godai
+brew install snopek-games/godai/godai
 ```
 </details>
 
