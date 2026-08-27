@@ -454,8 +454,9 @@ func TestProjectConnectionScanner(t *testing.T) {
 		GetRootPaths:  func() []string { return []string{rootDir} },
 	}
 
-	desired := scanner.Desired()
-	is.Equal(len(desired), 1) // only the project under the root
+	advertised, desired := scanner.Scan()
+	is.Equal(len(advertised), 3) // every live instance, regardless of roots
+	is.Equal(len(desired), 1)    // only the project under the root
 	is.Equal(desired[0].InstanceID, "inside")
 }
 

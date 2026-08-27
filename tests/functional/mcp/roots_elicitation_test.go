@@ -90,6 +90,44 @@ func TestClientRoots(t *testing.T) {
 	is.True(rootsListCalls.Load() > 0) // the server actually called roots/list
 }
 
+func TestClientRootsEmpty(t *testing.T) {
+	is := is.New(t)
+
+	xdgBase := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(xdgBase); err == nil {
+		xdgBase = resolved
+	}
+
+	staticRoot := filepath.Join(xdgBase, "static-root")
+	staticProject := filepath.Join(staticRoot, "from_static_root")
+	mustCreateProject(t, staticProject, "From Static Root")
+
+	var rootsListCalls atomic.Int32
+	cfg := harness.ClientConfig{
+		Capabilities: map[string]any{"roots": map[string]any{}},
+		Handlers: map[string]harness.RequestHandler{
+			"roots/list": func(params json.RawMessage) (any, *jsonrpc.Error) {
+				rootsListCalls.Add(1)
+				return map[string]any{"roots": []map[string]any{}}, nil
+			},
+		},
+	}
+
+	instances := isolation.GodaiInstancesDir(xdgBase)
+	inst, err := startServerWithClient(xdgBase, []string{
+		"--root", staticRoot,
+		"--godot-path", godotWrapperPath,
+		"--editor-instances-path", instances,
+		"--editor-scan-interval", "1",
+	}, nil, os.Getenv("GODAI_TEST_VERBOSE") != "", cfg)
+	is.NoErr(err)
+	t.Cleanup(func() { stopServer(inst) })
+
+	projects := listProjects(t, inst.client)
+	is.Equal(projects[staticProject], "From Static Root") // empty client roots keep the static --root
+	is.True(rootsListCalls.Load() > 0)                    // the server actually called roots/list
+}
+
 func TestClientRootsUnsupported(t *testing.T) {
 	is := is.New(t)
 

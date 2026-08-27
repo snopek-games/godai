@@ -16,9 +16,9 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Discovers which editor instances the manager should connect to.
+// Scan returns every live advertised instance, and the subset that's desired.
 type ConnectionScanner interface {
-	Desired() []instance
+	Scan() (advertised, desired []instance)
 }
 
 type ConnectionManagerConfig struct {
@@ -102,7 +102,7 @@ func (m *ConnectionManager) ScanNow() {
 // InstanceProjectPaths returns the project path of every editor instance the
 // scanner currently advertises, whether or not we've finished connecting to it.
 func (m *ConnectionManager) InstanceProjectPaths() []string {
-	desired := m.config.Scanner.Desired()
+	_, desired := m.config.Scanner.Scan()
 
 	paths := make([]string, 0, len(desired))
 	for _, inst := range desired {
@@ -134,7 +134,7 @@ func (m *ConnectionManager) runScanner() {
 	m.scanMutex.Lock()
 	defer m.scanMutex.Unlock()
 
-	desired := m.config.Scanner.Desired()
+	advertised, desired := m.config.Scanner.Scan()
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -161,30 +161,38 @@ func (m *ConnectionManager) runScanner() {
 	// Stop the connection loops for editors that are no longer desired.
 	for id, stopCh := range m.connectionLoops {
 		if !seen[id] {
+			// Still advertised but not desired: the roots must have excluded it.
+			for _, inst := range advertised {
+				if inst.InstanceID == id {
+					slog.Info("editor project is no longer within the roots, disconnecting", "project", inst.ProjectPath, "port", inst.Port)
+					break
+				}
+			}
 			close(stopCh)
 			delete(m.connectionLoops, id)
 		}
 	}
 }
 
-func (s *GlobalConnectionScanner) Desired() []instance {
-	return readAllInstances(s.InstancesPath)
+func (s *GlobalConnectionScanner) Scan() (advertised, desired []instance) {
+	all := readAllInstances(s.InstancesPath)
+	return all, all
 }
 
-func (s *ProjectConnectionScanner) Desired() []instance {
+func (s *ProjectConnectionScanner) Scan() (advertised, desired []instance) {
 	roots := s.GetRootPaths()
 
-	var instances []instance
-	for _, inst := range readAllInstances(s.InstancesPath) {
+	advertised = readAllInstances(s.InstancesPath)
+	for _, inst := range advertised {
 		if inst.ProjectPath == "" {
 			continue
 		}
 		if IsPathUnderAnyRoot(inst.ProjectPath, roots) {
-			instances = append(instances, inst)
+			desired = append(desired, inst)
 		}
 	}
 
-	return instances
+	return advertised, desired
 }
 
 func readAllInstances(instancesPath string) []instance {

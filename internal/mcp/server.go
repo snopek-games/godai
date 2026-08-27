@@ -148,6 +148,7 @@ type Server struct {
 	localTools         map[string]*Tool
 	enabledTools       map[string]bool
 	roots              []string
+	fallbackRoots      []string
 	rootsMutex         sync.RWMutex
 }
 
@@ -164,6 +165,7 @@ func NewServer(session *core.Session, toolsets []string) *Server {
 		localTools:        make(map[string]*Tool),
 		enabledTools:      computeEnabledTools(toolsets),
 		roots:             session.Config().RootPaths,
+		fallbackRoots:     session.Config().RootPaths,
 	}
 
 	session.SetRootsProvider(s.getRootPaths)
@@ -347,11 +349,20 @@ func (s *Server) listRootsInternal() error {
 		rootPaths = append(rootPaths, fileURIToPath(root.Uri))
 	}
 
+	// Some clients (like the MCP Inspector) advertise the roots capability but
+	// serve an empty list: treat that as "no opinion", not "no projects".
+	if len(rootPaths) == 0 {
+		rootPaths = slices.Clone(s.fallbackRoots)
+	}
+
 	s.rootsMutex.Lock()
+	changed := !slices.Equal(s.roots, rootPaths)
 	s.roots = rootPaths
 	s.rootsMutex.Unlock()
 
-	slog.Debug(fmt.Sprintf("updated roots: %+v", rootPaths))
+	if changed {
+		slog.Info(fmt.Sprintf("updated roots: %+v", rootPaths))
+	}
 
 	return nil
 }
