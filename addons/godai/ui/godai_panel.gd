@@ -112,6 +112,8 @@ func _ready() -> void:
 	_external_recorder.message_recorded.connect(_on_external_message_recorded)
 
 	if Engine.is_editor_hint():
+		tools.is_busy = EditorInterface.get_resource_filesystem().is_scanning
+
 		var settings: EditorSettings = EditorInterface.get_editor_settings()
 		settings.settings_changed.connect(_update_from_editor_settings)
 		_update_from_editor_settings()

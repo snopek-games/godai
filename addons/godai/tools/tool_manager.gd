@@ -33,6 +33,12 @@ class ToolResult extends RefCounted:
 	func is_error() -> bool:
 		return _error
 
+	func complete_from_result(p_result: ToolResult) -> void:
+		if p_result.is_error():
+			reject(p_result.content)
+		else:
+			resolve(p_result.content)
+
 	func get_content_as_string() -> String:
 		if content is String:
 			return content
@@ -257,8 +263,11 @@ class QueueItem extends RefCounted:
 
 var tools: Dictionary[String, Tool]
 
+var is_busy: Callable
+
 var _current: ToolResult
 var _queue: Array[QueueItem]
+var _waiting_until_not_busy := false
 
 
 func register_tool(p_tool: Tool) -> void:
@@ -307,24 +316,30 @@ func execute_tool(p_name: String, p_input) -> ToolResult:
 
 	tool_obj.apply_input_defaults(p_input)
 
-	if not _current:
-		var result: ToolResult = tool_obj.execute(p_input)
-		if result.is_done():
-			return result
-		_current = result
-		_current.completed.connect(_handle_result.bind(null), CONNECT_ONE_SHOT)
-		return _current
-	else:
+	if _current or _is_busy():
 		var proxy_result := ToolResult.new()
 		var queue_item := QueueItem.new(tool_obj, p_input, proxy_result)
 		_queue.push_back(queue_item)
+		_pump_queue()
 		return proxy_result
 
+	var result: ToolResult = tool_obj.execute(p_input)
+	if result.is_done():
+		return result
+	_current = result
+	_current.completed.connect(_handle_result.bind(null), CONNECT_ONE_SHOT)
+	return _current
 
-func _handle_result(p_content, p_proxy_result: ToolResult) -> void:
+
+func _is_busy() -> bool:
+	return is_busy.is_valid() and is_busy.call()
+
+
+func _handle_result(_content, p_proxy_result: ToolResult) -> void:
+	var result := _current
 	_current = null
 	if p_proxy_result:
-		p_proxy_result.resolve(p_content)
+		p_proxy_result.complete_from_result(result)
 	_pump_queue.call_deferred()
 
 
@@ -333,14 +348,27 @@ func _pump_queue() -> void:
 		return
 	if _current:
 		return
+	if _is_busy():
+		_resume_when_not_busy()
+		return
 
 	var queue_item: QueueItem = _queue.pop_front()
 
 	var result: ToolResult = queue_item.tool_obj.execute(queue_item.input)
 	if result.is_done():
-		queue_item.result_proxy.resolve(result.content)
+		queue_item.result_proxy.complete_from_result(result)
 		_pump_queue.call_deferred()
 		return
 
 	_current = result
 	_current.completed.connect(_handle_result.bind(queue_item.result_proxy), CONNECT_ONE_SHOT)
+
+
+func _resume_when_not_busy() -> void:
+	if _waiting_until_not_busy:
+		return
+	_waiting_until_not_busy = true
+	while _is_busy():
+		await Engine.get_main_loop().process_frame
+	_waiting_until_not_busy = false
+	_pump_queue()
