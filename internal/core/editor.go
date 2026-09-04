@@ -22,6 +22,12 @@ const (
 const (
 	timeoutMetaKey      = "godai/timeout_ms"
 	godaiVersionMetaKey = "godai/godai_version"
+	clientKindMetaKey   = "godai/client_kind"
+)
+
+const (
+	ClientKindCLI = "cli"
+	ClientKindMCP = "mcp"
 )
 
 type callToolParams struct {
@@ -86,7 +92,8 @@ func (s *Session) CallEditorTool(ctx context.Context, projectPath, name string, 
 		Name:      name,
 		Arguments: raw,
 		Meta: map[string]any{
-			timeoutMetaKey: s.config.EditorToolTimeout.Milliseconds(),
+			timeoutMetaKey:    s.config.EditorToolTimeout.Milliseconds(),
+			clientKindMetaKey: s.getClientKind(),
 		},
 	})
 	if err != nil {

@@ -3,7 +3,7 @@
 #
 # Coverage from two sources is merged:
 #   - the unit tests (go test ./internal/...), and
-#   - the functional tests (./tests/functional/mcp and ./tests/functional/cli),
+#   - the functional tests (./tests/functional/mcp/stdio and ./tests/functional/cli),
 #     which build the godai binary with -cover and run it as a subprocess. The
 #     subprocess writes its coverage data to GOCOVERDIR, enabled here via
 #     GODAI_COVERDIR.
@@ -39,7 +39,7 @@ echo ">> unit tests (./internal/...)"
 go test -tags selfupdate -count=1 -cover -coverpkg="$COVPKG" ./internal/... \
 	-args -test.gocoverdir="$UNIT_DIR"
 
-for SUITE in mcp cli; do
+for SUITE in mcp/stdio cli; do
 	echo ">> functional tests (./tests/functional/$SUITE)"
 	GODAI_COVERDIR="$FUNC_DIR" go test -count=1 "./tests/functional/$SUITE/"
 done

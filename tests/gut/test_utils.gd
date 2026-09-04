@@ -448,3 +448,10 @@ func test_is_setting_modified() -> void:
 	assert_true(Utils.is_setting_modified(settings, "retyped"))
 	# No known default means always modified.
 	assert_true(Utils.is_setting_modified(settings, "custom"))
+
+
+func test_is_pid_running() -> void:
+	assert_true(Utils.is_pid_running(OS.get_process_id()))
+	assert_false(Utils.is_pid_running(999999999))
+	assert_false(Utils.is_pid_running(0))
+	assert_false(Utils.is_pid_running(-1))

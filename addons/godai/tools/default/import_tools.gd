@@ -14,6 +14,11 @@ static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
 
 class ImportReimport extends DefaultTool:
 	func execute(p_input) -> ToolResult:
+		# This can trigger the progress dialog, which will lead to errors if we
+		# don't execute on the next frame.
+		return execute_next_frame(_reimport.bind(p_input))
+
+	func _reimport(p_input) -> ToolResult:
 		var file_paths: Array = p_input.get('file_paths', [])
 
 		var resolved_paths := PackedStringArray()
@@ -41,6 +46,11 @@ class ImportReimport extends DefaultTool:
 
 class ImportGetSettings extends DefaultTool:
 	func execute(p_input) -> ToolResult:
+		# This can trigger the progress dialog, which will lead to errors if we
+		# don't execute on the next frame.
+		return execute_next_frame(_get_settings.bind(p_input))
+
+	func _get_settings(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 
 		file_path = Utils.to_res_path(file_path)
@@ -78,6 +88,9 @@ class ImportGetSettings extends DefaultTool:
 
 class ImportSetSettings extends DefaultTool:
 	func execute(p_input) -> ToolResult:
+		return execute_next_frame(_set_settings.bind(p_input))
+
+	func _set_settings(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 		var importer: String = p_input.get('importer', '')
 		var options: Dictionary = p_input.get('options', {})

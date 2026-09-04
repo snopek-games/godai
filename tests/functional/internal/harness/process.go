@@ -87,7 +87,14 @@ func OpenTimeout(fallback time.Duration) time.Duration {
 	return time.Duration(secs * float64(time.Second))
 }
 
-func WaitForInstancePort(dir string, timeout time.Duration) (int, error) {
+type Instance struct {
+	Port int `json:"port"`
+	Pid  int `json:"pid"`
+}
+
+// WaitForInstance waits for an editor instance file with a port (meaning the
+// addon finished starting up) to appear in dir.
+func WaitForInstance(dir string, timeout time.Duration) (Instance, error) {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		entries, _ := os.ReadDir(dir)
@@ -99,16 +106,19 @@ func WaitForInstancePort(dir string, timeout time.Duration) (int, error) {
 			if err != nil {
 				continue
 			}
-			var inst struct {
-				Port int `json:"port"`
-			}
+			var inst Instance
 			if json.Unmarshal(b, &inst) == nil && inst.Port > 0 {
-				return inst.Port, nil
+				return inst, nil
 			}
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
-	return 0, fmt.Errorf("no editor instance file with a port appeared in %s", dir)
+	return Instance{}, fmt.Errorf("no editor instance file with a port appeared in %s", dir)
+}
+
+func WaitForInstancePort(dir string, timeout time.Duration) (int, error) {
+	inst, err := WaitForInstance(dir, timeout)
+	return inst.Port, err
 }
 
 type ProjectOptions struct {

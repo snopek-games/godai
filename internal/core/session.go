@@ -52,6 +52,7 @@ type Session struct {
 
 	rootsProvider      func() []string
 	clientInfoProvider func() (ClientInfo, map[string]any)
+	clientKind         string
 	providerMutex      sync.RWMutex
 
 	updateAvailable      string
@@ -71,6 +72,7 @@ func New(config Config) (*Session, error) {
 		editorsChanged:   make(chan struct{}),
 		headlessProjects: make(map[string]struct{}),
 		prompter:         NoPrompter{},
+		clientKind:       ClientKindCLI,
 	}
 
 	var scanner godot.ConnectionScanner
@@ -128,6 +130,18 @@ func (s *Session) SetClientInfoProvider(f func() (ClientInfo, map[string]any)) {
 	s.providerMutex.Lock()
 	defer s.providerMutex.Unlock()
 	s.clientInfoProvider = f
+}
+
+func (s *Session) SetClientKind(kind string) {
+	s.providerMutex.Lock()
+	defer s.providerMutex.Unlock()
+	s.clientKind = kind
+}
+
+func (s *Session) getClientKind() string {
+	s.providerMutex.RLock()
+	defer s.providerMutex.RUnlock()
+	return s.clientKind
 }
 
 func (s *Session) RootPaths() []string {

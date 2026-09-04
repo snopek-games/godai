@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -59,6 +59,37 @@ func TestAwaitStreamWaitsForAWholeResultLine(t *testing.T) {
 	is.True(strings.Contains(live.String(), "session started"))
 }
 
+func TestAwaitStreamContinuesPastATeardownResult(t *testing.T) {
+	is := is.New(t)
+
+	path := filepath.Join(t.TempDir(), "agent-stream.jsonl")
+	f, err := os.Create(path)
+	is.NoErr(err)
+	defer f.Close()
+
+	f.WriteString(`{"type":"system","subtype":"init","model":"m"}` + "\n" +
+		`{"type":"result","subtype":"editor_teardown","num_turns":1,"usage":{"input_tokens":10}}` + "\n")
+
+	go func() {
+		time.Sleep(streamPoll * 2)
+		f.WriteString(`{"type":"result","subtype":"success","num_turns":2,"usage":{"input_tokens":30}}` + "\n")
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	blob, err := awaitStream(ctx, path, nil)
+	is.NoErr(err)
+
+	m, err := ParseStream(bytes.NewReader(blob))
+	is.NoErr(err)
+	is.Equal(m.Segments, 2)
+	is.Equal(m.NumTurns, 3)              // both segments' turns are summed
+	is.Equal(m.Usage.InputTokens, 40)    // and their usage
+	is.Equal(m.ResultSubtype, "success") // the final segment names the outcome
+	is.True(!m.ResultIsError)
+}
+
 func TestAwaitStreamSaysWhenTheAddonNeverStarted(t *testing.T) {
 	is := is.New(t)
 
@@ -91,23 +122,50 @@ func TestAwaitStreamReportsEditorExit(t *testing.T) {
 	is.Equal(string(blob), lines) // keeps what streamed before the exit
 }
 
-func TestWatchEditorExitCancelsWhenTheProcessDies(t *testing.T) {
-	skipWithoutUnixHarness(t)
-
+func TestWatchEditorExitCancelsWhenNoEditorComesBack(t *testing.T) {
 	is := is.New(t)
 
-	cmd := exec.Command("sleep", "0.2")
-	is.NoErr(cmd.Start())
-	go cmd.Wait() // reap, or the zombie still answers signal 0
+	var scans atomic.Int32
+	scan := func() []int {
+		if scans.Add(1) == 1 {
+			return []int{1234}
+		}
+		return nil
+	}
 
 	ctx, cancel := context.WithCancelCause(context.Background())
 	defer cancel(nil)
-	go watchEditorExit(ctx, []int{cmd.Process.Pid}, cancel)
+	go watchEditorExit(ctx, scan, 5*time.Millisecond, 20*time.Millisecond, cancel)
 
 	select {
 	case <-ctx.Done():
 		is.True(errors.Is(context.Cause(ctx), errEditorExited))
 	case <-time.After(10 * time.Second):
-		t.Fatal("the watcher never noticed the process exit")
+		t.Fatal("the watcher never noticed the editor was gone")
 	}
+}
+
+func TestWatchEditorExitFollowsARestartedEditor(t *testing.T) {
+	is := is.New(t)
+
+	// The editor disappears for one scan (restart in progress), then its
+	// replacement shows up and stays.
+	var scans atomic.Int32
+	scan := func() []int {
+		if scans.Add(1) == 2 {
+			return nil
+		}
+		return []int{1234}
+	}
+
+	ctx, cancel := context.WithCancelCause(context.Background())
+	defer cancel(nil)
+	go watchEditorExit(ctx, scan, time.Millisecond, 20*time.Millisecond, cancel)
+
+	select {
+	case <-ctx.Done():
+		t.Fatal("the watcher gave up on an editor that came back")
+	case <-time.After(250 * time.Millisecond):
+	}
+	is.True(scans.Load() > 3) // the watcher kept scanning after the gap
 }

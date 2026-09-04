@@ -15,6 +15,4 @@ func killProcessGroup(int) {}
 
 func killProcess(int) error { return nil }
 
-func processAlive(int) bool { return true }
-
 func strayEditorPids(string) []int { return nil }

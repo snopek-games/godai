@@ -132,6 +132,11 @@ static func get_mcp_skip_secret_check() -> bool:
 	return EditorInterface.get_editor_settings().get_setting(MCP_SKIP_SECRET_CHECK_SETTING)
 
 
+# Outside the editor (e.g. GUT in script mode), EditorInterface has no settings to return.
+static func _editor_settings() -> EditorSettings:
+	return EditorInterface.get_editor_settings() if Engine.is_editor_hint() else null
+
+
 ## When true, tools that would otherwise need the user's approval run without
 ## asking. Needed for headless editors, where nobody can answer the dialog.
 static func get_auto_approve_tools() -> bool:
@@ -139,12 +144,18 @@ static func get_auto_approve_tools() -> bool:
 		var value := OS.get_environment(AUTO_APPROVE_TOOLS_ENV)
 		if not value.is_empty() and value != "0":
 			return true
-	return EditorInterface.get_editor_settings().get_setting(AUTO_APPROVE_TOOLS_SETTING)
+	var settings := _editor_settings()
+	if not settings:
+		return AUTO_APPROVE_TOOLS_DEFAULT
+	return settings.get_setting(AUTO_APPROVE_TOOLS_SETTING)
 
 
 static func _get_tool_list(p_setting: String) -> PackedStringArray:
 	var tools := PackedStringArray()
-	var value: String = EditorInterface.get_editor_settings().get_setting(p_setting)
+	var settings := _editor_settings()
+	if not settings:
+		return tools
+	var value: String = settings.get_setting(p_setting)
 	for line in value.split("\n", false):
 		var tool_name := line.strip_edges()
 		if not tool_name.is_empty():
@@ -153,7 +164,9 @@ static func _get_tool_list(p_setting: String) -> PackedStringArray:
 
 
 static func _set_tool_list(p_setting: String, p_tools: PackedStringArray) -> void:
-	EditorInterface.get_editor_settings().set_setting(p_setting, "\n".join(p_tools))
+	var settings := _editor_settings()
+	if settings:
+		settings.set_setting(p_setting, "\n".join(p_tools))
 
 
 ## Tools the user has approved for every session, one name per line.

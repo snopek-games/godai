@@ -2,6 +2,7 @@
 extends PanelContainer
 
 @onready var title_label: Label = %TitleLabel
+@onready var info_button: Button = %InfoButton
 
 var _tool_use_id: String
 var _tool_name: String

@@ -15,6 +15,10 @@ const SUPPORTED_PROTOCOL_VERSIONS = {
 
 const TIMEOUT_META_KEY = "godai/timeout_ms"
 const GODAI_VERSION_META_KEY = "godai/godai_version"
+const CLIENT_KIND_META_KEY = "godai/client_kind"
+
+const CLIENT_KIND_CLI = "cli"
+const CLIENT_KIND_MCP = "mcp"
 
 ## Only used by a client that talks to us directly; matches the MCP server's own default.
 const DEFAULT_TIMEOUT := 300.0
@@ -92,7 +96,7 @@ var tool_use_authorizer: Callable
 signal server_state_changed(state: ServerState)
 signal client_state_changed(state: ClientState)
 signal update_available_changed(update_available: Dictionary)
-signal tool_use_requested(p_id: String, p_name: String, p_input: Dictionary)
+signal tool_use_requested(p_id: String, p_name: String, p_input: Dictionary, p_client_kind: String)
 signal tool_use_completed(p_id: String, p_content)
 
 
@@ -274,7 +278,7 @@ func _rpc_call_tool(p_params: Dictionary):
 
 	_last_tool_id += 1
 	var id: String = "mcp:" + str(_last_tool_id)
-	tool_use_requested.emit(id, name, args)
+	tool_use_requested.emit(id, name, args, _get_client_kind(p_params))
 
 	if tool_use_authorizer.is_valid():
 		var request = tool_use_authorizer.call(name, args)
@@ -321,6 +325,16 @@ static func _get_godai_version(p_params: Dictionary) -> String:
 	var meta = p_params.get("_meta")
 	if meta is Dictionary:
 		return str(meta.get(GODAI_VERSION_META_KEY, ""))
+	return ""
+
+
+func _get_client_kind(p_params: Dictionary) -> String:
+	var meta = p_params.get("_meta")
+	if meta is Dictionary and meta.has(CLIENT_KIND_META_KEY):
+		return str(meta[CLIENT_KIND_META_KEY])
+	# No godai version reported means a real MCP client, not one of godai's own internal calls.
+	if _client_godai_version.is_empty():
+		return CLIENT_KIND_MCP
 	return ""
 
 

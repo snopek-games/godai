@@ -170,6 +170,7 @@ func NewServer(session *core.Session, toolsets []string) *Server {
 
 	session.SetRootsProvider(s.getRootPaths)
 	session.SetClientInfoProvider(s.getClientInitializeParams)
+	session.SetClientKind(core.ClientKindMCP)
 	session.SetPrompter(&elicitPrompter{server: s})
 
 	d.Register("initialize", s.rpcInitialize)

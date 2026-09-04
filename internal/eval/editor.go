@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"time"
 )
 
@@ -46,13 +45,13 @@ func runEditorAgent(ctx context.Context, cfg Config, spec *Spec, work *Workspace
 		return agentRun{metrics: m, code: -1, errs: []error{err}}
 	}
 
-	// The conversation lives in the editor process, so a restarted or crashed
-	// editor starts the task over instead of resuming; end the attempt instead.
-	// @todo Once the addon can resume the conversation after a restart, stop
-	// ending the attempt here and follow the relaunched editor's PID instead.
+	// restart_editor relaunches the editor and the addon resumes the chat there,
+	// so an exit only ends the attempt if no replacement appears within the grace period.
 	streamCtx, cancelStream := context.WithCancelCause(ctx)
 	defer cancelStream(nil)
-	go watchEditorExit(streamCtx, strayEditorPids(filepath.Base(work.Root)), cancelStream)
+	scratch := filepath.Base(work.Root)
+	go watchEditorExit(streamCtx, func() []int { return strayEditorPids(scratch) },
+		editorWatchPoll, editorRestartGrace, cancelStream)
 
 	// Writing the prompt is what starts the agent, and it waits until godai has
 	// disconnected from the editor it just opened.
@@ -90,20 +89,37 @@ const streamPoll = 250 * time.Millisecond
 
 const editorWatchPoll = time.Second
 
+// How long the workspace may have no editor process before that counts as an
+// exit rather than a restart in progress: normally subsecond, since set_restart_on_exit
+// spawns the replacement as the old process exits.
+const editorRestartGrace = 10 * time.Second
+
 var errEditorExited = errors.New("the editor exited before the agent finished")
 
-func watchEditorExit(ctx context.Context, pids []int, cancel context.CancelCauseFunc) {
-	if len(pids) == 0 {
+func watchEditorExit(ctx context.Context, scan func() []int, poll, grace time.Duration, cancel context.CancelCauseFunc) {
+	// No editor found at all means there is nothing to watch (the scan may not
+	// see the editor on this platform or setup), not that it already exited.
+	if len(scan()) == 0 {
 		return
 	}
+
+	var goneSince time.Time
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(editorWatchPoll):
+		case <-time.After(poll):
 		}
 
-		if !slices.ContainsFunc(pids, processAlive) {
+		if len(scan()) > 0 {
+			goneSince = time.Time{}
+			continue
+		}
+		if goneSince.IsZero() {
+			goneSince = time.Now()
+			continue
+		}
+		if time.Since(goneSince) >= grace {
 			cancel(errEditorExited)
 			return
 		}
@@ -156,12 +172,17 @@ func awaitStream(ctx context.Context, path string, live io.Writer) ([]byte, erro
 	}
 }
 
+// The addon flushes a result with this subtype when the editor goes down
+// mid-run (restart_editor); the run itself continues in a relaunched editor.
+const teardownResultSubtype = "editor_teardown"
+
 func hasResult(blob []byte) bool {
 	for line := range bytes.Lines(blob) {
 		var ev struct {
-			Type string `json:"type"`
+			Type    string `json:"type"`
+			Subtype string `json:"subtype"`
 		}
-		if json.Unmarshal(bytes.TrimSpace(line), &ev) == nil && ev.Type == "result" {
+		if json.Unmarshal(bytes.TrimSpace(line), &ev) == nil && ev.Type == "result" && ev.Subtype != teardownResultSubtype {
 			return true
 		}
 	}

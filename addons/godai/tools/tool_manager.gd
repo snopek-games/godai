@@ -91,6 +91,22 @@ class Tool extends RefCounted:
 	@abstract
 	func execute(p_input) -> ToolResult
 
+	## Executes on the next frame on the main thread.
+	func execute_next_frame(p_execute: Callable) -> ToolResult:
+		var result := ToolResult.new()
+		_execute_next_frame(p_execute, result)
+		return result
+
+	func _execute_next_frame(p_execute: Callable, p_result: ToolResult) -> void:
+		await Engine.get_main_loop().process_frame
+		var inner: ToolResult = p_execute.call()
+		if not inner.is_done():
+			await inner.completed
+		if inner.is_error():
+			p_result.reject(inner.content)
+		else:
+			p_result.resolve(inner.content)
+
 	func apply_input_defaults(p_input: Dictionary) -> void:
 		var properties: Dictionary = input_schema.get('properties', {})
 		for property_name in properties:

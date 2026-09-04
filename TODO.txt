@@ -4,18 +4,12 @@ TODO
 0.5: Finish critical addon stuff
 --------------------------------
 
-- Addon: Clearer separation between MCP and API mode (one disables the other?)
-- Addon: allow enabling/disabling MCP or API mode entirely
-  - MCP should have an "automatically start MCP server" option which acts like its enable/disable
-  - API mode should have an "enabled" setting
 - Addon: Have separate tools for MCP and API mode
   - API mode needs to have file management tools
     - See https://platform.claude.com/docs/en/agents-and-tools/tool-use/text-editor-tool
     - The tricky thing is that this is Anthropic specific (OpenAI has their own thing)
     - How does this overlap with our tools for script editing?
   - Having a way to "reload" the tools would help iteration during development
-- Addon: Allow resuming the conversation after a `restart_editor`
-  - Needed for `godai-eval` test of restarting the editor to work with `--surface editor`
 - Addon: Add in game tools
   - Sending input
   - Taking a screenshot
@@ -41,8 +35,14 @@ TODO
     - We might need profiles to have a "filter" for the models to include/exclude (and maybe an editor setting too?)
     - Or, we may want to pull the model list from the models.dev API? It allows us to filter based on capability
       - See https://models.dev/api.json
+- Addon: Record errors are part of chat session? (but don't send them to the AI)
+- Addon: Session usability
+  - Allow manually renaming sessions
+  - Allow manually deleting sessions
+- Addon: Show some of our branding in editor
+  - Icon on dock tab?
+  - Icon in `LoadingLabel`?
 - Addon: Ability to configure "effort" level
-- Addon: Add a way to cancel a request
 - Addon: Add system prompt
 - Addon: Add to Godot asset store
 

@@ -5,10 +5,12 @@ extends Window
 @onready var input_field: RichTextLabel = %InputField
 
 @onready var allow_button_container: HBoxContainer = %AllowButtonContainer
+@onready var allow_button: Button = %AllowButton
 @onready var allow_menu: PopupMenu = %AllowMenu
 @onready var allow_menu_button: Button = %AllowMenuButton
 
 @onready var deny_button_container: HBoxContainer = %DenyButtonContainer
+@onready var deny_button: Button = %DenyButton
 @onready var deny_menu: PopupMenu = %DenyMenu
 @onready var deny_menu_button: Button = %DenyMenuButton
 
@@ -24,8 +26,9 @@ signal tool_use_denied(p_type: AllowDenyType)
 
 
 func _ready() -> void:
-	allow_menu_button.icon = EditorInterface.get_editor_theme().get_icon(&"GuiOptionArrow", &"EditorIcons")
-	deny_menu_button.icon = EditorInterface.get_editor_theme().get_icon(&"GuiOptionArrow", &"EditorIcons")
+	if Engine.is_editor_hint() and not is_part_of_edited_scene():
+		allow_menu_button.icon = EditorInterface.get_editor_theme().get_icon(&"GuiOptionArrow", &"EditorIcons")
+		deny_menu_button.icon = EditorInterface.get_editor_theme().get_icon(&"GuiOptionArrow", &"EditorIcons")
 
 
 func setup_tool_use_auth_dialog(p_tool_name: String, p_input) -> void:

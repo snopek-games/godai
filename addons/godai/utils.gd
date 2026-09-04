@@ -593,6 +593,44 @@ static func check_script_for_node(p_node: Node, p_script: Variant) -> String:
 	return ""
 
 
+static func get_project_path() -> String:
+	return ProjectSettings.globalize_path("res://").simplify_path()
+
+
+static func is_pid_running(p_pid: int) -> bool:
+	if p_pid <= 0:
+		return false
+
+	if OS.get_name() == "Windows":
+		var output := []
+		OS.execute("tasklist", ["/FI", "PID eq %d" % p_pid, "/NH", "/FO", "CSV"], output)
+		if output.is_empty():
+			return false
+		# A match is one CSV row: "image.exe","1234","Console","1","12,345 K"
+		# PID is always the 2nd column. Split on the quote-comma-quote delimiter.
+		var fields: PackedStringArray = output[0].strip_edges().trim_prefix("\"").split("\",\"")
+		return fields.size() > 1 and fields[1] == str(p_pid)
+
+	if OS.get_name() == "Linux":
+		var status := FileAccess.open("/proc/%d/status" % p_pid, FileAccess.READ)
+		if not status:
+			return false
+		while not status.eof_reached():
+			var line := status.get_line()
+			if line.begins_with("State:"):
+				# We don't count zombie processes as running.
+				return not line.trim_prefix("State:").strip_edges().begins_with("Z")
+		return false
+
+	# MacOS or other UNIX-y systems.
+	var output := []
+	OS.execute("ps", ["-p", str(p_pid), "-o", "stat="], output)
+	if output.is_empty():
+		return false
+	var stat := str(output[0]).strip_edges()
+	return not stat.is_empty() and not stat.begins_with("Z")
+
+
 ## Normalizes a path into a `res://` path, adding the prefix if missing.
 ## Returns "" if the path escapes the project (e.g. via ".." segments).
 static func to_res_path(p_path: String) -> String:

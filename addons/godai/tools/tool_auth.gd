@@ -4,7 +4,7 @@ const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 
 const DENIED_MESSAGE = "The user denied permission to use the '%s' tool."
-const TIMED_OUT_MESSAGE = "Timed out waiting for the user to approve use of the '%s' tool."
+const TIMED_OUT_MESSAGE = "Timed out waiting for the user before running the '%s' tool."
 
 ## Refusing these in a headless editor would leave whoever launched it with no
 ## way to shut it down again.

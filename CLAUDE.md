@@ -18,9 +18,10 @@ Module: `gitlab.com/snopek-games/godai`. Hosted on GitLab; CI is `.gitlab-ci.yml
 go build ./...                              # build everything
 go test -tags selfupdate -short ./...       # unit tests (-short skips functional tests)
 go test -run TestName ./internal/cli/       # single test
-go test ./tests/functional/mcp/             # functional: Go MCP server over stdio
+go test ./tests/functional/mcp/stdio/       # functional: Go MCP server over stdio
+go test ./tests/functional/mcp/addon/       # functional: real editor + addon over MCP HTTP
 go test ./tests/functional/cli/             # functional: CLI end-to-end
-go test ./tests/functional/addon/           # functional: real editor + addon over MCP HTTP
+go test ./tests/functional/chat/            # functional: in-editor chat against a stub Anthropic API
 scripts/go-coverage.sh                      # merged unit + functional coverage report
 go run ./cmd/godai                          # run the CLI from the working tree
 ./local-mcp.sh                              # run the MCP server from the working tree

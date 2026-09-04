@@ -1,8 +1,9 @@
 extends RefCounted
 
-## The event shapes match Claude Code's `--output-format stream-json`, so the
-## harness reads a run of this panel the same way it reads a run of Claude Code.
-## Pair it with GODAI_AUTO_APPROVE_TOOLS, or every tool needing approval is denied.
+## Helper for running `godai-eval` against the AI agent in the editor.
+##
+## It reads the prompt from a file, and outputs a stream of events that are
+## meant to match Claude Code's `--output-format stream-json`.
 
 const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
 const MCPServer = preload("res://addons/godai/mcp/mcp_server.gd")
@@ -12,7 +13,7 @@ const STREAM_ENV = "GODAI_EVAL_STREAM_FILE"
 
 const POLL_SECONDS := 0.25
 
-var _panel: Control
+var _godai_panel
 var _file: FileAccess
 var _session_id: String
 var _started_msec: int
@@ -27,17 +28,27 @@ static func should_run() -> bool:
 		and not OS.get_environment(STREAM_ENV).is_empty()
 
 
-static func start(p_panel: Control):
+static func start(p_godai_panel):
 	var runner = new()
-	runner._run(p_panel)
+	runner._run(p_godai_panel)
 	return runner
 
 
-func _run(p_panel: Control) -> void:
-	_panel = p_panel
+func _run(p_godai_panel) -> void:
+	_godai_panel = p_godai_panel
+
+	# After restart_editor, the relaunched editor's chat is already resumed, so
+	# events append to the stream instead of starting a second one.
+	var resumed_request: ClaudeClient.Request = _godai_panel._current_request
 
 	var path := OS.get_environment(STREAM_ENV)
-	_file = FileAccess.open(path, FileAccess.WRITE)
+	var stream_already_exists := FileAccess.file_exists(path)
+	if stream_already_exists:
+		_file = FileAccess.open(path, FileAccess.READ_WRITE)
+		if _file:
+			_file.seek_end()
+	else:
+		_file = FileAccess.open(path, FileAccess.WRITE)
 	if not _file:
 		push_error("Godai eval: cannot write %s: %s" % [path, error_string(FileAccess.get_open_error())])
 		return
@@ -47,34 +58,39 @@ func _run(p_panel: Control) -> void:
 	_session_id = "%08x%08x" % [rng.randi(), rng.randi()]
 	_started_msec = Time.get_ticks_msec()
 
-	var client: ClaudeClient = _panel.claude_client
+	var client: ClaudeClient = _godai_panel.claude_client
 	_write({
 		type = "system",
 		subtype = "init",
 		session_id = _session_id,
 		model = client.model,
-		tools = _panel.tools.tools.keys(),
-		# The panel's own sampling settings, which Claude Code doesn't share:
-		# without these the surfaces look more comparable than they are.
+		tools = _godai_panel.tools.tools.keys(),
 		effort = client.effort,
 		max_tokens = client.max_tokens,
 	})
 
+	if resumed_request:
+		_on_chat_started(_godai_panel._current_session.chat, resumed_request)
+		return
+
+	if stream_already_exists:
+		_on_completed(ClaudeClient.Response.new(null, ClaudeClient.ResponseError.new(
+			"resume_failed", "The restarted editor could not resume the chat.")))
+		return
+
 	var prompt := await _await_prompt()
 
-	_panel.chat_started.connect(_on_chat_started)
-	_panel.submit_prompt(prompt)
+	_godai_panel.chat_started.connect(_on_chat_started)
+	_godai_panel.submit_prompt(prompt)
 
 
-# The prompt is a file because *when* it arrives matters: an MCP client connecting
-# or disconnecting clears the chat, and godai does both when it opens the editor.
 func _await_prompt() -> String:
 	var path := OS.get_environment(PROMPT_ENV)
 	while true:
 		if FileAccess.file_exists(path) \
-			and _panel.mcp_server.get_client_state() == MCPServer.ClientState.NOT_CONNECTED:
+			and _godai_panel.mcp_server.get_client_state() == MCPServer.ClientState.NOT_CONNECTED:
 			return FileAccess.get_file_as_string(path)
-		await _panel.get_tree().create_timer(POLL_SECONDS).timeout
+		await _godai_panel.get_tree().create_timer(POLL_SECONDS).timeout
 	return ""
 
 
@@ -100,19 +116,37 @@ func _on_response_received(p_response: ClaudeClient.Response) -> void:
 		var usage = p_response.payload.get("usage", {})
 		if usage is Dictionary:
 			for key in usage:
-				# Usage also carries breakdowns that are dictionaries of their own,
-				# and parsed JSON makes the counts floats where the harness wants ints.
 				if usage[key] is float or usage[key] is int:
 					_usage[key] = int(_usage.get(key, 0) + usage[key])
+
+
+# The harness reads the "editor_teardown" subtype as non-final: it records the
+# segment's turns/usage but keeps waiting for a relaunched editor's result.
+func flush_teardown_result() -> void:
+	if not _file:
+		return
+
+	_write({
+		type = "result",
+		subtype = "editor_teardown",
+		session_id = _session_id,
+		is_error = false,
+		result = "",
+		stop_reason = _stop_reason,
+		num_turns = _turns,
+		duration_ms = Time.get_ticks_msec() - _started_msec,
+		total_cost_usd = 0.0,
+		usage = _usage,
+	})
+	_file.close()
+	_file = null
 
 
 func _on_completed(p_response: ClaudeClient.Response) -> void:
 	if p_response.is_error():
 		_error = p_response.get_error()
 
-	# What the init event advertised isn't what a model that rejects an option
-	# ended up being sent.
-	var client: ClaudeClient = _panel.claude_client
+	var client: ClaudeClient = _godai_panel.claude_client
 
 	_write({
 		dropped_options = client.dropped_options(client.model),
@@ -130,8 +164,9 @@ func _on_completed(p_response: ClaudeClient.Response) -> void:
 		usage = _usage,
 	})
 
-	_file.close()
-	_file = null
+	if _file:
+		_file.close()
+		_file = null
 
 
 func _write(p_event: Dictionary) -> void:

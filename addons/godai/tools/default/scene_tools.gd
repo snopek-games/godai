@@ -200,6 +200,11 @@ class SceneInstantiate extends DefaultTool:
 
 class SceneSave extends DefaultTool:
 	func execute(p_input) -> ToolResult:
+		# This can trigger the progress dialog, which will lead to errors if we
+		# don't execute on the next frame.
+		return execute_next_frame(_save.bind(p_input))
+
+	func _save(p_input) -> ToolResult:
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
 		if not edited_scene_root:
 			return ToolResult.rejected({errors = ["No scene open"]})
@@ -219,6 +224,11 @@ class SceneSave extends DefaultTool:
 
 class SceneSaveAs extends DefaultTool:
 	func execute(p_input) -> ToolResult:
+		# This can trigger the progress dialog, which will lead to errors if we
+		# don't execute on the next frame.
+		return execute_next_frame(_save_as.bind(p_input))
+
+	func _save_as(p_input) -> ToolResult:
 		var file_path: String = p_input.get('file_path', '')
 
 		var edited_scene_root: Node = EditorInterface.get_edited_scene_root()
