@@ -56,7 +56,7 @@ var _cancel_confirmed := false
 var _headless := DisplayServer.get_name() == "headless"
 
 var _resume_retry_interval := 0.25
-var _resume_retry_timeout := 5.0
+var _resume_retry_timeout := 30.0
 
 var _external_recorder := ExternalSessionRecorder.new(_session_store)
 
