@@ -1,0 +1,234 @@
+[gd_scene format=3 uid="uid://xugvkqeynw3m"]
+
+[ext_resource type="Script" uid="uid://b2owmq3yaea02" path="res://addons/godai/ui/settings_dialog.gd" id="1_9lo84"]
+
+[node name="SettingsDialog" type="AcceptDialog" unique_id=1783658114]
+oversampling_override = 1.0
+title = "Godai Settings"
+position = Vector2i(0, 36)
+size = Vector2i(500, 356)
+visible = true
+ok_button_text = "Close"
+script = ExtResource("1_9lo84")
+
+[node name="Tabs" type="TabContainer" parent="." unique_id=2069793473]
+unique_name_in_owner = true
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 492.0
+offset_bottom = 307.0
+theme_type_variation = &"TabContainerOdd"
+current_tab = 0
+
+[node name="API" type="MarginContainer" parent="Tabs" unique_id=31459263]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+metadata/_tab_index = 0
+
+[node name="Grid" type="GridContainer" parent="Tabs/API" unique_id=1689048954]
+layout_mode = 2
+size_flags_vertical = 0
+columns = 2
+
+[node name="ProfileLabel" type="Label" parent="Tabs/API/Grid" unique_id=1666822441]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+text = "Profile"
+
+[node name="ProfileSelect" type="OptionButton" parent="Tabs/API/Grid" unique_id=958525837]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ProviderLabel" type="Label" parent="Tabs/API/Grid" unique_id=651920394]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Provider"
+
+[node name="ProviderSelect" type="OptionButton" parent="Tabs/API/Grid" unique_id=123892904]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="URLLabel" type="Label" parent="Tabs/API/Grid" unique_id=203122437]
+unique_name_in_owner = true
+layout_mode = 2
+text = "URL"
+
+[node name="URLField" type="LineEdit" parent="Tabs/API/Grid" unique_id=1708671067]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="KeyLabel" type="Label" parent="Tabs/API/Grid" unique_id=34482007]
+layout_mode = 2
+text = "API Key"
+
+[node name="KeyField" type="LineEdit" parent="Tabs/API/Grid" unique_id=524028133]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+secret = true
+
+[node name="ModelLabel" type="Label" parent="Tabs/API/Grid" unique_id=1170398466]
+layout_mode = 2
+text = "Model"
+
+[node name="ModelBox" type="HBoxContainer" parent="Tabs/API/Grid" unique_id=1259643481]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ModelSelect" type="OptionButton" parent="Tabs/API/Grid/ModelBox" unique_id=865826730]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="ModelField" type="LineEdit" parent="Tabs/API/Grid/ModelBox" unique_id=394182335]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RefreshModelsButton" type="Button" parent="Tabs/API/Grid/ModelBox" unique_id=673980272]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="EffortLabel" type="Label" parent="Tabs/API/Grid" unique_id=1235615891]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "How much the model reasons before answering."
+mouse_filter = 1
+text = "Effort"
+
+[node name="EffortSelect" type="OptionButton" parent="Tabs/API/Grid" unique_id=1762208601]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ThinkingLabel" type="Label" parent="Tabs/API/Grid" unique_id=384868590]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Thinking"
+
+[node name="ThinkingCheck" type="CheckBox" parent="Tabs/API/Grid" unique_id=227152580]
+unique_name_in_owner = true
+layout_mode = 2
+button_pressed = true
+text = "Enabled"
+
+[node name="BudgetLabel" type="Label" parent="Tabs/API/Grid" unique_id=892697421]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Tokens the model may spend thinking. 0 uses the model's default."
+mouse_filter = 1
+text = "Thinking Budget"
+
+[node name="BudgetField" type="SpinBox" parent="Tabs/API/Grid" unique_id=391902288]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 200000.0
+step = 1024.0
+suffix = "tokens"
+
+[node name="MCP" type="MarginContainer" parent="Tabs" unique_id=2098209274]
+visible = false
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+metadata/_tab_index = 1
+
+[node name="Grid" type="GridContainer" parent="Tabs/MCP" unique_id=444909992]
+layout_mode = 2
+size_flags_vertical = 0
+columns = 2
+
+[node name="BasePortLabel" type="Label" parent="Tabs/MCP/Grid" unique_id=334817380]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+tooltip_text = "The first port the MCP server tries to listen on."
+mouse_filter = 1
+text = "Base Port"
+
+[node name="BasePortField" type="SpinBox" parent="Tabs/MCP/Grid" unique_id=1653401700]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 65535.0
+value = 12120.0
+
+[node name="PortCountLabel" type="Label" parent="Tabs/MCP/Grid" unique_id=258618466]
+layout_mode = 2
+tooltip_text = "How many ports to try, starting at the base port, before giving up."
+mouse_filter = 1
+text = "Port Count"
+
+[node name="PortCountField" type="SpinBox" parent="Tabs/MCP/Grid" unique_id=2075850172]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 1000.0
+value = 10.0
+
+[node name="Tools" type="MarginContainer" parent="Tabs" unique_id=1821435950]
+visible = false
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+metadata/_tab_index = 2
+
+[node name="VBox" type="VBoxContainer" parent="Tabs/Tools" unique_id=1171947669]
+layout_mode = 2
+
+[node name="AutoApproveCheck" type="CheckBox" parent="Tabs/Tools/VBox" unique_id=34972107]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Run tools that would normally ask for your approval without asking."
+text = "Auto-approve tools"
+
+[node name="Lists" type="HBoxContainer" parent="Tabs/Tools/VBox" unique_id=1434065840]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="AllowedBox" type="VBoxContainer" parent="Tabs/Tools/VBox/Lists" unique_id=939029195]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AllowedLabel" type="Label" parent="Tabs/Tools/VBox/Lists/AllowedBox" unique_id=1840052035]
+layout_mode = 2
+tooltip_text = "Tools you have approved for every session."
+mouse_filter = 1
+text = "Allowed tools"
+
+[node name="AllowedTree" type="Tree" parent="Tabs/Tools/VBox/Lists/AllowedBox" unique_id=152751779]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+hide_root = true
+
+[node name="DeniedBox" type="VBoxContainer" parent="Tabs/Tools/VBox/Lists" unique_id=1993255785]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DeniedLabel" type="Label" parent="Tabs/Tools/VBox/Lists/DeniedBox" unique_id=1403194788]
+layout_mode = 2
+tooltip_text = "Tools you have rejected for every session."
+mouse_filter = 1
+text = "Denied tools"
+
+[node name="DeniedTree" type="Tree" parent="Tabs/Tools/VBox/Lists/DeniedBox" unique_id=813255081]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+hide_root = true
+
+[connection signal="item_selected" from="Tabs/API/Grid/ProfileSelect" to="." method="_on_profile_select_item_selected"]

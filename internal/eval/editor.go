@@ -38,8 +38,9 @@ func runEditorAgent(ctx context.Context, cfg Config, spec *Spec, work *Workspace
 		"GODAI_EVAL_PROMPT_FILE=" + prompt,
 		"GODAI_EVAL_STREAM_FILE=" + stream,
 		"GODAI_AUTO_APPROVE_TOOLS=1",
-		"GODAI_ANTHROPIC_API_KEY=" + os.Getenv("ANTHROPIC_API_KEY"),
-		"GODAI_ANTHROPIC_MODEL=" + APIModel(cfg.Model),
+		"GODAI_API_PROVIDER=anthropic",
+		"GODAI_API_KEY=" + os.Getenv("ANTHROPIC_API_KEY"),
+		"GODAI_API_MODEL=" + APIModel(cfg.Model),
 	}
 	if err := work.OpenEditorWith(ctx, env); err != nil {
 		return agentRun{metrics: m, code: -1, errs: []error{err}}

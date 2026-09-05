@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://cf4psnxs1y0n" path="res://addons/godai/ui/chat_view.gd" id="1_kw3ap"]
 [ext_resource type="PackedScene" uid="uid://dqpb2cxw458dk" path="res://addons/godai/ui/loading_label.tscn" id="2_ynv7d"]
 [ext_resource type="PackedScene" uid="uid://bfvgd1nbdtmqr" path="res://addons/godai/ui/tool_use_info_dialog.tscn" id="3_c2r8m"]
+[ext_resource type="PackedScene" uid="uid://08kn3o2qnri4" path="res://addons/godai/ui/status_message.tscn" id="4_glr6x"]
+[ext_resource type="PackedScene" uid="uid://cnjsnnnn5xw0p" path="res://addons/godai/ui/welcome_note.tscn" id="5_jggcz"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_f3sug"]
 content_margin_left = 0.0
@@ -19,23 +21,42 @@ grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty_f3sug")
 script = ExtResource("1_kw3ap")
 
-[node name="ChatScroll" type="ScrollContainer" parent="." unique_id=1090363587]
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1212573626]
+layout_mode = 2
+
+[node name="NotConfiguredMessage" parent="VBoxContainer" unique_id=2096039972 instance=ExtResource("4_glr6x")]
+unique_name_in_owner = true
+layout_mode = 2
+text = "No LLM API is currently configured, so this chat cannot be continued."
+button_text = "Settings"
+
+[node name="OfflineMessage" parent="VBoxContainer" unique_id=1458643268 instance=ExtResource("4_glr6x")]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Offline mode is enabled, which prevents connecting to the LLM API."
+button_text = "Go Online"
+
+[node name="ChatScroll" type="ScrollContainer" parent="VBoxContainer" unique_id=1090363587]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 vertical_scroll_mode = 4
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ChatScroll" unique_id=1901150412]
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/ChatScroll" unique_id=1901150412]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ChatContainer" type="VBoxContainer" parent="ChatScroll/VBoxContainer" unique_id=1079097827]
+[node name="WelcomeNote" parent="VBoxContainer/ChatScroll/VBoxContainer" unique_id=959862701 instance=ExtResource("5_jggcz")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ChatContainer" type="VBoxContainer" parent="VBoxContainer/ChatScroll/VBoxContainer" unique_id=1079097827]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="LoadingLabel" parent="ChatScroll/VBoxContainer" unique_id=772937967 instance=ExtResource("2_ynv7d")]
+[node name="LoadingLabel" parent="VBoxContainer/ChatScroll/VBoxContainer" unique_id=772937967 instance=ExtResource("2_ynv7d")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2

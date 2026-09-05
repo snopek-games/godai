@@ -117,4 +117,4 @@ func test_late_result_lands_in_the_session_that_started_it() -> void:
 
 	assert_null(_recorder.get_session())
 	assert_eq(client_session.chat.messages.size(), 2)
-	assert_eq(client_session.chat.messages[1].content[0].data["tool_use_id"], "mcp:1")
+	assert_eq(client_session.chat.messages[1].content[0].tool_use_id, "mcp:1")

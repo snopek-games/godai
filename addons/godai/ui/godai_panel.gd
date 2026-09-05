@@ -4,7 +4,9 @@ extends Control
 const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
 const Utils = preload("res://addons/godai/utils.gd")
 
-const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
+const Chat = preload("res://addons/godai/chat/chat.gd")
+const ChatClient = preload("res://addons/godai/chat/client.gd")
+const Provider = preload("res://addons/godai/chat/provider.gd")
 const EvalRun = preload("res://addons/godai/eval_run.gd")
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolAuth = preload("res://addons/godai/tools/tool_auth.gd")
@@ -16,6 +18,9 @@ const ExternalSessionRecorder = preload("res://addons/godai/chat/external_sessio
 const ToolUseAuthDialog = preload("res://addons/godai/ui/tool_use_auth_dialog.gd")
 const ToolAuthQueue = preload("res://addons/godai/ui/tool_auth_queue.gd")
 const ChatView = preload("res://addons/godai/ui/chat_view.gd")
+const SettingsDialog = preload("res://addons/godai/ui/settings_dialog.gd")
+const ModelCatalog = preload("res://addons/godai/chat/model_catalog.gd")
+const Profiles = preload("res://addons/godai/chat/profiles.gd")
 
 const InfoIcon = preload("res://addons/godai/ui/icons/status_info.svg")
 const WarningIcon = preload("res://addons/godai/ui/icons/status_warning.svg")
@@ -26,6 +31,8 @@ const SuccessIcon = preload("res://addons/godai/ui/icons/status_success.svg")
 @onready var sidebar_container: Control = %SidebarContainer
 @onready var session_list: ItemList = %SessionList
 @onready var mcp_button: Button = %MCPButton
+@onready var settings_button: Button = %SettingsButton
+@onready var settings_dialog: SettingsDialog = %SettingsDialog
 @onready var mcp_stopping_timer: Timer = %MCPStoppingTimer
 @onready var mcp_dialog: AcceptDialog = %MCPDialog
 @onready var start_mcp_button: Button = mcp_dialog.add_button("Start MCP Server", true)
@@ -40,20 +47,22 @@ const SuccessIcon = preload("res://addons/godai/ui/icons/status_success.svg")
 @onready var cancel_chat_dialog: ConfirmationDialog = %CancelChatDialog
 @onready var _default_cancel_chat_text: String = cancel_chat_dialog.dialog_text
 
-signal chat_started(chat: ClaudeClient.Chat, request: ClaudeClient.Request)
+signal chat_started(chat: Chat, request: ChatClient.Request)
 signal _current_request_changed
 
-var claude_client: ClaudeClient
+var chat_client: ChatClient
 var tools: ToolManager = ToolManager.new()
 var tool_auth: ToolAuth = ToolAuth.new()
 var mcp_server: MCPServer
 
 var _session_store := ChatSessionStore.new()
 var _current_session: ChatSessionStore.ChatSession
-var _current_request: ClaudeClient.Request
+var _current_request: ChatClient.Request
 var _pending_cancel_action: Callable
 var _cancel_confirmed := false
 var _headless := DisplayServer.get_name() == "headless"
+var _api_configured := true
+var _online := true
 
 var _resume_retry_interval := 0.25
 var _resume_retry_timeout := 30.0
@@ -63,6 +72,8 @@ var _external_recorder := ExternalSessionRecorder.new(_session_store)
 var _tool_auth_queue: ToolAuthQueue
 
 var _eval_run: EvalRun
+
+var _model_catalog := ModelCatalog.new(Profiles.models_dev_ids())
 
 var _mcp_instance := MCPInstance.new()
 var _mcp_transport: MCPServer.Transport = GodaiEditorSettings.MCP_TRANSPORT_DEFAULT
@@ -81,8 +92,8 @@ func _ready() -> void:
 	if is_part_of_edited_scene():
 		return
 
-	claude_client = ClaudeClient.new()
-	add_child(claude_client)
+	chat_client = ChatClient.new()
+	add_child(chat_client)
 
 	clear_button.disabled = true
 	sidebar_container.visible = false
@@ -91,9 +102,9 @@ func _ready() -> void:
 	chat_view.tools = tools
 	_tool_auth_queue = ToolAuthQueue.new(tools, tool_auth, tool_use_auth_dialog,
 		func (): return _current_request != null, _current_request_changed)
-	claude_client.tools = tools
-	claude_client.tool_use_authorizer = _tool_auth_queue.authorize
-	claude_client.tool_use_completed.connect(_on_claude_tool_use_completed)
+	chat_client.tools = tools
+	chat_client.tool_use_authorizer = _tool_auth_queue.authorize
+	chat_client.tool_use_completed.connect(_on_chat_tool_use_completed)
 
 	start_mcp_button.pressed.connect(_on_start_mcp_button_pressed)
 	stop_mcp_button.pressed.connect(_on_stop_mcp_button_pressed)
@@ -111,12 +122,25 @@ func _ready() -> void:
 	_external_recorder.session_dropped.connect(_on_external_session_dropped)
 	_external_recorder.message_recorded.connect(_on_external_message_recorded)
 
+	settings_dialog.closed.connect(_on_settings_dialog_closed)
+
+	add_child(_model_catalog)
+	settings_dialog.catalog = _model_catalog
+
 	if Engine.is_editor_hint():
 		tools.is_busy = EditorInterface.get_resource_filesystem().is_scanning
+		settings_button.icon = EditorInterface.get_editor_theme().get_icon("Tools", "EditorIcons")
+
+		_model_catalog.set_cache_dir(EditorInterface.get_editor_paths().get_cache_dir().path_join("godai"))
+		_model_catalog.updated.connect(_update_from_editor_settings)
 
 		var settings: EditorSettings = EditorInterface.get_editor_settings()
 		settings.settings_changed.connect(_update_from_editor_settings)
 		_update_from_editor_settings()
+
+	_model_catalog.load_from_disk()
+	if Engine.is_editor_hint() and GodaiEditorSettings.is_network_online():
+		_model_catalog.refresh_if_stale()
 
 	_load_chat_sessions()
 	_update_mcp_status()
@@ -134,12 +158,27 @@ func show_panel() -> void:
 
 
 func _update_from_editor_settings() -> void:
-	claude_client.api_key = GodaiEditorSettings.get_anthropic_api_key()
-	claude_client.model = GodaiEditorSettings.get_anthropic_model()
+	var provider_name := GodaiEditorSettings.get_api_provider()
+	var url := GodaiEditorSettings.get_api_url()
+	var model := GodaiEditorSettings.get_api_model()
+	chat_client.provider = ChatClient.create_provider(provider_name, url, GodaiEditorSettings.get_api_key(), model)
+	chat_client.model_info = _model_catalog.get_model(Profiles.models_dev_id(Profiles.find(provider_name, url)), model)
+	chat_client.effort = GodaiEditorSettings.get_api_effort()
+	chat_client.thinking = GodaiEditorSettings.get_api_thinking()
+	chat_client.budget_tokens = GodaiEditorSettings.get_api_budget_tokens()
 	mcp_server.skip_secret_check = GodaiEditorSettings.get_mcp_skip_secret_check()
 	_mcp_transport = GodaiEditorSettings.get_mcp_transport() as MCPServer.Transport
 	_mcp_base_port = GodaiEditorSettings.get_mcp_base_port()
 	_mcp_port_count = GodaiEditorSettings.get_mcp_port_count()
+	_set_chat_availability(GodaiEditorSettings.is_api_configured(), GodaiEditorSettings.can_api_connect())
+
+
+func _set_chat_availability(p_api_configured: bool, p_online: bool) -> void:
+	_api_configured = p_api_configured
+	_online = p_online
+	chat_view.api_configured = p_api_configured
+	chat_view.online = p_online
+	_update_prompt_bar()
 
 
 func _load_chat_sessions() -> void:
@@ -302,6 +341,24 @@ func _on_mcp_button_pressed() -> void:
 	mcp_dialog.popup_centered()
 
 
+func _on_settings_button_pressed() -> void:
+	settings_dialog.online = GodaiEditorSettings.is_network_online()
+	settings_dialog.setup(GodaiEditorSettings.get_dialog_settings())
+	settings_dialog.popup_centered()
+
+
+func _on_settings_dialog_closed(p_values: Dictionary) -> void:
+	GodaiEditorSettings.set_dialog_settings(p_values)
+
+
+func _on_chat_view_settings_requested() -> void:
+	_on_settings_button_pressed()
+
+
+func _on_chat_view_go_online_requested() -> void:
+	GodaiEditorSettings.set_network_online()
+
+
 func _on_start_mcp_button_pressed() -> void:
 	_start_mcp()
 
@@ -324,7 +381,7 @@ func _session_list_index_of(p_id: String) -> int:
 	return -1
 
 
-func _on_current_chat_message_added(p_msg: ClaudeClient.Message) -> void:
+func _on_current_chat_message_added(p_msg: Chat.Message) -> void:
 	if _session_list_index_of(_current_session.id) == -1:
 		assert(session_list.get_item_text(0) == NEW_CHAT_SESSION_NAME)
 		session_list.set_item_text(0, ChatSessionStore.chat_id_to_label(_current_session.id))
@@ -364,7 +421,8 @@ func _on_external_message_recorded(p_session: ChatSessionStore.ChatSession) -> v
 
 func _update_prompt_bar() -> void:
 	var client_connected := mcp_server.get_client_state() == MCPServer.ClientState.CONNECTED
-	prompt_bar.visible = (_current_request != null or not client_connected) \
+	var chat_available := _api_configured and _online and not client_connected
+	prompt_bar.visible = (_current_request != null or chat_available) \
 		and not (_current_session and _current_session.is_external())
 
 
@@ -372,7 +430,7 @@ func _resume_file_path() -> String:
 	return Utils.get_project_path() + "/" + RESUME_FILE
 
 
-func _on_claude_tool_use_completed(p_name: String, p_result: ToolManager.ToolResult) -> void:
+func _on_chat_tool_use_completed(p_name: String, p_result: ToolManager.ToolResult) -> void:
 	if p_name != "restart_editor" or p_result.is_error():
 		return
 	if _current_session == null or _current_session.is_external():
@@ -476,7 +534,8 @@ func _set_current_session(p_session: ChatSessionStore.ChatSession) -> void:
 		_current_session.chat.message_added.connect(_on_current_chat_message_added)
 
 	clear_button.disabled = _current_session == null or _current_session.is_external()
-	chat_view.show_chat(_current_session.chat if _current_session else null)
+	chat_view.show_chat(_current_session.chat if _current_session else null,
+		_current_session != null and _current_session.is_external())
 	_update_prompt_bar()
 
 
@@ -485,7 +544,7 @@ func _unload_if_inactive(p_session: ChatSessionStore.ChatSession) -> void:
 		_session_store.unload_session(p_session.id)
 
 
-func _set_current_request(p_request: ClaudeClient.Request) -> void:
+func _set_current_request(p_request: ChatClient.Request) -> void:
 	_current_request = p_request
 	_current_request_changed.emit.call_deferred()
 	_update_prompt_bar()
@@ -524,7 +583,7 @@ func _confirm_cancel_current_request(p_action: Callable, p_dialog_text: String =
 	cancel_chat_dialog.popup_centered()
 
 
-func _on_pending_cancel_request_completed(_p_resp: ClaudeClient.Response) -> void:
+func _on_pending_cancel_request_completed(_p_resp: Provider.Response) -> void:
 	var action := _pending_cancel_action
 	var confirmed := _cancel_confirmed
 	_pending_cancel_action = Callable()
@@ -577,7 +636,7 @@ func _submit_message() -> void:
 
 	if _current_session == null:
 		_start_new_chat()
-	_current_session.chat.add_message(ClaudeClient.Message.new("user", content))
+	_current_session.chat.add_message(Chat.Message.new(Chat.Role.USER, content))
 
 	_continue_chat()
 
@@ -588,12 +647,12 @@ func _continue_chat() -> void:
 	chat_view.set_loading(true)
 	prompt.editable = false
 
-	var request := claude_client.submit_chat(_current_session.chat)
+	var request := chat_client.submit_chat(_current_session.chat)
 	_set_current_request(request)
 
 	chat_started.emit(_current_session.chat, request)
 
-	var resp: ClaudeClient.Response = await request.completed
+	var resp: Provider.Response = await request.completed
 
 	if _current_request != request:
 		# If the request was cleared or changed while we were waiting, then bail.

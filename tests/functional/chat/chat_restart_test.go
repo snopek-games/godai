@@ -1,5 +1,5 @@
 // Package chat contains end-to-end tests that drive the editor's in-panel
-// chat against a stubbed Anthropic API, using the same eval hooks godai-eval
+// chat against a stubbed LLM API, using the same eval hooks godai-eval
 // uses to submit the prompt. Unlike the addon suite, which speaks MCP HTTP to
 // a shared editor, each of these tests launches a private editor: connecting
 // an MCP client would perturb the chat under test, and the editor may not
@@ -38,16 +38,67 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// newStubAnthropic serves a scripted Messages API: a chat that hasn't run the
-// restart tool yet gets a restart_editor tool_use, and one whose transcript
-// already holds a tool_result gets a closing text message. Keying on the chat
-// content rather than a call counter keeps it idempotent: the pre-restart
-// editor's follow-up request (which dies with that editor) and the resumed
-// editor's identical replay both get the same answer.
-func newStubAnthropic(t *testing.T) *httptest.Server {
+// A scripted LLM API: a chat that hasn't run the restart tool yet gets a
+// restart_editor tool call, and one whose transcript already holds the tool's
+// result gets a closing text message. Keying on the chat content rather than a
+// call counter keeps it idempotent: the pre-restart editor's follow-up request
+// (which dies with that editor) and the resumed editor's identical replay both
+// get the same answer.
+type stubProvider struct {
+	name         string
+	path         string
+	hasResult    string // substring of a request body that means the tool has been answered
+	toolCallBody map[string]any
+	doneBody     map[string]any
+}
+
+var stubAnthropic = stubProvider{
+	name:      "anthropic",
+	path:      "/v1/messages",
+	hasResult: `"tool_result"`,
+	toolCallBody: map[string]any{
+		"type": "message", "role": "assistant", "stop_reason": "tool_use",
+		"content": []map[string]any{{
+			"type":  "tool_use",
+			"id":    "toolu_restart",
+			"name":  "restart_editor",
+			"input": map[string]any{"skip_save": true},
+		}},
+	},
+	doneBody: map[string]any{
+		"type": "message", "role": "assistant", "stop_reason": "end_turn",
+		"content": []map[string]any{{"type": "text", "text": chatRestartDoneText}},
+	},
+}
+
+var stubOpenAI = stubProvider{
+	name:      "openai_chat_completions",
+	path:      "/v1/chat/completions",
+	hasResult: `"role":"tool"`,
+	toolCallBody: map[string]any{
+		"choices": []map[string]any{{
+			"index": 0, "finish_reason": "tool_calls",
+			"message": map[string]any{
+				"role": "assistant", "content": nil,
+				"tool_calls": []map[string]any{{
+					"id": "call_restart", "type": "function",
+					"function": map[string]any{"name": "restart_editor", "arguments": `{"skip_save": true}`},
+				}},
+			},
+		}},
+	},
+	doneBody: map[string]any{
+		"choices": []map[string]any{{
+			"index": 0, "finish_reason": "stop",
+			"message": map[string]any{"role": "assistant", "content": chatRestartDoneText},
+		}},
+	},
+}
+
+func (p stubProvider) newServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/v1/messages" {
+		if r.Method != http.MethodPost || r.URL.Path != p.path {
 			http.NotFound(w, r)
 			return
 		}
@@ -58,33 +109,27 @@ func newStubAnthropic(t *testing.T) *httptest.Server {
 			return
 		}
 
-		var content []map[string]any
-		stopReason := "tool_use"
-		if strings.Contains(string(body), `"tool_result"`) {
-			content = []map[string]any{{"type": "text", "text": chatRestartDoneText}}
-			stopReason = "end_turn"
-		} else {
-			content = []map[string]any{{
-				"type":  "tool_use",
-				"id":    "toolu_restart",
-				"name":  "restart_editor",
-				"input": map[string]any{"skip_save": true},
-			}}
+		reply := p.toolCallBody
+		if strings.Contains(string(body), p.hasResult) {
+			reply = p.doneBody
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
-			"type":        "message",
-			"role":        "assistant",
-			"content":     content,
-			"stop_reason": stopReason,
-		})
+		json.NewEncoder(w).Encode(reply)
 	}))
 	t.Cleanup(server.Close)
 	return server
 }
 
 func TestChatRestartResumesAfterEditorRestart(t *testing.T) {
+	for _, provider := range []stubProvider{stubAnthropic, stubOpenAI} {
+		t.Run(provider.name, func(t *testing.T) {
+			testChatRestartResumesAfterEditorRestart(t, provider)
+		})
+	}
+}
+
+func testChatRestartResumesAfterEditorRestart(t *testing.T, provider stubProvider) {
 	is := is.New(t)
 
 	godotBin, err := harness.FindGodot()
@@ -92,7 +137,7 @@ func TestChatRestartResumesAfterEditorRestart(t *testing.T) {
 		t.Skipf("no Godot binary: %v", err)
 	}
 
-	stub := newStubAnthropic(t)
+	stub := provider.newServer(t)
 
 	dir, err := os.MkdirTemp("", "godai-chat-restart-*")
 	is.NoErr(err)
@@ -117,7 +162,8 @@ func TestChatRestartResumesAfterEditorRestart(t *testing.T) {
 	cmd, _, err := harness.LaunchEditor(godotBin, dir, harness.EditorOptions{
 		Verbose: os.Getenv("GODAI_TEST_VERBOSE") != "",
 		ExtraEnv: []string{
-			"GODAI_ANTHROPIC_BASE_URL=" + stub.URL + "/v1/",
+			"GODAI_API_PROVIDER=" + provider.name,
+			"GODAI_API_URL=" + stub.URL + "/v1/",
 			"GODAI_EVAL_PROMPT_FILE=" + promptPath,
 			"GODAI_EVAL_STREAM_FILE=" + streamPath,
 		},
@@ -167,8 +213,15 @@ func TestChatRestartResumesAfterEditorRestart(t *testing.T) {
 
 	raw := waitForCompletedChatSession(t, filepath.Join(dir, ".godot", "godai-chat-sessions"), 120*time.Second)
 
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	var header struct {
+		Version int `json:"version"`
+	}
+	is.NoErr(json.Unmarshal([]byte(lines[0]), &header))
+	is.Equal(header.Version, 1) // the session file starts with its format version
+
 	var roles []string
-	for line := range strings.SplitSeq(strings.TrimSpace(string(raw)), "\n") {
+	for _, line := range lines[1:] {
 		var msg struct {
 			Role string `json:"role"`
 		}

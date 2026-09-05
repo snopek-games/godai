@@ -1,7 +1,8 @@
 extends GutTest
 
 const ChatViewScene = preload("res://addons/godai/ui/chat_view.tscn")
-const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
+const Chat = preload("res://addons/godai/chat/chat.gd")
+const ChatClient = preload("res://addons/godai/chat/client.gd")
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const DefaultToolsLoader = preload("res://addons/godai/tools/default/loader.gd")
 
@@ -24,16 +25,14 @@ func _items() -> Array:
 
 
 func test_show_chat_renders_each_message_kind() -> void:
-	var chat := ClaudeClient.Chat.new()
-	chat.add_message(ClaudeClient.Message.new("user", "hello"))
-	chat.add_message(ClaudeClient.Message.new("assistant", [
-		{type = "text", text = "hi!"},
-		{type = "tool_use", id = "toolu_1", name = TOOL, input = {}},
+	var chat := Chat.new()
+	chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
+	chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, [
+		Chat.TextContent.new("hi!"),
+		Chat.ToolUseContent.new("toolu_1", TOOL),
 	]))
-	chat.add_message(ClaudeClient.Message.new("user", [
-		{type = "tool_result", tool_use_id = "toolu_1", content = "{}"},
-	]))
-	chat.add_message(ClaudeClient.Message.new("user", ClaudeClient.CANCELLED_MESSAGE))
+	chat.add_message(Chat.Message.new(Chat.Role.USER, Chat.ToolResultContent.new("toolu_1", "{}")))
+	chat.add_message(Chat.Message.new(Chat.Role.USER, ChatClient.CANCELLED_MESSAGE))
 
 	_view.show_chat(chat)
 
@@ -50,13 +49,13 @@ func test_show_chat_renders_each_message_kind() -> void:
 
 
 func test_show_chat_replaces_the_previous_chat() -> void:
-	var first := ClaudeClient.Chat.new()
-	first.add_message(ClaudeClient.Message.new("user", "hello"))
+	var first := Chat.new()
+	first.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
 	_view.show_chat(first)
 
-	var second := ClaudeClient.Chat.new()
-	second.add_message(ClaudeClient.Message.new("user", "other"))
-	second.add_message(ClaudeClient.Message.new("assistant", "reply"))
+	var second := Chat.new()
+	second.add_message(Chat.Message.new(Chat.Role.USER, "other"))
+	second.add_message(Chat.Message.new(Chat.Role.ASSISTANT, "reply"))
 	_view.show_chat(second)
 
 	assert_eq(_items().size(), 2)
@@ -75,19 +74,17 @@ func test_show_error() -> void:
 
 
 func test_tool_content_missing_its_keys_still_renders() -> void:
-	_view.show_message(ClaudeClient.Message.new("assistant", [{type = "tool_use"}]))
+	_view.show_message(Chat.Message.new(Chat.Role.ASSISTANT, Chat.ToolUseContent.new("", "")))
 
 	assert_eq(_items().size(), 1)
 
-	_view.show_message(ClaudeClient.Message.new("user", [{type = "tool_result"}]))
+	_view.show_message(Chat.Message.new(Chat.Role.USER, Chat.ToolResultContent.new("")))
 
 	assert_eq(_items().size(), 1)
 
 
 func test_tool_result_for_an_unknown_id_adds_nothing() -> void:
-	_view.show_message(ClaudeClient.Message.new("user", [
-		{type = "tool_result", tool_use_id = "nope", content = "{}"},
-	]))
+	_view.show_message(Chat.Message.new(Chat.Role.USER, Chat.ToolResultContent.new("nope", "{}")))
 
 	assert_eq(_items().size(), 0)
 
@@ -99,3 +96,83 @@ func test_set_loading() -> void:
 
 	_view.set_loading(false)
 	assert_false(_view.loading_label.visible)
+
+
+func test_welcome_note_shows_only_before_a_chat_starts() -> void:
+	_view.show_chat(null)
+	assert_true(_view.welcome_note.visible)
+	assert_true(_view.welcome_note.get_started_label.visible)
+	assert_false(_view.welcome_note.fix_section.visible)
+
+	_view.show_message(Chat.Message.new(Chat.Role.USER, "hello"))
+	assert_false(_view.welcome_note.visible)
+
+	var chat := Chat.new()
+	chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
+	_view.show_chat(chat)
+	assert_false(_view.welcome_note.visible)
+
+	_view.show_chat(null)
+	assert_true(_view.welcome_note.visible)
+
+
+func test_welcome_note_names_each_problem() -> void:
+	_view.show_chat(null)
+
+	_view.api_configured = false
+	assert_true(_view.welcome_note.fix_section.visible)
+	assert_false(_view.welcome_note.get_started_label.visible)
+	assert_eq(_view.welcome_note.fix_label.text, _view.FIX_NOT_CONFIGURED_TEXT)
+	assert_true(_view.welcome_note.settings_button.visible)
+	assert_false(_view.welcome_note.go_online_button.visible)
+
+	_view.online = false
+	assert_eq(_view.welcome_note.fix_label.text, _view.FIX_BOTH_TEXT)
+	assert_true(_view.welcome_note.settings_button.visible)
+	assert_true(_view.welcome_note.go_online_button.visible)
+
+	_view.api_configured = true
+	assert_eq(_view.welcome_note.fix_label.text, _view.FIX_OFFLINE_TEXT)
+	assert_false(_view.welcome_note.settings_button.visible)
+	assert_true(_view.welcome_note.go_online_button.visible)
+
+	_view.online = true
+	assert_false(_view.welcome_note.fix_section.visible)
+	assert_true(_view.welcome_note.get_started_label.visible)
+
+
+func test_status_messages_only_show_on_editor_chats() -> void:
+	_view.api_configured = false
+	_view.online = false
+
+	_view.show_chat(null)
+	assert_false(_view.not_configured_message.visible, "not on <new>")
+	assert_false(_view.offline_message.visible)
+
+	_view.show_chat(Chat.new(), true)
+	assert_false(_view.not_configured_message.visible, "not on external chats")
+	assert_false(_view.offline_message.visible)
+
+	_view.show_chat(Chat.new())
+	assert_true(_view.not_configured_message.visible)
+	assert_false(_view.offline_message.visible, "configuration comes before going online")
+
+	_view.api_configured = true
+	assert_false(_view.not_configured_message.visible)
+	assert_true(_view.offline_message.visible)
+
+	_view.online = true
+	assert_false(_view.not_configured_message.visible)
+	assert_false(_view.offline_message.visible)
+
+
+func test_fix_buttons_forward_their_requests() -> void:
+	watch_signals(_view)
+
+	_view.welcome_note.settings_button.pressed.emit()
+	_view.not_configured_message.button.pressed.emit()
+	assert_signal_emit_count(_view, "settings_requested", 2)
+
+	_view.welcome_note.go_online_button.pressed.emit()
+	_view.offline_message.button.pressed.emit()
+	assert_signal_emit_count(_view, "go_online_requested", 2)

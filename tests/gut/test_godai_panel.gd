@@ -1,7 +1,10 @@
 extends GutTest
 
 const GodaiPanelScene = preload("res://addons/godai/ui/godai_panel.tscn")
-const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
+const Chat = preload("res://addons/godai/chat/chat.gd")
+const ChatClient = preload("res://addons/godai/chat/client.gd")
+const Provider = preload("res://addons/godai/chat/provider.gd")
+const AnthropicProvider = preload("res://addons/godai/chat/provider/anthropic.gd")
 const EvalRun = preload("res://addons/godai/eval_run.gd")
 const MCPServer = preload("res://addons/godai/mcp/mcp_server.gd")
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
@@ -10,10 +13,10 @@ const READ_ONLY_TOOL := "get_current_project"
 const WRITE_TOOL := "set_project_settings"
 
 
-class StubClient extends ClaudeClient:
+class StubClient extends ChatClient:
 	var submitted := 0
 
-	func _do_http_request(p_request: Request, p_method: int, p_url: String, p_payload: Dictionary = {}) -> void:
+	func _do_http_request(p_request: Request, p_web_request: Provider.WebRequest) -> void:
 		submitted += 1
 		var http_request := HTTPRequest.new()
 		add_child(http_request)
@@ -43,8 +46,8 @@ func _make_panel() -> Control:
 	return panel
 
 
-func _make_request() -> ClaudeClient.Request:
-	return ClaudeClient.Request.new(ClaudeClient.Chat.new())
+func _make_request() -> ChatClient.Request:
+	return ChatClient.Request.new(Chat.new())
 
 
 func _track_session_file(panel: Control) -> void:
@@ -54,10 +57,11 @@ func _track_session_file(panel: Control) -> void:
 
 func _install_stub_client(panel: Control) -> StubClient:
 	var stub := StubClient.new()
+	stub.provider = AnthropicProvider.new(AnthropicProvider.DEFAULT_URL, "test-key", "claude-test")
 	stub.tools = panel.tools
-	stub.tool_use_authorizer = panel.claude_client.tool_use_authorizer
+	stub.tool_use_authorizer = panel.chat_client.tool_use_authorizer
 	panel.add_child(stub)
-	panel.claude_client = stub
+	panel.chat_client = stub
 	return stub
 
 
@@ -67,7 +71,7 @@ func _submit_and_track(panel: Control, p_text: String) -> void:
 		panel._session_store.session_file_path(panel._current_session.id))
 
 
-func _respond(stub: StubClient, req: ClaudeClient.Request, p_content: Array, p_stop_reason: String) -> void:
+func _respond(stub: StubClient, req: ChatClient.Request, p_content: Array, p_stop_reason: String) -> void:
 	var data := {
 		type = "message",
 		role = "assistant",
@@ -81,6 +85,16 @@ func _respond(stub: StubClient, req: ClaudeClient.Request, p_content: Array, p_s
 func _chat_items(panel: Control) -> Array:
 	return panel.chat_view.chat_container.get_children().filter(
 		func (c): return not c.is_queued_for_deletion())
+
+
+func test_settings_button_opens_the_dialog() -> void:
+	var panel := _make_panel()
+
+	panel.settings_button.pressed.emit()
+
+	assert_engine_error("spawned at invalid position", "popping the dialog headless is fine")
+	assert_true(panel.settings_dialog.visible)
+	assert_eq(panel.settings_dialog.get_profile(), "custom", "without editor settings there is nothing to match a profile")
 
 
 func test_mcp_tool_use_waits_for_current_request() -> void:
@@ -231,6 +245,45 @@ func test_unadopted_external_session_is_unloaded_when_dropped() -> void:
 	panel.mcp_server.client_state_changed.emit(MCPServer.ClientState.NOT_CONNECTED)
 
 	assert_ne(panel._session_store.load_session(session.id), session, "the dropped session was unloaded")
+
+
+func test_prompt_bar_hides_until_the_chat_is_usable() -> void:
+	var panel := _make_panel()
+	assert_true(panel.prompt_bar.visible)
+
+	panel._set_chat_availability(false, true)
+	assert_false(panel.prompt_bar.visible)
+	assert_false(panel.chat_view.api_configured)
+
+	panel._set_chat_availability(true, false)
+	assert_false(panel.prompt_bar.visible)
+	assert_false(panel.chat_view.online)
+
+	panel._set_chat_availability(true, true)
+	assert_true(panel.prompt_bar.visible)
+
+
+func test_prompt_bar_keeps_its_cancel_button_when_the_chat_becomes_unusable() -> void:
+	var panel := _make_panel()
+	_install_stub_client(panel)
+	_submit_and_track(panel, "hello")
+
+	panel._set_chat_availability(true, false)
+
+	assert_true(panel.prompt_bar.visible)
+	assert_true(panel.cancel_button.visible)
+
+	panel.cancel_button.pressed.emit()
+	assert_false(panel.prompt_bar.visible)
+
+
+func test_chat_view_settings_request_opens_the_dialog() -> void:
+	var panel := _make_panel()
+
+	panel.chat_view.settings_requested.emit()
+
+	assert_engine_error("spawned at invalid position", "popping the dialog headless is fine")
+	assert_true(panel.settings_dialog.visible)
 
 
 func test_submit_button_follows_text_changes_from_any_source() -> void:
@@ -592,7 +645,7 @@ func test_stopping_a_chat_with_a_pending_request_unloads_the_session_later() -> 
 	var panel := _make_panel()
 	panel._start_new_chat()
 	var session = panel._current_session
-	var request := ClaudeClient.Request.new(session.chat)
+	var request := ChatClient.Request.new(session.chat)
 	panel._set_current_request(request)
 
 	panel._stop_current_chat()
@@ -600,8 +653,7 @@ func test_stopping_a_chat_with_a_pending_request_unloads_the_session_later() -> 
 	assert_true(panel._session_store._sessions.has(session.id),
 		"kept while the request can still record into it")
 
-	request.resolve(ClaudeClient.Response.new(null,
-		ClaudeClient.ResponseError.new("cancelled", "The request was cancelled.")))
+	request.resolve(Provider.Response.failed("cancelled", "The request was cancelled."))
 
 	assert_false(panel._session_store._sessions.has(session.id))
 
@@ -632,7 +684,7 @@ func test_successful_restart_tool_writes_resume_file() -> void:
 	_session_files_to_delete.push_back(panel._resume_file_path())
 	panel._start_new_chat()
 
-	panel._on_claude_tool_use_completed("restart_editor", ToolManager.ToolResult.resolved({success = true}))
+	panel._on_chat_tool_use_completed("restart_editor", ToolManager.ToolResult.resolved({success = true}))
 
 	var data = JSON.parse_string(FileAccess.get_file_as_string(panel._resume_file_path()))
 	assert_eq(data["session_id"], panel._current_session.id)
@@ -644,7 +696,7 @@ func test_declined_restart_tool_does_not_write_resume_file() -> void:
 	_session_files_to_delete.push_back(panel._resume_file_path())
 	panel._start_new_chat()
 
-	panel._on_claude_tool_use_completed("restart_editor",
+	panel._on_chat_tool_use_completed("restart_editor",
 		ToolManager.ToolResult.rejected({errors = ["The user declined to restart the editor"]}))
 
 	assert_false(FileAccess.file_exists(panel._resume_file_path()))
@@ -684,7 +736,7 @@ func test_resume_retries_until_the_old_editor_exits() -> void:
 	_session_files_to_delete.push_back(panel._resume_file_path())
 
 	var session = panel._session_store.create_session()
-	session.chat.add_message(ClaudeClient.Message.new("user", "resume me"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "resume me"))
 	_session_files_to_delete.push_back(panel._session_store.session_file_path(session.id))
 
 	_write_resume_file(panel, {session_id = session.id, pid = OS.get_process_id(),

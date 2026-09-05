@@ -162,7 +162,7 @@ The harness drives the panel with environment variables:
 | `GODAI_EVAL_PROMPT_FILE` | The prompt, as a file. Writing it is what starts the run |
 | `GODAI_EVAL_STREAM_FILE` | Where the conversation is written, one event per line |
 | `GODAI_AUTO_APPROVE_TOOLS` | Without this a headless editor denies every tool that needs approval |
-| `GODAI_ANTHROPIC_API_KEY` / `GODAI_ANTHROPIC_MODEL` | Override the editor settings |
+| `GODAI_API_KEY` / `GODAI_API_MODEL` | Override the editor settings (`GODAI_API_PROVIDER` and `GODAI_API_URL` exist too) |
 
 The stream file uses the same event format as Claude Code's
 `--output-format stream-json`, so the harness scores, renders and narrates a

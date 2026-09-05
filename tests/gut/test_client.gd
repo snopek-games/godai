@@ -1,6 +1,11 @@
 extends GutTest
 
-const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
+const Chat = preload("res://addons/godai/chat/chat.gd")
+const ChatClient = preload("res://addons/godai/chat/client.gd")
+const Provider = preload("res://addons/godai/chat/provider.gd")
+const AnthropicProvider = preload("res://addons/godai/chat/provider/anthropic.gd")
+const OpenAIChatCompletionsProvider = preload("res://addons/godai/chat/provider/openai_chat_completions.gd")
+const ModelInfo = preload("res://addons/godai/chat/model_info.gd")
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolAuth = preload("res://addons/godai/tools/tool_auth.gd")
 
@@ -14,37 +19,38 @@ const CANCELLED_TOOL_RESULT = {
 
 ## Captures outgoing requests rather than hitting the real API. Tests feed
 ## responses back in through `_on_request_completed()`.
-class StubClient extends ClaudeClient:
+class StubClient extends ChatClient:
 	var submitted_payloads: Array[Dictionary]
 
-	func _do_http_request(p_request: Request, p_method: int, p_url: String, p_payload: Dictionary = {}) -> void:
-		submitted_payloads.push_back(p_payload)
+	func _do_http_request(p_request: Request, p_web_request: Provider.WebRequest) -> void:
+		submitted_payloads.push_back(p_web_request.payload)
 		var http_request := HTTPRequest.new()
 		add_child(http_request)
 		p_request._http_request = http_request
 
 
 var client: StubClient
-var chat: ClaudeClient.Chat
-var responses: Array[ClaudeClient.Response]
+var chat: Chat
+var responses: Array[Provider.Response]
 
 
 func before_each() -> void:
 	client = StubClient.new()
+	client.provider = AnthropicProvider.new(AnthropicProvider.DEFAULT_URL, "test-key", "claude-test")
 	add_child_autoqfree(client)
 
-	chat = ClaudeClient.Chat.new()
-	chat.add_message(ClaudeClient.Message.new("user", "Hello"))
+	chat = Chat.new()
+	chat.add_message(Chat.Message.new(Chat.Role.USER, "Hello"))
 	responses = []
 
 
-func _submit() -> ClaudeClient.Request:
+func _submit() -> ChatClient.Request:
 	var req := client.submit_chat(chat)
 	req.completed.connect(func (p_resp): responses.push_back(p_resp))
 	return req
 
 
-func _respond(p_req: ClaudeClient.Request, p_content: Array, p_stop_reason: String) -> void:
+func _respond(p_req: ChatClient.Request, p_content: Array, p_stop_reason: String) -> void:
 	var data := {
 		type = "message",
 		role = "assistant",
@@ -61,6 +67,116 @@ func _register_tool(p_name: String, p_callback: Callable) -> void:
 	client.tools.register_tool(ToolManager.CallbackTool.new(p_name, p_name, "A test tool.", p_callback))
 
 
+func test_create_provider() -> void:
+	var anthropic := ChatClient.create_provider("anthropic", "http://a/", "key", "claude-test")
+	assert_true(anthropic is AnthropicProvider)
+	assert_eq([anthropic.url, anthropic.api_key, anthropic.model], ["http://a/", "key", "claude-test"])
+
+	assert_true(ChatClient.create_provider("openai_chat_completions", "http://o/", "key", "gpt-test") is OpenAIChatCompletionsProvider)
+
+	assert_null(ChatClient.create_provider("bogus", "", "", ""))
+	assert_push_error("Unknown chat provider: 'bogus'")
+
+
+func test_submit_without_a_provider_resolves_with_an_error() -> void:
+	client.provider = null
+
+	var req := _submit()
+	assert_eq(responses.size(), 0, "resolves after the caller has had a chance to connect")
+	await get_tree().process_frame
+
+	assert_eq(responses.size(), 1)
+	assert_eq(responses[0].get_error().type, "no_provider")
+	assert_eq(client.submitted_payloads.size(), 0)
+	assert_eq(chat.messages.size(), 1)
+
+
+func test_rejected_option_is_dropped_and_the_request_retried() -> void:
+	client.provider = OpenAIChatCompletionsProvider.new(OpenAIChatCompletionsProvider.DEFAULT_URL, "test-key", "gpt-test")
+
+	var req := _submit()
+	assert_eq(client.submitted_payloads[0]["max_completion_tokens"], ChatClient.DEFAULT_MAX_TOKENS)
+
+	client._on_request_completed(HTTPRequest.RESULT_SUCCESS, 400, PackedStringArray(), JSON.stringify({
+		error = {type = "invalid_request_error", message = "Unknown parameter: 'max_completion_tokens'."},
+	}).to_utf8_buffer(), req, req._http_request)
+
+	assert_eq(responses.size(), 0, "the request is retried rather than resolved")
+	assert_engine_error("doesn't support max_completion_tokens", "the dropped option is reported")
+	assert_eq(client.submitted_payloads.size(), 2)
+	assert_false(client.submitted_payloads[1].has("max_completion_tokens"))
+	assert_eq(client.submitted_payloads[1]["max_tokens"], ChatClient.DEFAULT_MAX_TOKENS)
+	assert_eq(client.dropped_options(), [OpenAIChatCompletionsProvider.OPTION_MAX_COMPLETION_TOKENS])
+
+	client._on_request_completed(HTTPRequest.RESULT_SUCCESS, 200, PackedStringArray(), JSON.stringify({
+		choices = [{finish_reason = "stop", message = {role = "assistant", content = "Hi!"}}],
+	}).to_utf8_buffer(), req, req._http_request)
+	assert_eq(responses.size(), 1)
+	assert_true(responses[0].is_success())
+
+
+func test_dropped_options_are_kept_per_request_settings() -> void:
+	client.provider = OpenAIChatCompletionsProvider.new(OpenAIChatCompletionsProvider.DEFAULT_URL, "test-key", "gpt-test")
+	var req := _submit()
+	client._on_request_completed(HTTPRequest.RESULT_SUCCESS, 400, PackedStringArray(), JSON.stringify({
+		error = {type = "invalid_request_error", message = "Unknown parameter: 'max_completion_tokens'."},
+	}).to_utf8_buffer(), req, req._http_request)
+	assert_engine_error("doesn't support max_completion_tokens")
+	assert_eq(client.dropped_options(), [OpenAIChatCompletionsProvider.OPTION_MAX_COMPLETION_TOKENS])
+
+	client.provider = OpenAIChatCompletionsProvider.new(OpenAIChatCompletionsProvider.DEFAULT_URL, "other-key", "gpt-test")
+	assert_eq(client.dropped_options(), [OpenAIChatCompletionsProvider.OPTION_MAX_COMPLETION_TOKENS], "a new key alone changes nothing")
+
+	client.provider = OpenAIChatCompletionsProvider.new(OpenAIChatCompletionsProvider.DEFAULT_URL, "test-key", "gpt-other")
+	assert_eq(client.dropped_options(), [], "another model starts fresh")
+	_submit()
+	assert_true(client.submitted_payloads[2].has("max_completion_tokens"))
+
+	client.provider = OpenAIChatCompletionsProvider.new("http://localhost:1234/v1/", "test-key", "gpt-test")
+	assert_eq(client.dropped_options(), [], "another URL starts fresh")
+
+	client.provider = OpenAIChatCompletionsProvider.new(OpenAIChatCompletionsProvider.DEFAULT_URL, "test-key", "gpt-test")
+	client.effort = "low"
+	assert_eq(client.dropped_options(), [], "another reasoning setting starts fresh")
+
+	client.effort = ""
+	assert_eq(client.dropped_options(), [OpenAIChatCompletionsProvider.OPTION_MAX_COMPLETION_TOKENS], "the original settings remember what was learned")
+
+
+func test_max_tokens_is_capped_by_the_model_output_limit() -> void:
+	client.model_info = ModelInfo.new({limit = {output = 4000}})
+
+	_submit()
+
+	assert_eq(client.submitted_payloads[0]["max_tokens"], 4000)
+
+
+func test_reasoning_settings_reach_the_provider() -> void:
+	client.effort = "low"
+	client.thinking = false
+	client.budget_tokens = 0
+
+	_submit()
+
+	assert_eq(client.submitted_payloads[0]["thinking"], {type = "disabled"}, "thinking off wins for an unknown model")
+
+
+func test_truncated_turn_resolves_with_an_error_and_drops_its_tool_use() -> void:
+	var req := _submit()
+	_respond(req, [
+		{type = "text", text = "Let me save"},
+		{type = "tool_use", id = "toolu_1", name = "save_scene", input = {}},
+	], "max_tokens")
+
+	assert_eq(responses.size(), 1)
+	assert_eq(responses[0].get_error().type, "max_tokens")
+	assert_eq(client.submitted_payloads.size(), 1, "no follow-up request")
+	assert_eq(chat.messages[1].to_dict(), {
+		role = "assistant",
+		content = [{type = "text", text = "Let me save"}],
+	})
+
+
 func test_cancel_during_http_request() -> void:
 	var req := _submit()
 
@@ -74,7 +190,7 @@ func test_cancel_during_http_request() -> void:
 	assert_eq(chat.messages.size(), 2)
 	assert_eq(chat.messages[1].to_dict(), {
 		role = "user",
-		content = [{type = "text", text = ClaudeClient.CANCELLED_MESSAGE}],
+		content = [{type = "text", text = ChatClient.CANCELLED_MESSAGE}],
 	})
 
 
@@ -109,7 +225,7 @@ func test_cancel_while_tool_is_running() -> void:
 		content = [
 			{type = "tool_result", tool_use_id = "toolu_1", content = "slow output", is_error = false},
 			CANCELLED_TOOL_RESULT,
-			{type = "text", text = ClaudeClient.CANCELLED_MESSAGE},
+			{type = "text", text = ChatClient.CANCELLED_MESSAGE},
 		],
 	})
 
@@ -141,7 +257,7 @@ func test_second_cancel_stops_waiting_for_the_running_tool() -> void:
 		content = [
 			{type = "tool_result", tool_use_id = "toolu_1", content = "The user cancelled the request while this tool was running. It may or may not have taken effect.", is_error = true},
 			CANCELLED_TOOL_RESULT,
-			{type = "text", text = ClaudeClient.CANCELLED_MESSAGE},
+			{type = "text", text = ChatClient.CANCELLED_MESSAGE},
 		],
 	})
 
@@ -287,7 +403,7 @@ func test_cancel_while_waiting_for_authorization() -> void:
 		role = "user",
 		content = [
 			CANCELLED_TOOL_RESULT,
-			{type = "text", text = ClaudeClient.CANCELLED_MESSAGE},
+			{type = "text", text = ChatClient.CANCELLED_MESSAGE},
 		],
 	})
 

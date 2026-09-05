@@ -206,16 +206,6 @@ class Tool extends RefCounted:
 			return not annotations.read_only_hint and annotations.destructive_hint
 		return true
 
-	func to_dict() -> Dictionary:
-		var data := {
-			name = name
-		}
-		if description.length() > 0:
-			data['description'] = description
-		if input_schema.size() > 0:
-			data['input_schema'] = input_schema
-		return data
-
 class CallbackTool extends Tool:
 	var callback: Callable
 

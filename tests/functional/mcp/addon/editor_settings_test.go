@@ -200,11 +200,11 @@ return OK`, createdSetting))
 	})
 }
 
-// Godai's own settings hold the Anthropic API key and the persisted tool
+// Godai's own settings hold the LLM API key and the persisted tool
 // approvals, so the AI can neither read the key nor grant itself permissions the
 // user never approved.
 func TestGodaiEditorSettingsAreHidden(t *testing.T) {
-	const apiKeySetting = "godai/api/anthropic_key"
+	const apiKeySetting = "godai/api/key"
 
 	t.Run("get_by_name_is_rejected", func(t *testing.T) {
 		callToolErr(t, "get_editor_settings", map[string]any{

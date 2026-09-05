@@ -1,6 +1,6 @@
 extends RefCounted
 
-const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
+const Chat = preload("res://addons/godai/chat/chat.gd")
 const Utils = preload("res://addons/godai/utils.gd")
 
 enum ClientKind {
@@ -14,15 +14,16 @@ const CLI_CHAT_ID_SUFFIX := "-cli"
 const MCP_CHAT_ID_SUFFIX := "-mcp"
 
 const FLUSH_DELAY_SECONDS := 1.0
+const FORMAT_VERSION := 1
 
 
 class ChatSession extends RefCounted:
 	var id: String
-	var chat: ClaudeClient.Chat
+	var chat: Chat
 	var client_kind: ClientKind
 	var persisted_message_count := 0
 
-	func _init(p_id: String, p_chat: ClaudeClient.Chat, p_client_kind: ClientKind) -> void:
+	func _init(p_id: String, p_chat: Chat, p_client_kind: ClientKind) -> void:
 		id = p_id
 		chat = p_chat
 		client_kind = p_client_kind
@@ -55,7 +56,7 @@ func create_session(p_client_kind := ClientKind.EDITOR) -> ChatSession:
 			id += CLI_CHAT_ID_SUFFIX
 		ClientKind.MCP:
 			id += MCP_CHAT_ID_SUFFIX
-	var session := ChatSession.new(id, ClaudeClient.Chat.new(), p_client_kind)
+	var session := ChatSession.new(id, Chat.new(), p_client_kind)
 	_register(session)
 	return session
 
@@ -84,17 +85,24 @@ func load_session(p_id: String) -> ChatSession:
 	return session
 
 
-static func _parse_session(p_file: FileAccess) -> ClaudeClient.Chat:
-	var chat := ClaudeClient.Chat.new()
+static func _parse_session(p_file: FileAccess) -> Chat:
+	var chat := Chat.new()
+	var header_seen := false
 	while not p_file.eof_reached():
 		var line := p_file.get_line()
 		if line.strip_edges().is_empty():
 			continue
 		var data = JSON.parse_string(line)
 		if not data is Dictionary:
-			push_error("Chat session line is not a message: %s" % line)
+			push_error("Chat session line is not a %s: %s" % ["message" if header_seen else "header", line])
 			return null
-		var msg := ClaudeClient.Message.from_dict(data)
+		if not header_seen:
+			header_seen = true
+			if int(data.get("version", 0)) != FORMAT_VERSION:
+				push_error("Unsupported chat session format: %s" % line)
+				return null
+			continue
+		var msg := Chat.Message.from_dict(data)
 		if not msg:
 			return null
 		chat.messages.push_back(msg)
@@ -106,7 +114,7 @@ func _register(p_session: ChatSession) -> void:
 
 	var store_wr := weakref(self)
 	var session_wr := weakref(p_session)
-	p_session.chat.message_added.connect(func (_msg: ClaudeClient.Message):
+	p_session.chat.message_added.connect(func (_msg: Chat.Message):
 		var store = store_wr.get_ref()
 		var session = session_wr.get_ref()
 		if store and session:
@@ -179,6 +187,8 @@ static func _write_sessions(p_base_path: String, p_dirty: Dictionary) -> void:
 				f.seek_end()
 		else:
 			f = FileAccess.open(path, FileAccess.WRITE)
+			if f:
+				f.store_line(JSON.stringify({version = FORMAT_VERSION}))
 		if not f:
 			continue
 		for i in range(session.persisted_message_count, session.chat.messages.size()):

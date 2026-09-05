@@ -1,7 +1,7 @@
 extends RefCounted
 
 const ChatSessionStore = preload("res://addons/godai/chat/chat_session_store.gd")
-const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
+const Chat = preload("res://addons/godai/chat/chat.gd")
 const MCPServer = preload("res://addons/godai/mcp/mcp_server.gd")
 
 signal session_started(p_session: ChatSessionStore.ChatSession)
@@ -50,8 +50,7 @@ func record_tool_use(p_id: String, p_name: String, p_input: Dictionary, p_client
 		_new_client_pending = false
 
 	_pending_results[p_id] = _session
-	_record(_session, ClaudeClient.Message.new("assistant",
-		{type = "tool_use", id = p_id, name = p_name, input = p_input}))
+	_record(_session, Chat.Message.new(Chat.Role.ASSISTANT, Chat.ToolUseContent.new(p_id, p_name, p_input)))
 
 
 func record_tool_result(p_id: String, p_content) -> void:
@@ -60,11 +59,10 @@ func record_tool_result(p_id: String, p_content) -> void:
 	var session: ChatSessionStore.ChatSession = _pending_results[p_id]
 	_pending_results.erase(p_id)
 
-	_record(session, ClaudeClient.Message.new("user",
-		{type = "tool_result", tool_use_id = p_id, content = p_content}))
+	_record(session, Chat.Message.new(Chat.Role.USER, Chat.ToolResultContent.new(p_id, p_content)))
 
 
-func _record(p_session: ChatSessionStore.ChatSession, p_msg: ClaudeClient.Message) -> void:
+func _record(p_session: ChatSessionStore.ChatSession, p_msg: Chat.Message) -> void:
 	p_session.chat.add_message(p_msg)
 	message_recorded.emit(p_session)
 

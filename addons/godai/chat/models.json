@@ -1,0 +1,1249 @@
+{
+ "anthropic": {
+  "models": {
+   "claude-fable-5": {
+    "id": "claude-fable-5",
+    "limit": {
+     "output": 128000
+    },
+    "name": "Claude Fable 5",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-06-07",
+    "tool_call": true
+   },
+   "claude-fable-5-1": {
+    "id": "claude-fable-5-1",
+    "limit": {
+     "output": 128000
+    },
+    "name": "Claude Fable 5.1",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-09-01",
+    "tool_call": true
+   },
+   "claude-haiku-4-5": {
+    "id": "claude-haiku-4-5",
+    "limit": {
+     "output": 64000
+    },
+    "name": "Claude Haiku 4.5 (latest)",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "min": 1024,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2025-10-15",
+    "tool_call": true
+   },
+   "claude-haiku-4-5-20251001": {
+    "id": "claude-haiku-4-5-20251001",
+    "limit": {
+     "output": 64000
+    },
+    "name": "Claude Haiku 4.5",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "min": 1024,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2025-10-15",
+    "tool_call": true
+   },
+   "claude-opus-4-5": {
+    "id": "claude-opus-4-5",
+    "limit": {
+     "output": 64000
+    },
+    "name": "Claude Opus 4.5 (latest)",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high"
+      ]
+     },
+     {
+      "min": 1024,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2025-11-24",
+    "tool_call": true
+   },
+   "claude-opus-4-5-20251101": {
+    "id": "claude-opus-4-5-20251101",
+    "limit": {
+     "output": 64000
+    },
+    "name": "Claude Opus 4.5",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high"
+      ]
+     },
+     {
+      "min": 1024,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2025-11-24",
+    "tool_call": true
+   },
+   "claude-opus-4-6": {
+    "id": "claude-opus-4-6",
+    "limit": {
+     "output": 128000
+    },
+    "name": "Claude Opus 4.6",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high",
+       "max"
+      ]
+     },
+     {
+      "min": 1024,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2026-02-04",
+    "tool_call": true
+   },
+   "claude-opus-4-7": {
+    "id": "claude-opus-4-7",
+    "limit": {
+     "output": 128000
+    },
+    "name": "Claude Opus 4.7",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-04-14",
+    "tool_call": true
+   },
+   "claude-opus-4-8": {
+    "id": "claude-opus-4-8",
+    "limit": {
+     "output": 128000
+    },
+    "name": "Claude Opus 4.8",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-05-28",
+    "tool_call": true
+   },
+   "claude-opus-5": {
+    "id": "claude-opus-5",
+    "limit": {
+     "output": 128000
+    },
+    "name": "Claude Opus 5",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-07-24",
+    "tool_call": true
+   },
+   "claude-sonnet-4-5": {
+    "id": "claude-sonnet-4-5",
+    "limit": {
+     "output": 64000
+    },
+    "name": "Claude Sonnet 4.5 (latest)",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "min": 1024,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2025-09-29",
+    "tool_call": true
+   },
+   "claude-sonnet-4-5-20250929": {
+    "id": "claude-sonnet-4-5-20250929",
+    "limit": {
+     "output": 64000
+    },
+    "name": "Claude Sonnet 4.5",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "min": 1024,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2025-09-29",
+    "tool_call": true
+   },
+   "claude-sonnet-4-6": {
+    "id": "claude-sonnet-4-6",
+    "limit": {
+     "output": 128000
+    },
+    "name": "Claude Sonnet 4.6",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high",
+       "max"
+      ]
+     },
+     {
+      "min": 1024,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2026-02-17",
+    "tool_call": true
+   },
+   "claude-sonnet-5": {
+    "id": "claude-sonnet-5",
+    "limit": {
+     "output": 128000
+    },
+    "name": "Claude Sonnet 5",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "toggle"
+     },
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-06-29",
+    "tool_call": true
+   }
+  }
+ },
+ "google": {
+  "models": {
+   "deep-research-max-preview-04-2026": {
+    "id": "deep-research-max-preview-04-2026",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Deep Research Max Preview (Apr-21-2026)",
+    "reasoning": true,
+    "reasoning_options": [],
+    "release_date": "2026-04-21",
+    "tool_call": true
+   },
+   "deep-research-preview-04-2026": {
+    "id": "deep-research-preview-04-2026",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Deep Research Preview (Apr-21-2026)",
+    "reasoning": true,
+    "reasoning_options": [],
+    "release_date": "2026-04-21",
+    "tool_call": true
+   },
+   "gemini-2.5-computer-use-preview-10-2025": {
+    "id": "gemini-2.5-computer-use-preview-10-2025",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 2.5 Computer Use Preview 10-2025",
+    "reasoning": true,
+    "reasoning_options": [],
+    "release_date": "2025-10-07",
+    "tool_call": true
+   },
+   "gemini-2.5-flash": {
+    "id": "gemini-2.5-flash",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 2.5 Flash",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "toggle"
+     },
+     {
+      "max": 24576,
+      "min": 0,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2025-06-17",
+    "tool_call": true
+   },
+   "gemini-2.5-flash-lite": {
+    "id": "gemini-2.5-flash-lite",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 2.5 Flash-Lite",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "toggle"
+     },
+     {
+      "max": 24576,
+      "min": 512,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2025-06-17",
+    "tool_call": true
+   },
+   "gemini-2.5-pro": {
+    "id": "gemini-2.5-pro",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 2.5 Pro",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "max": 32768,
+      "min": 128,
+      "type": "budget_tokens"
+     }
+    ],
+    "release_date": "2025-06-17",
+    "tool_call": true
+   },
+   "gemini-3-flash-preview": {
+    "id": "gemini-3-flash-preview",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 3 Flash Preview",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2025-12-17",
+    "tool_call": true
+   },
+   "gemini-3.1-flash-lite": {
+    "id": "gemini-3.1-flash-lite",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 3.1 Flash Lite",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-05-07",
+    "tool_call": true
+   },
+   "gemini-3.1-flash-lite-image": {
+    "id": "gemini-3.1-flash-lite-image",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Nano Banana 2 Lite",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-06-30",
+    "tool_call": true
+   },
+   "gemini-3.1-flash-live-preview": {
+    "id": "gemini-3.1-flash-live-preview",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 3.1 Flash Live Preview",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-03-26",
+    "tool_call": true
+   },
+   "gemini-3.1-pro-preview": {
+    "id": "gemini-3.1-pro-preview",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 3.1 Pro Preview",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-02-19",
+    "tool_call": true
+   },
+   "gemini-3.1-pro-preview-customtools": {
+    "id": "gemini-3.1-pro-preview-customtools",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 3.1 Pro Preview Custom Tools",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-02-19",
+    "tool_call": true
+   },
+   "gemini-3.5-flash": {
+    "id": "gemini-3.5-flash",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 3.5 Flash",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-05-19",
+    "tool_call": true
+   },
+   "gemini-3.5-flash-lite": {
+    "id": "gemini-3.5-flash-lite",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 3.5 Flash Lite",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-07-21",
+    "tool_call": true
+   },
+   "gemini-3.6-flash": {
+    "id": "gemini-3.6-flash",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 3.6 Flash",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-07-21",
+    "tool_call": true
+   },
+   "gemini-3.7-flash": {
+    "id": "gemini-3.7-flash",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 3.7 Flash",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-08-13",
+    "tool_call": true
+   },
+   "gemini-3.8-flash": {
+    "id": "gemini-3.8-flash",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini 3.8 Flash",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-09-02",
+    "tool_call": true
+   },
+   "gemini-flash-latest": {
+    "id": "gemini-flash-latest",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini Flash Latest",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-08-13",
+    "tool_call": true
+   },
+   "gemini-flash-lite-latest": {
+    "id": "gemini-flash-lite-latest",
+    "limit": {
+     "output": 65536
+    },
+    "name": "Gemini Flash-Lite Latest",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2026-07-21",
+    "tool_call": true
+   },
+   "gemma-4-26b-a4b-it": {
+    "id": "gemma-4-26b-a4b-it",
+    "limit": {
+     "output": 32768
+    },
+    "name": "Gemma 4 26B A4B IT",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "toggle"
+     }
+    ],
+    "release_date": "2026-04-02",
+    "tool_call": true
+   },
+   "gemma-4-31b-it": {
+    "id": "gemma-4-31b-it",
+    "limit": {
+     "output": 32768
+    },
+    "name": "Gemma 4 31B IT",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "toggle"
+     }
+    ],
+    "release_date": "2026-04-02",
+    "tool_call": true
+   }
+  }
+ },
+ "openai": {
+  "models": {
+   "gpt-4.1": {
+    "id": "gpt-4.1",
+    "limit": {
+     "output": 32768
+    },
+    "name": "GPT-4.1",
+    "reasoning": false,
+    "release_date": "2025-04-14",
+    "tool_call": true
+   },
+   "gpt-4.1-mini": {
+    "id": "gpt-4.1-mini",
+    "limit": {
+     "output": 32768
+    },
+    "name": "GPT-4.1 mini",
+    "reasoning": false,
+    "release_date": "2025-04-14",
+    "tool_call": true
+   },
+   "gpt-4o": {
+    "id": "gpt-4o",
+    "limit": {
+     "output": 16384
+    },
+    "name": "GPT-4o",
+    "reasoning": false,
+    "release_date": "2024-05-13",
+    "tool_call": true
+   },
+   "gpt-4o-2024-08-06": {
+    "id": "gpt-4o-2024-08-06",
+    "limit": {
+     "output": 16384
+    },
+    "name": "GPT-4o (2024-08-06)",
+    "reasoning": false,
+    "release_date": "2024-08-06",
+    "tool_call": true
+   },
+   "gpt-4o-2024-11-20": {
+    "id": "gpt-4o-2024-11-20",
+    "limit": {
+     "output": 16384
+    },
+    "name": "GPT-4o (2024-11-20)",
+    "reasoning": false,
+    "release_date": "2024-11-20",
+    "tool_call": true
+   },
+   "gpt-4o-mini": {
+    "id": "gpt-4o-mini",
+    "limit": {
+     "output": 16384
+    },
+    "name": "GPT-4o mini",
+    "reasoning": false,
+    "release_date": "2024-07-18",
+    "tool_call": true
+   },
+   "gpt-5": {
+    "id": "gpt-5",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2025-08-07",
+    "tool_call": true
+   },
+   "gpt-5-mini": {
+    "id": "gpt-5-mini",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5 Mini",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2025-08-07",
+    "tool_call": true
+   },
+   "gpt-5-nano": {
+    "id": "gpt-5-nano",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5 Nano",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2025-08-07",
+    "tool_call": true
+   },
+   "gpt-5-pro": {
+    "id": "gpt-5-pro",
+    "limit": {
+     "output": 272000
+    },
+    "name": "GPT-5 Pro",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2025-10-06",
+    "tool_call": true
+   },
+   "gpt-5.1": {
+    "id": "gpt-5.1",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.1",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2025-11-13",
+    "tool_call": true
+   },
+   "gpt-5.2": {
+    "id": "gpt-5.2",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.2",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2025-12-11",
+    "tool_call": true
+   },
+   "gpt-5.2-pro": {
+    "id": "gpt-5.2-pro",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.2 Pro",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2025-12-11",
+    "tool_call": true
+   },
+   "gpt-5.3-codex": {
+    "id": "gpt-5.3-codex",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.3 Codex",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2026-02-05",
+    "tool_call": true
+   },
+   "gpt-5.3-codex-spark": {
+    "id": "gpt-5.3-codex-spark",
+    "limit": {
+     "output": 32000
+    },
+    "name": "GPT-5.3 Codex Spark",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2026-02-05",
+    "tool_call": true
+   },
+   "gpt-5.4": {
+    "id": "gpt-5.4",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.4",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2026-03-05",
+    "tool_call": true
+   },
+   "gpt-5.4-mini": {
+    "id": "gpt-5.4-mini",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.4 mini",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2026-03-17",
+    "tool_call": true
+   },
+   "gpt-5.4-nano": {
+    "id": "gpt-5.4-nano",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.4 nano",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2026-03-17",
+    "tool_call": true
+   },
+   "gpt-5.4-pro": {
+    "id": "gpt-5.4-pro",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.4 Pro",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2026-03-05",
+    "tool_call": true
+   },
+   "gpt-5.5": {
+    "id": "gpt-5.5",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.5",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2026-04-23",
+    "tool_call": true
+   },
+   "gpt-5.5-pro": {
+    "id": "gpt-5.5-pro",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.5 Pro",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2026-04-23",
+    "tool_call": true
+   },
+   "gpt-5.6": {
+    "id": "gpt-5.6",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.6",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-07-09",
+    "tool_call": true
+   },
+   "gpt-5.6-luna": {
+    "id": "gpt-5.6-luna",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.6 Luna",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-07-09",
+    "tool_call": true
+   },
+   "gpt-5.6-sol": {
+    "id": "gpt-5.6-sol",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.6 Sol",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-07-09",
+    "tool_call": true
+   },
+   "gpt-5.6-terra": {
+    "id": "gpt-5.6-terra",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-5.6 Terra",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "none",
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-07-09",
+    "tool_call": true
+   },
+   "gpt-6-astra": {
+    "id": "gpt-6-astra",
+    "limit": {
+     "output": 128000
+    },
+    "name": "GPT-6 Astra",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high",
+       "xhigh",
+       "max"
+      ]
+     }
+    ],
+    "release_date": "2026-09-04",
+    "tool_call": true
+   },
+   "gpt-realtime-2.1": {
+    "id": "gpt-realtime-2.1",
+    "limit": {
+     "output": 32000
+    },
+    "name": "GPT-Realtime-2.1",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "minimal",
+       "low",
+       "medium",
+       "high",
+       "xhigh"
+      ]
+     }
+    ],
+    "release_date": "2026-07-06",
+    "tool_call": true
+   },
+   "o3": {
+    "id": "o3",
+    "limit": {
+     "output": 100000
+    },
+    "name": "o3",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2025-04-16",
+    "tool_call": true
+   },
+   "o3-pro": {
+    "id": "o3-pro",
+    "limit": {
+     "output": 100000
+    },
+    "name": "o3-pro",
+    "reasoning": true,
+    "reasoning_options": [
+     {
+      "type": "effort",
+      "values": [
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    ],
+    "release_date": "2025-06-10",
+    "tool_call": true
+   }
+  }
+ }
+}

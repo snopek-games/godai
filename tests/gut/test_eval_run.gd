@@ -1,7 +1,7 @@
 extends GutTest
 
 const GodaiPanelScene = preload("res://addons/godai/ui/godai_panel.tscn")
-const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
+const ChatClient = preload("res://addons/godai/chat/client.gd")
 const EvalRun = preload("res://addons/godai/eval_run.gd")
 
 const SEGMENT_1_INIT := '{"type":"system","subtype":"init","session_id":"segment1"}'
@@ -55,7 +55,7 @@ func test_resumed_chat_appends_to_the_stream() -> void:
 	OS.set_environment(EvalRun.STREAM_ENV, _stream_path)
 
 	panel._current_session = panel._session_store.create_session()
-	panel._set_current_request(ClaudeClient.Request.new(panel._current_session.chat))
+	panel._set_current_request(ChatClient.Request.new(panel._current_session.chat))
 
 	var eval_run = EvalRun.start(panel)
 

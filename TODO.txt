@@ -13,36 +13,12 @@ TODO
 - Addon: Add in game tools
   - Sending input
   - Taking a screenshot
-- Addon: Implement support for more LLM APIs
-  - Make 2-3 client backends:
-    - `Anthropic`: "Anthropic"
-    - `OpenAIChatCompletions`: "OpenAI Chat Completions - works everywhere"
-    - `OpenAIResponses` (optional): "OpenAI Responses - OpenAI's newer agentic API"
-  - The configuration then is:
-    - API type (the backend from above)
-    - API URL
-    - API key
-    - Model
-  - Set of "profiles" which would be like:
-    - OpenAI: `OpenAIResponses`, with real OpenAI URL
-    - Anthropic (Claude): `Anthropic` with real Anthropic URL
-    - Google (Gemini): `OpenAIChatCompletions` with Gemini URI
-  - "Config" button in the "Godai" panel
-    - It should allow selecting one of the profiles or "custom", which gives you the underlying fields
-    - This should basically reflect what we have in Editor Settings but friendlier
-  - "Model" selection field in the "Godai" panel
-    - It'll need to query the list of available models
-    - We might need profiles to have a "filter" for the models to include/exclude (and maybe an editor setting too?)
-    - Or, we may want to pull the model list from the models.dev API? It allows us to filter based on capability
-      - See https://models.dev/api.json
+- Addon: Allow docking in the sidebar areas
 - Addon: Record errors are part of chat session? (but don't send them to the AI)
-- Addon: Session usability
-  - Allow manually renaming sessions
-  - Allow manually deleting sessions
+- Addon: Display parameters in tool use dialog in friendlier way (not JSON)
 - Addon: Show some of our branding in editor
   - Icon on dock tab?
   - Icon in `LoadingLabel`?
-- Addon: Ability to configure "effort" level
 - Addon: Add system prompt
 - Addon: Add to Godot asset store
 
@@ -71,19 +47,16 @@ Backlog
   - Users do `/plugin marketplace add snopek-games/godai` or `claude plugin install ...`
   - See: https://claude.com/blog/claude-code-plugins
   - See: https://github.com/alexmeckes/godot-claude-skills
+- Addon: Session usability
+  - Allow manually renaming sessions
+  - Allow manually deleting sessions
+- Addon: Use LLM to automatically set titles for sessions
 - Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
-- Addon: Chat history
-  - Save and restore current chat when restarting the editor
-  - Save a chat history of up to X conversations
 - Addon: Convert markdown to bbcode?
   - See https://github.com/daenvil/MarkdownLabel
 - Tool: Get Godot version and executeable path
 - Tool: Get class documentation
   - Depends on https://github.com/godotengine/godot/pull/112628
-- Tool: Capture log messages from the running game
-  - get_log_messages only sees editor output; the game is a separate process
-  - Inject a logger autoload that forwards lines via EngineDebugger.send_message
-  - Receive them in the editor with an EditorDebuggerPlugin custom capture
 - Addon: Allow editor plugins to register custom tools for a particular project
   - Will need to allow MCP to update it's tools list
 - Addon: Make user_chat.tscn and error_chat.tscn expand for their text, but wrap when they right the max width

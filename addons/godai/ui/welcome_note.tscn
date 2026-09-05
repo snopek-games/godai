@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://cnjsnnnn5xw0p"]
+
+[ext_resource type="Script" uid="uid://brvlrhdjiwt1h" path="res://addons/godai/ui/welcome_note.gd" id="1_fz79k"]
+
+[node name="WelcomeNote" type="VBoxContainer" unique_id=959862701]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+script = ExtResource("1_fz79k")
+
+[node name="RichTextLabel" type="RichTextLabel" parent="." unique_id=2026090306]
+layout_mode = 2
+bbcode_enabled = true
+text = "Hello!
+
+There's three ways to use Godai:
+
+[ul]
+The [code]godai[/code] CLI command ([url=https://godai.sh/docs/cli/]docs[/url])
+Connecting an MCP client like Claude Code ([url=https://godai.sh/docs/mcp/]docs[/url])
+Chatting with an LLM API via this chat box here! ([url=https://godai.sh/docs/addon/]docs[/url])
+[/ul]"
+fit_content = true
+
+[node name="FixSection" type="VBoxContainer" parent="." unique_id=1308962688]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="FixLabel" type="Label" parent="FixSection" unique_id=1744732789]
+unique_name_in_owner = true
+layout_mode = 2
+text = "In order to use this chat box, you'll need to configure an LLM API and go online:"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="FixSection" unique_id=1973326509]
+custom_maximum_size = Vector2(400, -1)
+layout_mode = 2
+
+[node name="Spacer1" type="Control" parent="FixSection/HBoxContainer" unique_id=1014009189]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SettingsButton" type="Button" parent="FixSection/HBoxContainer" unique_id=1681537380]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "Settings"
+
+[node name="GoOnlineButton" type="Button" parent="FixSection/HBoxContainer" unique_id=1006708964]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "Go Online"
+
+[node name="Spacer2" type="Control" parent="FixSection/HBoxContainer" unique_id=1100782237]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GetStartedLabel" type="Label" parent="." unique_id=1286364607]
+unique_name_in_owner = true
+layout_mode = 2
+text = "To use this chat box, simply type a prompt below!"
+
+[connection signal="meta_clicked" from="RichTextLabel" to="." method="_on_rich_text_label_meta_clicked"]

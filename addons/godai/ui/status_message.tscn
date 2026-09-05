@@ -1,0 +1,34 @@
+[gd_scene format=3 uid="uid://08kn3o2qnri4"]
+
+[ext_resource type="Script" uid="uid://bymyhykgqc5fd" path="res://addons/godai/ui/status_message.gd" id="1_9vc0t"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bb3q2"]
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+bg_color = Color(0.5, 0.185, 0.185, 1)
+
+[node name="StatusMessage" type="PanelContainer" unique_id=2096039972]
+custom_minimum_size = Vector2(0, 60)
+offset_right = 600.0
+offset_bottom = 60.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_bb3q2")
+script = ExtResource("1_9vc0t")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=110081592]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="HBoxContainer" unique_id=1797898138]
+unique_name_in_owner = true
+layout_mode = 2
+vertical_alignment = 1
+
+[node name="Control" type="Control" parent="HBoxContainer" unique_id=1053444608]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Button" type="Button" parent="HBoxContainer" unique_id=2137597151]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2

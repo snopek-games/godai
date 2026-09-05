@@ -1,7 +1,7 @@
 extends GutTest
 
 const ChatSessionStore = preload("res://addons/godai/chat/chat_session_store.gd")
-const ClaudeClient = preload("res://addons/godai/client/claude_client.gd")
+const Chat = preload("res://addons/godai/chat/chat.gd")
 
 var _temp_dir: String
 var _store: ChatSessionStore
@@ -25,12 +25,18 @@ func after_each() -> void:
 		DirAccess.remove_absolute(_temp_dir)
 
 
-func _write_session_file(p_id: String, p_lines: Array = []) -> void:
+func _write_session_file(p_id: String, p_lines: Array = [], p_header = {version = ChatSessionStore.FORMAT_VERSION}) -> void:
 	DirAccess.make_dir_recursive_absolute(_temp_dir)
 	var f := FileAccess.open(_store.session_file_path(p_id), FileAccess.WRITE)
+	if p_header != null:
+		f.store_line(JSON.stringify(p_header))
 	for line in p_lines:
 		f.store_line(JSON.stringify(line))
 	f.close()
+
+
+func _content_types(p_msg: Chat.Message) -> Array:
+	return p_msg.content.map(func (c): return c.to_dict()["type"])
 
 
 func test_generate_chat_id_format() -> void:
@@ -79,8 +85,8 @@ func test_no_file_until_first_message() -> void:
 
 func test_message_added_saves_after_a_delayed_flush() -> void:
 	var session = _store.create_session()
-	session.chat.add_message(ClaudeClient.Message.new("user", "hello"))
-	session.chat.add_message(ClaudeClient.Message.new("assistant", "hi there"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, "hi there"))
 
 	assert_false(FileAccess.file_exists(_store.session_file_path(session.id)))
 
@@ -91,8 +97,8 @@ func test_message_added_saves_after_a_delayed_flush() -> void:
 
 func test_save_load_roundtrip() -> void:
 	var session = _store.create_session()
-	session.chat.add_message(ClaudeClient.Message.new("user", "hello"))
-	session.chat.add_message(ClaudeClient.Message.new("assistant", "hi there"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, "hi there"))
 	_store.flush()
 
 	var other_store := ChatSessionStore.new(_temp_dir)
@@ -100,12 +106,12 @@ func test_save_load_roundtrip() -> void:
 
 	assert_not_null(loaded)
 	assert_eq(loaded.chat.messages.size(), 2)
-	assert_eq(loaded.chat.messages[0].content[0].data["text"], "hello")
+	assert_eq(loaded.chat.messages[0].content[0].text, "hello")
 
 
 func test_load_session_returns_the_live_object() -> void:
 	var session = _store.create_session()
-	session.chat.add_message(ClaudeClient.Message.new("user", "hello"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
 
 	assert_eq(_store.load_session(session.id), session)
 
@@ -119,12 +125,27 @@ func test_load_malformed_session_returns_null() -> void:
 	_write_session_file("not-a-dict", [[1, 2]])
 	_write_session_file("no-role", [{content = []}])
 	_write_session_file("no-content", [{role = "user"}])
+	_write_session_file("no-header", [{role = "user", content = []}], null)
+	_write_session_file("future-version", [{role = "user", content = []}], {version = ChatSessionStore.FORMAT_VERSION + 1})
 
 	assert_null(_store.load_session("not-a-message"))
 	assert_null(_store.load_session("not-a-dict"))
 	assert_null(_store.load_session("no-role"))
 	assert_null(_store.load_session("no-content"))
-	assert_push_error(4, "each malformed file reports what it is missing")
+	assert_null(_store.load_session("no-header"))
+	assert_null(_store.load_session("future-version"))
+	assert_push_error(6, "each malformed file reports what it is missing")
+
+
+func test_new_session_file_starts_with_a_version_header() -> void:
+	var session = _store.create_session()
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
+	_store.flush()
+
+	var lines := FileAccess.get_file_as_string(_store.session_file_path(session.id)).strip_edges().split("\n")
+	assert_eq(lines.size(), 2)
+	assert_eq(JSON.parse_string(lines[0]), {version = float(ChatSessionStore.FORMAT_VERSION)})
+	assert_string_contains(lines[1], "hello")
 
 
 func test_load_session_repairs_a_dangling_tool_use() -> void:
@@ -139,8 +160,8 @@ func test_load_session_repairs_a_dangling_tool_use() -> void:
 	var loaded = _store.load_session("2026-08-30T14-30-00-123")
 
 	assert_eq(loaded.chat.messages.size(), 3)
-	assert_eq(loaded.chat.messages[1].content.map(func (c): return c.get_type()), ["text", "tool_use"])
-	assert_eq(loaded.chat.messages[2].content.map(func (c): return c.get_type()), ["tool_result"])
+	assert_eq(_content_types(loaded.chat.messages[1]), ["text", "tool_use"])
+	assert_eq(_content_types(loaded.chat.messages[2]), ["tool_result"])
 
 
 func test_load_session_keeps_a_dangling_tool_use_in_external_sessions() -> void:
@@ -153,17 +174,17 @@ func test_load_session_keeps_a_dangling_tool_use_in_external_sessions() -> void:
 	var loaded = _store.load_session("2026-08-30T14-30-00-123-mcp")
 
 	assert_eq(loaded.chat.messages.size(), 1)
-	assert_eq(loaded.chat.messages[0].content.map(func (c): return c.get_type()), ["tool_use"])
+	assert_eq(_content_types(loaded.chat.messages[0]), ["tool_use"])
 
 
 func test_loaded_sessions_keep_saving_on_new_messages() -> void:
 	var session = _store.create_session()
-	session.chat.add_message(ClaudeClient.Message.new("user", "hello"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
 	_store.flush()
 
 	var other_store := ChatSessionStore.new(_temp_dir)
 	var loaded = other_store.load_session(session.id)
-	loaded.chat.add_message(ClaudeClient.Message.new("assistant", "hi there"))
+	loaded.chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, "hi there"))
 	other_store.flush()
 
 	assert_eq(ChatSessionStore.new(_temp_dir).load_session(session.id).chat.messages.size(), 2)
@@ -171,7 +192,7 @@ func test_loaded_sessions_keep_saving_on_new_messages() -> void:
 
 func test_unload_session_flushes_and_reloads_fresh_from_disk() -> void:
 	var session = _store.create_session()
-	session.chat.add_message(ClaudeClient.Message.new("user", "hello"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
 
 	_store.unload_session(session.id)
 
@@ -183,10 +204,10 @@ func test_unload_session_flushes_and_reloads_fresh_from_disk() -> void:
 
 func test_unloaded_session_still_saves_new_messages() -> void:
 	var session = _store.create_session()
-	session.chat.add_message(ClaudeClient.Message.new("user", "hello"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
 	_store.unload_session(session.id)
 
-	session.chat.add_message(ClaudeClient.Message.new("assistant", "hi there"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, "hi there"))
 	_store.flush()
 
 	assert_eq(ChatSessionStore.new(_temp_dir).load_session(session.id).chat.messages.size(), 2)
@@ -194,7 +215,7 @@ func test_unloaded_session_still_saves_new_messages() -> void:
 
 func test_predelete_flushes_dirty_sessions() -> void:
 	var session = _store.create_session()
-	session.chat.add_message(ClaudeClient.Message.new("user", "hello"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
 	await wait_seconds(ChatSessionStore.FLUSH_DELAY_SECONDS + 0.2)
 
 	var path := _store.session_file_path(session.id)
@@ -211,22 +232,23 @@ func test_predelete_flushes_dirty_sessions() -> void:
 
 func test_flush_appends_only_new_messages() -> void:
 	var session = _store.create_session()
-	session.chat.add_message(ClaudeClient.Message.new("user", "hello"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
 	_store.flush()
 
 	var path := _store.session_file_path(session.id)
 	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_line('{"version": 1}')
 	f.store_line('{"role": "user", "content": "mangled externally"}')
 	f.close()
 
-	session.chat.add_message(ClaudeClient.Message.new("assistant", "hi there"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, "hi there"))
 	_store.flush()
 
 	var lines := FileAccess.get_file_as_string(path).strip_edges().split("\n")
-	assert_eq(lines.size(), 2)
-	assert_string_contains(lines[0], "mangled externally",
+	assert_eq(lines.size(), 3)
+	assert_string_contains(lines[1], "mangled externally",
 		"already-persisted messages are never rewritten")
-	assert_string_contains(lines[1], "hi there")
+	assert_string_contains(lines[2], "hi there")
 
 
 func test_repaired_tool_results_stay_out_of_the_file() -> void:
@@ -240,15 +262,15 @@ func test_repaired_tool_results_stay_out_of_the_file() -> void:
 	var session = _store.load_session("2026-08-30T14-30-00-123")
 	assert_eq(session.chat.messages.size(), 3, "the dangling tool use is answered on load")
 
-	session.chat.add_message(ClaudeClient.Message.new("assistant", "welcome back"))
+	session.chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, "welcome back"))
 	_store.flush()
 
 	var lines := FileAccess.get_file_as_string(_store.session_file_path(session.id)).strip_edges().split("\n")
-	assert_eq(lines.size(), 3, "the synthetic tool result is recreated on load, not persisted")
+	assert_eq(lines.size(), 4, "the synthetic tool result is recreated on load, not persisted")
 
 	var reloaded = ChatSessionStore.new(_temp_dir).load_session(session.id)
 	assert_eq(reloaded.chat.messages.size(), 4)
-	assert_eq(reloaded.chat.messages[2].content[0].get_type(), "tool_result")
+	assert_true(reloaded.chat.messages[2].content[0] is Chat.ToolResultContent)
 
 
 func test_list_session_ids_newest_first() -> void:
