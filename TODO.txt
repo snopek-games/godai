@@ -4,12 +4,6 @@ TODO
 0.5: Finish critical addon stuff
 --------------------------------
 
-- Addon: Have separate tools for MCP and API mode
-  - API mode needs to have file management tools
-    - See https://platform.claude.com/docs/en/agents-and-tools/tool-use/text-editor-tool
-    - The tricky thing is that this is Anthropic specific (OpenAI has their own thing)
-    - How does this overlap with our tools for script editing?
-  - Having a way to "reload" the tools would help iteration during development
 - Addon: Add in game tools
   - Sending input
   - Taking a screenshot
@@ -47,6 +41,12 @@ Backlog
   - Users do `/plugin marketplace add snopek-games/godai` or `claude plugin install ...`
   - See: https://claude.com/blog/claude-code-plugins
   - See: https://github.com/alexmeckes/godot-claude-skills
+- Addon: Have separate tools for MCP and API mode
+  - API mode needs to have file management tools
+    - See https://platform.claude.com/docs/en/agents-and-tools/tool-use/text-editor-tool
+    - The tricky thing is that this is Anthropic specific (OpenAI has their own thing)
+    - How does this overlap with our tools for script editing?
+  - Having a way to "reload" the tools would help iteration during development
 - Addon: Session usability
   - Allow manually renaming sessions
   - Allow manually deleting sessions
