@@ -35,7 +35,17 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "SKIP: functional tests don't run in -short mode")
 		os.Exit(0)
 	}
-	os.Exit(m.Run())
+
+	// The editor-restart tests race real wall-clock deadlines, so wait for the
+	// other functional suites to finish and run with the machine to ourselves.
+	release, err := harness.LockMachine(true)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "FAIL: %v\n", err)
+		os.Exit(1)
+	}
+	code := m.Run()
+	release()
+	os.Exit(code)
 }
 
 // A scripted LLM API: a chat that hasn't run the restart tool yet gets a

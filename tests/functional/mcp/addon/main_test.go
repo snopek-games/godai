@@ -37,6 +37,13 @@ func testMain(m *testing.M) int {
 		return 0
 	}
 
+	release, err := harness.LockMachine(false)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "FAIL: %v\n", err)
+		return 1
+	}
+	defer release()
+
 	ctx := context.Background()
 
 	if portStr := os.Getenv("GODAI_TEST_PORT"); portStr != "" {
