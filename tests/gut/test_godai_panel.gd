@@ -356,8 +356,8 @@ func test_submitting_a_prompt_round_trips_through_the_ui() -> void:
 
 	var items := _chat_items(panel)
 	assert_eq(items.size(), 2)
-	assert_eq(items[0].label.text, "hello there")
-	assert_eq(items[1].text, "hi!")
+	assert_eq(items[0].markdown_label.markdown, "hello there")
+	assert_eq(items[1].markdown_label.markdown, "hi!")
 
 
 func test_api_error_shows_in_the_chat_view() -> void:

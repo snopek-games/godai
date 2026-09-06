@@ -1,0 +1,55 @@
+[gd_scene format=3 uid="uid://cies8dggqt6iu"]
+
+[ext_resource type="Script" uid="uid://d10y5wdym772m" path="res://addons/godai/ui/markdown_label.gd" id="1_exiz3"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_hy1gb"]
+content_margin_left = 1.0
+content_margin_top = 6.0
+content_margin_right = 1.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_awept"]
+content_margin_left = 1.0
+content_margin_top = 6.0
+content_margin_right = 1.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_byn0u"]
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+
+[node name="MarkdownLabel" type="HBoxContainer" unique_id=217189572]
+size_flags_horizontal = 3
+script = ExtResource("1_exiz3")
+
+[node name="Label" type="RichTextLabel" parent="." unique_id=1385246915]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxEmpty_hy1gb")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_awept")
+bbcode_enabled = true
+text = "Markdown"
+fit_content = true
+scroll_active = false
+selection_enabled = true
+
+[node name="ToggleButton" type="Button" parent="." unique_id=1744870523]
+unique_name_in_owner = true
+modulate = Color(1, 1, 1, 0.4)
+layout_mode = 2
+size_flags_vertical = 0
+tooltip_text = "Show raw markdown"
+theme_override_styles/normal = SubResource("StyleBoxEmpty_byn0u")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_byn0u")
+toggle_mode = true
+text = "md"
+
+[connection signal="meta_clicked" from="Label" to="." method="_on_label_meta_clicked"]
+[connection signal="mouse_entered" from="ToggleButton" to="." method="_on_toggle_button_mouse_entered"]
+[connection signal="mouse_exited" from="ToggleButton" to="." method="_on_toggle_button_mouse_exited"]
+[connection signal="toggled" from="ToggleButton" to="." method="_on_toggle_button_toggled"]

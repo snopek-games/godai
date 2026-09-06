@@ -24,6 +24,20 @@ func _items() -> Array:
 		func (c): return not c.is_queued_for_deletion())
 
 
+func test_show_chat_renders_markdown_as_bbcode() -> void:
+	var chat := Chat.new()
+	chat.add_message(Chat.Message.new(Chat.Role.USER, "fix `x` and [b]this[/b]"))
+	chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, "**done** [see](https://a.b)"))
+
+	_view.show_chat(chat)
+
+	var items := _items()
+	assert_eq(items[0].markdown_label.markdown, "fix `x` and [b]this[/b]")
+	assert_eq(items[0].markdown_label.label.text, "fix [code]x[/code] and [lb]b]this[lb]/b]")
+	assert_eq(items[1].markdown_label.markdown, "**done** [see](https://a.b)")
+	assert_eq(items[1].markdown_label.label.text, "[b]done[/b] [url=https://a.b]see[/url]")
+
+
 func test_show_chat_renders_each_message_kind() -> void:
 	var chat := Chat.new()
 	chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
@@ -38,8 +52,8 @@ func test_show_chat_renders_each_message_kind() -> void:
 
 	var items := _items()
 	assert_eq(items.size(), 4)
-	assert_eq(items[0].label.text, "hello")
-	assert_eq(items[1].text, "hi!")
+	assert_eq(items[0].markdown_label.markdown, "hello")
+	assert_eq(items[1].markdown_label.markdown, "hi!")
 	assert_eq(items[3].text, "Cancelled by user")
 
 	# The tool item carries its use and result, shown when info is requested.

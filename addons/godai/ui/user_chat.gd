@@ -1,7 +1,8 @@
 @tool
 extends PanelContainer
 
-@onready var label: RichTextLabel = %Label
+@onready var markdown_label = %MarkdownLabel
+
 
 func setup_user_chat(p_text: String) -> void:
-	label.text = p_text
+	markdown_label.set_markdown(p_text)

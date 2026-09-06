@@ -1,5 +1,8 @@
 @tool
-extends RichTextLabel
+extends MarginContainer
+
+@onready var markdown_label = %MarkdownLabel
+
 
 func setup_assistant_chat(p_text: String) -> void:
-	text = p_text
+	markdown_label.set_markdown(p_text)

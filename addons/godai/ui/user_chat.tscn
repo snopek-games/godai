@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://cep3fyplgkkxp"]
 
 [ext_resource type="Script" uid="uid://bgp3n5yk3asph" path="res://addons/godai/ui/user_chat.gd" id="1_ruxvb"]
+[ext_resource type="PackedScene" uid="uid://cies8dggqt6iu" path="res://addons/godai/ui/markdown_label.tscn" id="2_2h9nz"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_etgcp"]
 content_margin_left = 10.0
@@ -14,10 +15,6 @@ corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 corner_detail = 5
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_rulxb"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_aak0v"]
-
 [node name="UserChat" type="PanelContainer" unique_id=1017708745]
 offset_right = 210.0
 offset_bottom = 29.0
@@ -25,13 +22,6 @@ size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_etgcp")
 script = ExtResource("1_ruxvb")
 
-[node name="Label" type="RichTextLabel" parent="." unique_id=720140511]
+[node name="MarkdownLabel" parent="." unique_id=1778408911 instance=ExtResource("2_2h9nz")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_styles/normal = SubResource("StyleBoxEmpty_rulxb")
-theme_override_styles/focus = SubResource("StyleBoxEmpty_aak0v")
-text = "My very good question"
-fit_content = true
-scroll_active = false

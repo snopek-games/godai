@@ -52,8 +52,6 @@ Backlog
 - Addon: Use LLM to automatically set titles for sessions
 - Addon: Record errors are part of chat session? (but don't send them to the AI)
 - Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
-- Addon: Convert markdown to bbcode?
-  - See https://github.com/daenvil/MarkdownLabel
 - Tool: Get Godot version and executeable path
 - Tool: Get class documentation
   - Depends on https://github.com/godotengine/godot/pull/112628
