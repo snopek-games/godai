@@ -8,6 +8,7 @@ const Fixture = preload("res://tests/gut/fixtures/models_dev_fixture.gd")
 
 const ANTHROPIC := Profiles.PROFILES.anthropic
 const OPENAI := Profiles.PROFILES.openai
+const OLLAMA := Profiles.PROFILES.ollama
 
 var _no_tools := {auto_approve = false, allowed = PackedStringArray(), denied = PackedStringArray()}
 var _default_mcp := {base_port = 12120, port_count = 10}
@@ -80,8 +81,15 @@ func _custom_fields_visible() -> bool:
 func test_profiles_find() -> void:
 	assert_eq(Profiles.find(ANTHROPIC.provider, ANTHROPIC.url), "anthropic")
 	assert_eq(Profiles.find(OPENAI.provider, OPENAI.url.trim_suffix("/")), "openai", "a trailing slash doesn't matter")
-	assert_eq(Profiles.find("openai_chat_completions", "http://localhost:11434/v1/"), Profiles.CUSTOM)
+	assert_eq(Profiles.find("openai_chat_completions", "http://proxy.local/v1/"), Profiles.CUSTOM)
 	assert_false(Profiles.matches("nope", ANTHROPIC.provider, ANTHROPIC.url))
+
+
+func test_profiles_without_a_catalog_are_left_out_of_models_dev_ids() -> void:
+	assert_eq(Profiles.models_dev_ids(), PackedStringArray(["anthropic", "openai", "google"]))
+	assert_false(Profiles.has_catalog("ollama"))
+	assert_false(Profiles.has_catalog(Profiles.CUSTOM))
+	assert_true(Profiles.has_catalog("anthropic"))
 
 
 func test_lists_every_profile_plus_custom() -> void:
@@ -105,13 +113,13 @@ func test_setup_with_a_profile_hides_the_custom_fields() -> void:
 
 
 func test_setup_with_custom_shows_the_fields() -> void:
-	_dialog.setup({api = {provider = "openai_chat_completions", url = "http://localhost:11434/v1/", key = "", model = "llama3"}})
+	_dialog.setup({api = {provider = "openai_chat_completions", url = "http://proxy.local/v1/", key = "", model = "llama3"}})
 
 	assert_eq(_dialog.get_profile(), Profiles.CUSTOM)
 	assert_true(_custom_fields_visible())
 	assert_eq(_dialog.provider_select.get_selected_metadata(), "openai_chat_completions")
-	assert_eq(_dialog.url_field.text, "http://localhost:11434/v1/")
-	assert_eq(_dialog.get_values(), {api = {provider = "openai_chat_completions", url = "http://localhost:11434/v1/", key = "", model = "llama3"}.merged(_default_reasoning), mcp = _default_mcp, tools = _no_tools})
+	assert_eq(_dialog.url_field.text, "http://proxy.local/v1/")
+	assert_eq(_dialog.get_values(), {api = {provider = "openai_chat_completions", url = "http://proxy.local/v1/", key = "", model = "llama3"}.merged(_default_reasoning), mcp = _default_mcp, tools = _no_tools})
 
 
 func test_setup_shows_custom_for_an_unrecognized_url() -> void:
@@ -219,7 +227,7 @@ func test_a_stored_model_missing_from_the_catalog_is_appended() -> void:
 
 
 func test_custom_profile_uses_the_model_text_field() -> void:
-	_dialog.setup({api = {provider = "openai_chat_completions", url = "http://localhost:11434/v1/", model = "llama3"}})
+	_dialog.setup({api = {provider = "openai_chat_completions", url = "http://proxy.local/v1/", model = "llama3"}})
 
 	assert_true(_dialog.model_field.visible)
 	assert_false(_dialog.model_select.visible)
@@ -230,6 +238,63 @@ func test_custom_profile_uses_the_model_text_field() -> void:
 	_dialog.model_field.text_changed.emit("llama4")
 
 	assert_eq(_api_values().model, "llama4")
+
+
+func test_profile_without_a_catalog_uses_the_model_text_field() -> void:
+	_dialog.setup({api = {provider = OLLAMA.provider, url = OLLAMA.url, model = "llama3"}})
+
+	assert_eq(_dialog.get_profile(), "ollama")
+	assert_false(_custom_fields_visible())
+	assert_true(_dialog.model_field.visible)
+	assert_false(_dialog.model_select.visible)
+	assert_false(_dialog.refresh_models_button.visible)
+	assert_eq(_dialog.model_field.text, "llama3")
+	assert_eq(_select_metadata(_dialog.effort_select), [""] + Array(SettingsDialog.GENERIC_EFFORT_VALUES))
+
+	_dialog.model_field.text = "llama4"
+	_dialog.model_field.text_changed.emit("llama4")
+
+	assert_eq(_api_values(), {provider = OLLAMA.provider, url = OLLAMA.url, key = Profiles.FAKE_API_KEY, model = "llama4"}.merged(_default_reasoning))
+
+
+func test_profile_with_a_fake_api_key_hides_the_key_field_and_saves_the_fake() -> void:
+	_dialog.setup({api = {provider = OLLAMA.provider, url = OLLAMA.url, key = Profiles.FAKE_API_KEY, model = "llama3"}})
+
+	assert_false(_dialog.key_field.visible)
+	assert_false(_dialog.key_label.visible)
+	assert_eq(_dialog.key_field.text, "", "the fake key never lands in the field")
+	assert_eq(_api_values().key, Profiles.FAKE_API_KEY)
+
+	_select_profile("anthropic")
+	assert_true(_dialog.key_field.visible)
+	assert_true(_dialog.key_label.visible)
+	assert_eq(_api_values().key, "")
+
+
+func test_a_real_api_key_survives_a_detour_through_a_fake_key_profile() -> void:
+	_dialog.setup({api = {provider = ANTHROPIC.provider, url = ANTHROPIC.url, key = "sk-1", model = ANTHROPIC.model}})
+
+	_select_profile("ollama")
+	assert_false(_dialog.key_field.visible)
+	assert_eq(_api_values().key, Profiles.FAKE_API_KEY)
+
+	_select_profile("anthropic")
+	assert_true(_dialog.key_field.visible)
+	assert_eq(_dialog.key_field.text, "sk-1")
+	assert_eq(_api_values().key, "sk-1")
+
+
+func test_switching_to_a_profile_without_a_catalog_keeps_the_typed_model() -> void:
+	_dialog.setup({api = {provider = "openai_chat_completions", url = "http://proxy/", key = "", model = "llama3"}})
+
+	_select_profile("ollama")
+
+	assert_eq(_api_values().model, "llama3")
+	assert_eq(_dialog.model_field.text, "llama3")
+
+	_select_profile("anthropic")
+	assert_eq(_api_values().model, ANTHROPIC.model)
+	assert_true(_dialog.model_select.visible)
 
 
 func test_effort_options_follow_the_model() -> void:

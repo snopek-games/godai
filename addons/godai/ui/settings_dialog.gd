@@ -18,6 +18,7 @@ const GENERIC_EFFORT_VALUES: PackedStringArray = ["none", "minimal", "low", "med
 @onready var provider_select: OptionButton = %ProviderSelect
 @onready var url_label: Label = %URLLabel
 @onready var url_field: LineEdit = %URLField
+@onready var key_label: Label = %KeyLabel
 @onready var key_field: LineEdit = %KeyField
 @onready var model_select: OptionButton = %ModelSelect
 @onready var model_field: LineEdit = %ModelField
@@ -121,7 +122,7 @@ func _setup_api(p_values: Dictionary) -> void:
 
 	_select_by_metadata(provider_select, provider)
 	url_field.text = url
-	key_field.text = p_values.get("key", "")
+	key_field.text = "" if Profiles.uses_fake_api_key(profile) else p_values.get("key", "")
 	_model_id = str(p_values.get("model", ""))
 	thinking_check.button_pressed = p_values.get("thinking", true)
 	budget_field.value = p_values.get("budget_tokens", 0)
@@ -171,6 +172,8 @@ func _get_api_values() -> Dictionary:
 	if profile != Profiles.CUSTOM:
 		values.provider = String(Profiles.PROFILES[profile].provider)
 		values.url = String(Profiles.PROFILES[profile].url)
+	if Profiles.uses_fake_api_key(profile):
+		values.key = Profiles.FAKE_API_KEY
 	return values
 
 
@@ -181,7 +184,7 @@ func get_profile() -> String:
 func _on_profile_select_item_selected(_p_index: int) -> void:
 	var profile := get_profile()
 	if profile != Profiles.CUSTOM:
-		if _current_model_info() == null:
+		if Profiles.has_catalog(profile) and _current_model_info() == null:
 			_model_id = Profiles.PROFILES[profile].model
 		_select_by_metadata(provider_select, Profiles.PROFILES[profile].provider)
 		url_field.text = Profiles.PROFILES[profile].url
@@ -195,15 +198,18 @@ func _update_profile_fields() -> void:
 	provider_select.visible = custom
 	url_label.visible = custom
 	url_field.visible = custom
+	var needs_key := not Profiles.uses_fake_api_key(get_profile())
+	key_label.visible = needs_key
+	key_field.visible = needs_key
 
 
 func _update_model_controls(p_effort: String) -> void:
-	var custom := get_profile() == Profiles.CUSTOM
-	model_field.visible = custom
-	model_select.visible = not custom
-	refresh_models_button.visible = not custom
+	var freeform := not Profiles.has_catalog(get_profile())
+	model_field.visible = freeform
+	model_select.visible = not freeform
+	refresh_models_button.visible = not freeform
 
-	if custom:
+	if freeform:
 		model_field.text = _model_id
 	else:
 		model_select.clear()
@@ -221,13 +227,13 @@ func _update_model_controls(p_effort: String) -> void:
 
 
 func _profile_models() -> Array[ModelInfo]:
-	if not catalog:
+	if not catalog or not Profiles.has_catalog(get_profile()):
 		return []
 	return catalog.get_models(Profiles.models_dev_id(get_profile()))
 
 
 func _current_model_info() -> ModelInfo:
-	if not catalog or get_profile() == Profiles.CUSTOM:
+	if not catalog or not Profiles.has_catalog(get_profile()):
 		return null
 	return catalog.get_model(Profiles.models_dev_id(get_profile()), _model_id)
 

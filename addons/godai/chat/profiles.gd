@@ -28,18 +28,36 @@ const PROFILES := {
 		url = "https://generativelanguage.googleapis.com/v1beta/openai/",
 		model = "gemini-2.5-pro",
 	},
+	ollama = {
+		name = "Ollama (Local)",
+		provider = "openai_chat_completions",
+		url = "http://localhost:11434/v1/",
+		model = "",
+		use_fake_api_key = true,
+	},
 }
 
+const FAKE_API_KEY := "fake"
 
-## The models.dev provider id behind a profile, or "" for CUSTOM.
+
+## The models.dev provider id behind a profile, or "" when it has no catalog (or is CUSTOM).
 static func models_dev_id(p_profile: String) -> String:
 	return str(PROFILES.get(p_profile, {}).get("models_dev", ""))
 
 
+static func has_catalog(p_profile: String) -> bool:
+	return not models_dev_id(p_profile).is_empty()
+
+
+static func uses_fake_api_key(p_profile: String) -> bool:
+	return bool(PROFILES.get(p_profile, {}).get("use_fake_api_key", false))
+
+
 static func models_dev_ids() -> PackedStringArray:
 	var ids := PackedStringArray()
-	for profile in PROFILES.values():
-		ids.push_back(profile.models_dev)
+	for id in PROFILES:
+		if has_catalog(id):
+			ids.push_back(models_dev_id(id))
 	return ids
 
 
