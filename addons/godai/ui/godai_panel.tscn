@@ -30,7 +30,7 @@ visible = false
 layout_mode = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="SidebarContainer" unique_id=2073045544]
-custom_minimum_size = Vector2(250, 0)
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 
 [node name="Label" type="Label" parent="SidebarContainer/VBoxContainer" unique_id=379197275]

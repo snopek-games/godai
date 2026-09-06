@@ -3,10 +3,10 @@
 [ext_resource type="Script" uid="uid://bgp3n5yk3asph" path="res://addons/godai/ui/user_chat.gd" id="1_ruxvb"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_etgcp"]
-content_margin_left = 5.0
-content_margin_top = 0.0
-content_margin_right = 5.0
-content_margin_bottom = 0.0
+content_margin_left = 10.0
+content_margin_top = 5.0
+content_margin_right = 10.0
+content_margin_bottom = 5.0
 bg_color = Color(0.38549262, 0.38549244, 0.38549247, 1)
 corner_radius_top_left = 10
 corner_radius_top_right = 10
@@ -14,17 +14,24 @@ corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 corner_detail = 5
 
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_rulxb"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_aak0v"]
+
 [node name="UserChat" type="PanelContainer" unique_id=1017708745]
-offset_right = 40.0
-offset_bottom = 40.0
+offset_right = 210.0
+offset_bottom = 29.0
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_etgcp")
 script = ExtResource("1_ruxvb")
 
-[node name="Label" type="Label" parent="." unique_id=1226333232]
+[node name="Label" type="RichTextLabel" parent="." unique_id=720140511]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(400, 0)
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_rulxb")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_aak0v")
 text = "My very good question"
-autowrap_mode = 3
+fit_content = true
+scroll_active = false

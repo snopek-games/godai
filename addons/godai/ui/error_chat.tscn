@@ -3,10 +3,10 @@
 [ext_resource type="Script" uid="uid://dpn0pirr3g1st" path="res://addons/godai/ui/error_chat.gd" id="1_eft2t"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_7adk3"]
-content_margin_left = 5.0
-content_margin_top = 0.0
-content_margin_right = 5.0
-content_margin_bottom = 0.0
+content_margin_left = 10.0
+content_margin_top = 5.0
+content_margin_right = 10.0
+content_margin_bottom = 5.0
 bg_color = Color(0.87, 0.2784, 0.2784, 1)
 corner_radius_top_left = 10
 corner_radius_top_right = 10
@@ -14,15 +14,23 @@ corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 corner_detail = 5
 
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_bb3q2"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_vubhu"]
+
 [node name="ErrorChat" type="PanelContainer" unique_id=1736290715]
 offset_right = 40.0
 offset_bottom = 40.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_7adk3")
 script = ExtResource("1_eft2t")
 
-[node name="Label" type="Label" parent="." unique_id=1568304100]
+[node name="Label" type="RichTextLabel" parent="." unique_id=1549494505]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(400, 0)
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
+theme_override_colors/default_color = Color(1, 1, 1, 1)
+theme_override_styles/normal = SubResource("StyleBoxEmpty_bb3q2")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_vubhu")
 text = "Error"
-autowrap_mode = 3
+fit_content = true
+scroll_active = false

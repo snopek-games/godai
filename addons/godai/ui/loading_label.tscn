@@ -1,13 +1,42 @@
-[gd_scene load_steps=2 format=3 uid="uid://dqpb2cxw458dk"]
+[gd_scene format=3 uid="uid://dqpb2cxw458dk"]
 
-[ext_resource type="Script" uid="uid://ddmv2quairrq2" path="res://addons/godai/ui/loading_label.gd" id="1_q10gx"]
+[ext_resource type="Script" uid="uid://ddmv2quairrq2" path="res://addons/godai/ui/loading_label.gd" id="1_e57rj"]
+[ext_resource type="SpriteFrames" uid="uid://d4f7f44jfitmi" path="res://addons/godai/ui/icons/godai-spritesheet-frames.tres" id="2_e57rj"]
 
-[node name="LoadingLabel" type="Label"]
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_otiot"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_u716c"]
+
+[node name="LoadingLabel" type="HBoxContainer" unique_id=657807927]
 modulate = Color(1, 1, 1, 0.5019608)
-text = "Thinking..."
-script = ExtResource("1_q10gx")
+offset_right = 116.0
+offset_bottom = 32.0
+theme_override_constants/separation = 2
+script = ExtResource("1_e57rj")
 
-[node name="Timer" type="Timer" parent="."]
+[node name="Control" type="Control" parent="." unique_id=1015306849]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Control" unique_id=1184674639]
+unique_name_in_owner = true
+scale = Vector2(0.5, 0.5)
+sprite_frames = ExtResource("2_e57rj")
+frame_progress = 0.34700695
+centered = false
+
+[node name="Label" type="Label" parent="." unique_id=1727098456]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 1
+theme_override_styles/normal = SubResource("StyleBoxEmpty_otiot")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_u716c")
+text = "Thinking..."
+vertical_alignment = 1
+
+[node name="Timer" type="Timer" parent="." unique_id=342137158]
+unique_name_in_owner = true
 wait_time = 0.4
 
 [connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]

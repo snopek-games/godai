@@ -5,10 +5,10 @@ signal settings_requested
 signal go_online_requested
 
 @onready var fix_section: Control = %FixSection
-@onready var fix_label: Label = %FixLabel
+@onready var fix_label: RichTextLabel = %FixLabel
 @onready var settings_button: Button = %SettingsButton
 @onready var go_online_button: Button = %GoOnlineButton
-@onready var get_started_label: Label = %GetStartedLabel
+@onready var get_started_label: RichTextLabel = %GetStartedLabel
 
 
 func _ready() -> void:

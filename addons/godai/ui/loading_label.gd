@@ -1,7 +1,11 @@
 @tool
-extends Label
+extends Control
 
 const MAX_DOTS = 3
+
+@onready var label: Label = %Label
+@onready var timer: Timer = %Timer
+@onready var sprite: AnimatedSprite2D = %AnimatedSprite2D
 
 var base_text := "Thinking":
 	set(p_value):
@@ -12,15 +16,21 @@ var dots := MAX_DOTS
 
 
 func _ready() -> void:
-	visibility_changed.connect(_update_timer)
-	_update_timer()
+	_update_animation()
 
 
-func _update_timer() -> void:
+func _notification(p_what: int) -> void:
+	if p_what == NOTIFICATION_VISIBILITY_CHANGED and is_node_ready():
+		_update_animation()
+
+
+func _update_animation() -> void:
 	if is_visible_in_tree() and not is_part_of_edited_scene():
-		$Timer.start()
+		timer.start()
+		sprite.play(&"default")
 	else:
-		$Timer.stop()
+		timer.stop()
+		sprite.pause()
 
 
 func _on_timer_timeout() -> void:
@@ -32,4 +42,4 @@ func _on_timer_timeout() -> void:
 
 
 func _update_text() -> void:
-	text = base_text + ".".repeat(dots)
+	label.text = base_text + ".".repeat(dots)

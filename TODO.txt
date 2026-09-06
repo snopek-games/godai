@@ -4,17 +4,16 @@ TODO
 0.5: Finish critical addon stuff
 --------------------------------
 
+- Addon: Display parameters in tool use dialog in friendlier way (not JSON)
+- Addon: Add system prompt
+- Addon: Add to Godot asset store
+
+0.6: Evaluate, benchmark and improve effectiveness
+--------------------------------------------------
+
 - Addon: Add in game tools
   - Sending input
   - Taking a screenshot
-- Addon: Allow docking in the sidebar areas
-- Addon: Record errors are part of chat session? (but don't send them to the AI)
-- Addon: Display parameters in tool use dialog in friendlier way (not JSON)
-- Addon: Show some of our branding in editor
-  - Icon on dock tab?
-  - Icon in `LoadingLabel`?
-- Addon: Add system prompt
-- Addon: Add to Godot asset store
 
 Backlog
 -------
@@ -51,6 +50,7 @@ Backlog
   - Allow manually renaming sessions
   - Allow manually deleting sessions
 - Addon: Use LLM to automatically set titles for sessions
+- Addon: Record errors are part of chat session? (but don't send them to the AI)
 - Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
 - Addon: Convert markdown to bbcode?
   - See https://github.com/daenvil/MarkdownLabel

@@ -9,8 +9,8 @@ const GodaiPanelScene = preload("res://addons/godai/ui/godai_panel.tscn")
 const GodaiPanel = preload("res://addons/godai/ui/godai_panel.gd")
 
 var debugger_plugin: GodaiDebuggerPlugin
+var dock: EditorDock
 var panel: GodaiPanel
-var panel_button: Button
 var shortcut := Shortcut.new()
 
 
@@ -38,8 +38,16 @@ func _enter_tree() -> void:
 	key_event.command_or_control_autoremap = true
 	shortcut.events = [key_event]
 
-	panel_button = add_control_to_bottom_panel(panel, "Godai", shortcut)
-	panel_button.pressed.connect(panel.show_panel)
+	dock = EditorDock.new()
+	dock.title = "Godai"
+	dock.dock_icon = preload("res://addons/godai/ui/icons/godai.svg")
+	dock.force_show_icon = true
+	dock.default_slot = EditorDock.DOCK_SLOT_BOTTOM
+	dock.available_layouts = EditorDock.DOCK_LAYOUT_ALL
+	dock.dock_shortcut = shortcut
+	dock.add_child(panel)
+	add_dock(dock)
+	dock.visibility_changed.connect(_on_dock_visibility_changed)
 
 
 func _exit_tree() -> void:
@@ -49,8 +57,13 @@ func _exit_tree() -> void:
 		remove_debugger_plugin(debugger_plugin)
 		debugger_plugin = null
 
-	if panel:
-		remove_control_from_bottom_panel(panel)
-
-		panel.queue_free()
+	if dock:
+		remove_dock(dock)
+		dock.queue_free()
+		dock = null
 		panel = null
+
+
+func _on_dock_visibility_changed() -> void:
+	if dock.is_visible_in_tree():
+		panel.show_panel()

@@ -5,6 +5,7 @@
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_o4iq4"]
 
 [node name="AssistantChat" type="RichTextLabel" unique_id=281525504]
+custom_minimum_size = Vector2(200, 0)
 anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 23.0
