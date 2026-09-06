@@ -51,6 +51,15 @@ func test_build_request_payload() -> void:
 	})
 
 
+func test_build_request_sends_the_system_prompt_as_the_first_message() -> void:
+	chat.system = "Be helpful."
+
+	assert_eq(provider.build_request(chat, options).payload["messages"], [
+		{role = "system", content = "Be helpful."},
+		{role = "user", content = "Hello"},
+	])
+
+
 func test_build_request_converts_the_conversation() -> void:
 	chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, [
 		Chat.ThinkingContent.new("hmm", "sig"),

@@ -5,7 +5,22 @@ TODO
 --------------------------------
 
 - Addon: Display parameters in tool use dialog in friendlier way (not JSON)
-- Addon: Add system prompt
+- Addon: Markdown rendering as all `1.`'s
+  ```
+  1. **API** – Configuration for the AI provider/model:
+    - Profile & Provider selectors
+    - URL and API Key fields
+    - Model selection (dropdown or manual field) + refresh button
+    - Reasoning effort selector, "thinking" checkbox + budget field
+    - System prompt customization (checkbox + text editor)
+
+  2. **MCP** – Server connection settings:
+    - Base port and port count fields
+
+  3. **Tools** – Tool permission settings:
+    - "Auto-approve" checkbox
+    - Two trees listing **Allowed** and **Denied** tools
+  ```
 - Addon: Add to Godot asset store
 
 0.6: Evaluate, benchmark and improve effectiveness

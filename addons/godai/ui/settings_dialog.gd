@@ -2,6 +2,7 @@
 extends AcceptDialog
 
 const ChatClient = preload("res://addons/godai/chat/client.gd")
+const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
 const Profiles = preload("res://addons/godai/chat/profiles.gd")
 const ModelCatalog = preload("res://addons/godai/chat/model_catalog.gd")
 const ModelInfo = preload("res://addons/godai/chat/model_info.gd")
@@ -29,6 +30,8 @@ const GENERIC_EFFORT_VALUES: PackedStringArray = ["none", "minimal", "low", "med
 @onready var thinking_check: CheckBox = %ThinkingCheck
 @onready var budget_label: Label = %BudgetLabel
 @onready var budget_field: SpinBox = %BudgetField
+@onready var customize_system_prompt_check: CheckBox = %CustomizeSystemPromptCheck
+@onready var system_prompt_field: TextEdit = %SystemPromptField
 @onready var base_port_field: SpinBox = %BasePortField
 @onready var port_count_field: SpinBox = %PortCountField
 @onready var auto_approve_check: CheckBox = %AutoApproveCheck
@@ -79,6 +82,7 @@ func _ready() -> void:
 	model_select.item_selected.connect(_on_model_select_item_selected)
 	model_field.text_changed.connect(_on_model_field_text_changed)
 	refresh_models_button.pressed.connect(_on_refresh_models_button_pressed)
+	customize_system_prompt_check.toggled.connect(_on_customize_system_prompt_check_toggled)
 	_update_refresh_button()
 
 	allowed_tree.button_clicked.connect(_on_tool_list_button_clicked)
@@ -126,6 +130,9 @@ func _setup_api(p_values: Dictionary) -> void:
 	_model_id = str(p_values.get("model", ""))
 	thinking_check.button_pressed = p_values.get("thinking", true)
 	budget_field.value = p_values.get("budget_tokens", 0)
+	system_prompt_field.text = p_values.get("system_prompt", GodaiEditorSettings.API_SYSTEM_PROMPT_DEFAULT)
+	customize_system_prompt_check.button_pressed = system_prompt_field.text != GodaiEditorSettings.API_SYSTEM_PROMPT_DEFAULT
+	_update_system_prompt_field()
 
 	_select_by_metadata(profile_select, profile)
 	_update_profile_fields()
@@ -168,6 +175,7 @@ func _get_api_values() -> Dictionary:
 		effort = _selected_metadata(effort_select),
 		thinking = thinking_check.button_pressed,
 		budget_tokens = int(budget_field.value),
+		system_prompt = system_prompt_field.text,
 	}
 	if profile != Profiles.CUSTOM:
 		values.provider = String(Profiles.PROFILES[profile].provider)
@@ -275,6 +283,16 @@ func _update_reasoning_controls(p_effort: String) -> void:
 	var show_budget := "budget_tokens" in supported and (info == null or info.supports_budget_tokens())
 	budget_label.visible = show_budget
 	budget_field.visible = show_budget
+
+
+func _on_customize_system_prompt_check_toggled(p_pressed: bool) -> void:
+	if not p_pressed:
+		system_prompt_field.text = GodaiEditorSettings.API_SYSTEM_PROMPT_DEFAULT
+	_update_system_prompt_field()
+
+
+func _update_system_prompt_field() -> void:
+	system_prompt_field.visible = customize_system_prompt_check.button_pressed
 
 
 func _on_provider_select_item_selected(_p_index: int) -> void:

@@ -13,6 +13,7 @@ const API_MODEL_SETTING = "godai/api/model"
 const API_EFFORT_SETTING = "godai/api/effort"
 const API_THINKING_SETTING = "godai/api/thinking"
 const API_BUDGET_TOKENS_SETTING = "godai/api/budget_tokens"
+const API_SYSTEM_PROMPT_SETTING = "godai/api/system_prompt"
 
 ## Keys of the "api" Dictionary the settings dialog edits, and the settings they map to.
 const API_SETTINGS := {
@@ -23,6 +24,7 @@ const API_SETTINGS := {
 	effort = API_EFFORT_SETTING,
 	thinking = API_THINKING_SETTING,
 	budget_tokens = API_BUDGET_TOKENS_SETTING,
+	system_prompt = API_SYSTEM_PROMPT_SETTING,
 }
 
 const LEGACY_API_SETTINGS := {
@@ -50,6 +52,7 @@ const API_MODEL_DEFAULT = Profiles.PROFILES[Profiles.DEFAULT].model
 const API_EFFORT_DEFAULT = ""
 const API_THINKING_DEFAULT = true
 const API_BUDGET_TOKENS_DEFAULT = 0
+const API_SYSTEM_PROMPT_DEFAULT = "You are Godai, an AI assistant running inside the Godot editor. Use the available tools to inspect and change the open project on the user's behalf. Be concise."
 const MCP_TRANSPORT_DEFAULT = 0
 const MCP_BASE_PORT_DEFAULT = 12120
 const MCP_PORT_COUNT_DEFAULT = 10
@@ -64,6 +67,7 @@ const API_MODEL_ENV = "GODAI_API_MODEL"
 const API_EFFORT_ENV = "GODAI_API_EFFORT"
 const API_THINKING_ENV = "GODAI_API_THINKING"
 const API_BUDGET_TOKENS_ENV = "GODAI_API_BUDGET_TOKENS"
+const API_SYSTEM_PROMPT_ENV = "GODAI_API_SYSTEM_PROMPT"
 const MCP_TRANSPORT_ENV = "GODAI_MCP_TRANSPORT"
 const MCP_BASE_PORT_ENV = "GODAI_MCP_BASE_PORT"
 const MCP_PORT_COUNT_ENV = "GODAI_MCP_PORT_COUNT"
@@ -125,6 +129,7 @@ static func add_editor_settings() -> void:
 	_add_editor_setting(API_EFFORT_SETTING, TYPE_STRING, API_EFFORT_DEFAULT)
 	_add_editor_setting(API_THINKING_SETTING, TYPE_BOOL, API_THINKING_DEFAULT)
 	_add_editor_setting(API_BUDGET_TOKENS_SETTING, TYPE_INT, API_BUDGET_TOKENS_DEFAULT)
+	_add_editor_setting(API_SYSTEM_PROMPT_SETTING, TYPE_STRING, API_SYSTEM_PROMPT_DEFAULT, PROPERTY_HINT_MULTILINE_TEXT)
 
 	_add_editor_setting(MCP_TRANSPORT_SETTING, TYPE_INT, MCP_TRANSPORT_DEFAULT, PROPERTY_HINT_ENUM, "WebSocket,HTTP")
 	_add_editor_setting(MCP_BASE_PORT_SETTING, TYPE_INT, MCP_BASE_PORT_DEFAULT)
@@ -171,6 +176,15 @@ static func get_api_thinking() -> bool:
 
 static func get_api_budget_tokens() -> int:
 	return _get_int_env_or_setting(API_BUDGET_TOKENS_ENV, API_BUDGET_TOKENS_SETTING)
+
+
+static func get_api_system_prompt() -> String:
+	if OS.has_environment(API_SYSTEM_PROMPT_ENV):
+		return OS.get_environment(API_SYSTEM_PROMPT_ENV)
+	var settings := _editor_settings()
+	if not settings:
+		return API_SYSTEM_PROMPT_DEFAULT
+	return settings.get_setting(API_SYSTEM_PROMPT_SETTING)
 
 
 static func get_dialog_settings() -> Dictionary:

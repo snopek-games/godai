@@ -49,6 +49,14 @@ func test_build_request_payload() -> void:
 	})
 
 
+func test_build_request_sends_the_system_prompt() -> void:
+	assert_false(provider.build_request(chat, options).payload.has("system"))
+
+	chat.system = "Be helpful."
+
+	assert_eq(provider.build_request(chat, options).payload["system"], "Be helpful.")
+
+
 func test_build_request_maps_every_content_type() -> void:
 	chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, [
 		Chat.ThinkingContent.new("", "sig"),

@@ -54,6 +54,11 @@ func test_chat_id_to_label() -> void:
 	assert_eq(ChatSessionStore.chat_id_to_label("not-a-timestamp"), "not-a-timestamp")
 
 
+func test_create_session_takes_a_system_prompt() -> void:
+	assert_eq(_store.create_session().chat.system, "")
+	assert_eq(_store.create_session(ChatSessionStore.ClientKind.EDITOR, "Be helpful.").chat.system, "Be helpful.")
+
+
 func test_create_session_kinds() -> void:
 	assert_false(_store.create_session().is_external())
 
@@ -96,7 +101,7 @@ func test_message_added_saves_after_a_delayed_flush() -> void:
 
 
 func test_save_load_roundtrip() -> void:
-	var session = _store.create_session()
+	var session = _store.create_session(ChatSessionStore.ClientKind.EDITOR, "Be helpful.")
 	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
 	session.chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, "hi there"))
 	_store.flush()
@@ -105,8 +110,17 @@ func test_save_load_roundtrip() -> void:
 	var loaded = other_store.load_session(session.id)
 
 	assert_not_null(loaded)
+	assert_eq(loaded.chat.system, "Be helpful.")
 	assert_eq(loaded.chat.messages.size(), 2)
 	assert_eq(loaded.chat.messages[0].content[0].text, "hello")
+
+
+func test_load_session_keeps_the_system_prompt_it_was_created_with() -> void:
+	_write_session_file("2026-08-30T14-30-00-123", [], {version = ChatSessionStore.FORMAT_VERSION, system = "old prompt"})
+	_write_session_file("2026-08-30T14-30-00-124")
+
+	assert_eq(_store.load_session("2026-08-30T14-30-00-123").chat.system, "old prompt")
+	assert_eq(_store.load_session("2026-08-30T14-30-00-124").chat.system, "")
 
 
 func test_load_session_returns_the_live_object() -> void:
@@ -146,6 +160,15 @@ func test_new_session_file_starts_with_a_version_header() -> void:
 	assert_eq(lines.size(), 2)
 	assert_eq(JSON.parse_string(lines[0]), {version = float(ChatSessionStore.FORMAT_VERSION)})
 	assert_string_contains(lines[1], "hello")
+
+
+func test_new_session_file_header_carries_the_system_prompt() -> void:
+	var session = _store.create_session(ChatSessionStore.ClientKind.EDITOR, "Be helpful.")
+	session.chat.add_message(Chat.Message.new(Chat.Role.USER, "hello"))
+	_store.flush()
+
+	var lines := FileAccess.get_file_as_string(_store.session_file_path(session.id)).strip_edges().split("\n")
+	assert_eq(JSON.parse_string(lines[0]), {version = float(ChatSessionStore.FORMAT_VERSION), system = "Be helpful."})
 
 
 func test_load_session_repairs_a_dangling_tool_use() -> void:

@@ -29,6 +29,8 @@ func build_request(p_chat: Chat, p_options: RequestOptions) -> WebRequest:
 		max_tokens = p_options.max_tokens,
 		messages = p_chat.messages.map(_message_to_dict),
 	}
+	if not p_chat.system.is_empty():
+		payload['system'] = p_chat.system
 
 	var info := p_options.model_info
 	if not p_options.thinking and (info == null or info.thinking_toggle):

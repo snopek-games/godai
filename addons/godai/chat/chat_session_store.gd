@@ -49,14 +49,18 @@ func _notification(p_what: int) -> void:
 		_write_sessions(_base_path, _dirty)
 
 
-func create_session(p_client_kind := ClientKind.EDITOR) -> ChatSession:
+func create_session(p_client_kind := ClientKind.EDITOR, p_system := "") -> ChatSession:
 	var id := generate_chat_id()
 	match p_client_kind:
 		ClientKind.CLI:
 			id += CLI_CHAT_ID_SUFFIX
 		ClientKind.MCP:
 			id += MCP_CHAT_ID_SUFFIX
-	var session := ChatSession.new(id, Chat.new(), p_client_kind)
+
+	var chat := Chat.new()
+	chat.system = p_system
+	var session := ChatSession.new(id, chat, p_client_kind)
+
 	_register(session)
 	return session
 
@@ -101,6 +105,7 @@ static func _parse_session(p_file: FileAccess) -> Chat:
 			if int(data.get("version", 0)) != FORMAT_VERSION:
 				push_error("Unsupported chat session format: %s" % line)
 				return null
+			chat.system = str(data.get("system", ""))
 			continue
 		var msg := Chat.Message.from_dict(data)
 		if not msg:
@@ -188,12 +193,19 @@ static func _write_sessions(p_base_path: String, p_dirty: Dictionary) -> void:
 		else:
 			f = FileAccess.open(path, FileAccess.WRITE)
 			if f:
-				f.store_line(JSON.stringify({version = FORMAT_VERSION}))
+				f.store_line(JSON.stringify(_header(session.chat)))
 		if not f:
 			continue
 		for i in range(session.persisted_message_count, session.chat.messages.size()):
 			f.store_line(JSON.stringify(session.chat.messages[i].to_dict()))
 		session.persisted_message_count = session.chat.messages.size()
+
+
+static func _header(p_chat: Chat) -> Dictionary:
+	var header := {version = FORMAT_VERSION}
+	if not p_chat.system.is_empty():
+		header['system'] = p_chat.system
+	return header
 
 
 static func generate_chat_id() -> String:

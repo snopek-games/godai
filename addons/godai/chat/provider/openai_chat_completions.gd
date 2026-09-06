@@ -26,6 +26,8 @@ static func get_reasoning_options() -> PackedStringArray:
 
 func build_request(p_chat: Chat, p_options: RequestOptions) -> WebRequest:
 	var messages := []
+	if not p_chat.system.is_empty():
+		messages.push_back({role = "system", content = p_chat.system})
 	for msg in p_chat.messages:
 		messages.append_array(_message_to_dicts(msg))
 

@@ -4,6 +4,7 @@ const SettingsDialogScene = preload("res://addons/godai/ui/settings_dialog.tscn"
 const SettingsDialog = preload("res://addons/godai/ui/settings_dialog.gd")
 const Profiles = preload("res://addons/godai/chat/profiles.gd")
 const ModelCatalog = preload("res://addons/godai/chat/model_catalog.gd")
+const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
 const Fixture = preload("res://tests/gut/fixtures/models_dev_fixture.gd")
 
 const ANTHROPIC := Profiles.PROFILES.anthropic
@@ -13,6 +14,7 @@ const OLLAMA := Profiles.PROFILES.ollama
 var _no_tools := {auto_approve = false, allowed = PackedStringArray(), denied = PackedStringArray()}
 var _default_mcp := {base_port = 12120, port_count = 10}
 var _default_reasoning := {effort = "", thinking = true, budget_tokens = 0}
+var _default_system_prompt := {system_prompt = GodaiEditorSettings.API_SYSTEM_PROMPT_DEFAULT}
 var _catalog: ModelCatalog
 
 
@@ -109,7 +111,7 @@ func test_setup_with_a_profile_hides_the_custom_fields() -> void:
 	assert_false(_custom_fields_visible())
 	assert_eq(_dialog.key_field.text, "sk-1")
 	assert_eq(_api_values().model, "claude-x")
-	assert_eq(_dialog.get_values(), {api = {provider = ANTHROPIC.provider, url = ANTHROPIC.url, key = "sk-1", model = "claude-x"}.merged(_default_reasoning), mcp = _default_mcp, tools = _no_tools})
+	assert_eq(_dialog.get_values(), {api = {provider = ANTHROPIC.provider, url = ANTHROPIC.url, key = "sk-1", model = "claude-x"}.merged(_default_reasoning).merged(_default_system_prompt), mcp = _default_mcp, tools = _no_tools})
 
 
 func test_setup_with_custom_shows_the_fields() -> void:
@@ -119,7 +121,7 @@ func test_setup_with_custom_shows_the_fields() -> void:
 	assert_true(_custom_fields_visible())
 	assert_eq(_dialog.provider_select.get_selected_metadata(), "openai_chat_completions")
 	assert_eq(_dialog.url_field.text, "http://proxy.local/v1/")
-	assert_eq(_dialog.get_values(), {api = {provider = "openai_chat_completions", url = "http://proxy.local/v1/", key = "", model = "llama3"}.merged(_default_reasoning), mcp = _default_mcp, tools = _no_tools})
+	assert_eq(_dialog.get_values(), {api = {provider = "openai_chat_completions", url = "http://proxy.local/v1/", key = "", model = "llama3"}.merged(_default_reasoning).merged(_default_system_prompt), mcp = _default_mcp, tools = _no_tools})
 
 
 func test_setup_shows_custom_for_an_unrecognized_url() -> void:
@@ -149,7 +151,7 @@ func test_switching_profile_updates_provider_url_and_default_model() -> void:
 	_select_profile("openai")
 
 	assert_eq(_api_values().model, OPENAI.model, "the untouched default follows the profile")
-	assert_eq(_dialog.get_values(), {api = {provider = OPENAI.provider, url = OPENAI.url, key = "sk-1", model = OPENAI.model}.merged(_default_reasoning), mcp = _default_mcp, tools = _no_tools})
+	assert_eq(_dialog.get_values(), {api = {provider = OPENAI.provider, url = OPENAI.url, key = "sk-1", model = OPENAI.model}.merged(_default_reasoning).merged(_default_system_prompt), mcp = _default_mcp, tools = _no_tools})
 	assert_false(_custom_fields_visible())
 
 
@@ -254,7 +256,7 @@ func test_profile_without_a_catalog_uses_the_model_text_field() -> void:
 	_dialog.model_field.text = "llama4"
 	_dialog.model_field.text_changed.emit("llama4")
 
-	assert_eq(_api_values(), {provider = OLLAMA.provider, url = OLLAMA.url, key = Profiles.FAKE_API_KEY, model = "llama4"}.merged(_default_reasoning))
+	assert_eq(_api_values(), {provider = OLLAMA.provider, url = OLLAMA.url, key = Profiles.FAKE_API_KEY, model = "llama4"}.merged(_default_reasoning).merged(_default_system_prompt))
 
 
 func test_profile_with_a_fake_api_key_hides_the_key_field_and_saves_the_fake() -> void:
@@ -427,6 +429,38 @@ func _click_remove(p_tree: Tree, p_index: int) -> void:
 	var item: TreeItem = p_tree.get_root().get_child(p_index)
 	assert_eq(item.get_button_count(0), 1, "each tool has a remove button")
 	p_tree.button_clicked.emit(item, 0, item.get_button_id(0, 0), MOUSE_BUTTON_LEFT)
+
+
+func test_system_prompt_field_shown_only_when_customized() -> void:
+	_dialog.setup({api = {system_prompt = GodaiEditorSettings.API_SYSTEM_PROMPT_DEFAULT}})
+
+	assert_false(_dialog.customize_system_prompt_check.button_pressed)
+	assert_false(_dialog.system_prompt_field.visible)
+
+	_dialog.setup({api = {system_prompt = "Be helpful."}})
+
+	assert_true(_dialog.customize_system_prompt_check.button_pressed)
+	assert_true(_dialog.system_prompt_field.visible)
+	assert_eq(_api_values().system_prompt, "Be helpful.")
+
+	_dialog.setup({api = {system_prompt = ""}})
+
+	assert_true(_dialog.customize_system_prompt_check.button_pressed, "an emptied prompt is a customization")
+	assert_eq(_api_values().system_prompt, "")
+
+
+func test_unchecking_customize_reverts_the_system_prompt_to_the_default() -> void:
+	_dialog.setup({api = {system_prompt = "Be helpful."}})
+
+	_dialog.customize_system_prompt_check.button_pressed = false
+
+	assert_false(_dialog.system_prompt_field.visible)
+	assert_eq(_api_values().system_prompt, GodaiEditorSettings.API_SYSTEM_PROMPT_DEFAULT)
+
+	_dialog.customize_system_prompt_check.button_pressed = true
+
+	assert_true(_dialog.system_prompt_field.visible)
+	assert_eq(_dialog.system_prompt_field.text, GodaiEditorSettings.API_SYSTEM_PROMPT_DEFAULT, "the default is the starting point for editing")
 
 
 func test_mcp_tab_sits_between_api_and_tools() -> void:

@@ -6,7 +6,7 @@
 oversampling_override = 1.0
 title = "Godai Settings"
 position = Vector2i(0, 36)
-size = Vector2i(500, 356)
+size = Vector2i(500, 391)
 visible = true
 ok_button_text = "Close"
 script = ExtResource("1_9lo84")
@@ -16,7 +16,7 @@ unique_name_in_owner = true
 offset_left = 8.0
 offset_top = 8.0
 offset_right = 492.0
-offset_bottom = 307.0
+offset_bottom = 342.0
 theme_type_variation = &"TabContainerOdd"
 current_tab = 0
 
@@ -28,112 +28,135 @@ theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 metadata/_tab_index = 0
 
-[node name="Grid" type="GridContainer" parent="Tabs/API" unique_id=1689048954]
+[node name="VBox" type="VBoxContainer" parent="Tabs/API" unique_id=1695083676]
+layout_mode = 2
+
+[node name="Grid" type="GridContainer" parent="Tabs/API/VBox" unique_id=1689048954]
 layout_mode = 2
 size_flags_vertical = 0
 columns = 2
 
-[node name="ProfileLabel" type="Label" parent="Tabs/API/Grid" unique_id=1666822441]
+[node name="ProfileLabel" type="Label" parent="Tabs/API/VBox/Grid" unique_id=1666822441]
 custom_minimum_size = Vector2(150, 0)
 layout_mode = 2
 text = "Profile"
 
-[node name="ProfileSelect" type="OptionButton" parent="Tabs/API/Grid" unique_id=958525837]
+[node name="ProfileSelect" type="OptionButton" parent="Tabs/API/VBox/Grid" unique_id=958525837]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ProviderLabel" type="Label" parent="Tabs/API/Grid" unique_id=651920394]
+[node name="ProviderLabel" type="Label" parent="Tabs/API/VBox/Grid" unique_id=651920394]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Provider"
 
-[node name="ProviderSelect" type="OptionButton" parent="Tabs/API/Grid" unique_id=123892904]
+[node name="ProviderSelect" type="OptionButton" parent="Tabs/API/VBox/Grid" unique_id=123892904]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="URLLabel" type="Label" parent="Tabs/API/Grid" unique_id=203122437]
+[node name="URLLabel" type="Label" parent="Tabs/API/VBox/Grid" unique_id=203122437]
 unique_name_in_owner = true
 layout_mode = 2
 text = "URL"
 
-[node name="URLField" type="LineEdit" parent="Tabs/API/Grid" unique_id=1708671067]
+[node name="URLField" type="LineEdit" parent="Tabs/API/VBox/Grid" unique_id=1708671067]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="KeyLabel" type="Label" parent="Tabs/API/Grid" unique_id=34482007]
+[node name="KeyLabel" type="Label" parent="Tabs/API/VBox/Grid" unique_id=34482007]
 unique_name_in_owner = true
 layout_mode = 2
 text = "API Key"
 
-[node name="KeyField" type="LineEdit" parent="Tabs/API/Grid" unique_id=524028133]
+[node name="KeyField" type="LineEdit" parent="Tabs/API/VBox/Grid" unique_id=524028133]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 secret = true
 
-[node name="ModelLabel" type="Label" parent="Tabs/API/Grid" unique_id=1170398466]
+[node name="ModelLabel" type="Label" parent="Tabs/API/VBox/Grid" unique_id=1170398466]
 layout_mode = 2
 text = "Model"
 
-[node name="ModelBox" type="HBoxContainer" parent="Tabs/API/Grid" unique_id=1259643481]
+[node name="ModelBox" type="HBoxContainer" parent="Tabs/API/VBox/Grid" unique_id=1259643481]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ModelSelect" type="OptionButton" parent="Tabs/API/Grid/ModelBox" unique_id=865826730]
+[node name="ModelSelect" type="OptionButton" parent="Tabs/API/VBox/Grid/ModelBox" unique_id=865826730]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 clip_text = true
 
-[node name="ModelField" type="LineEdit" parent="Tabs/API/Grid/ModelBox" unique_id=394182335]
+[node name="ModelField" type="LineEdit" parent="Tabs/API/VBox/Grid/ModelBox" unique_id=394182335]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="RefreshModelsButton" type="Button" parent="Tabs/API/Grid/ModelBox" unique_id=673980272]
+[node name="RefreshModelsButton" type="Button" parent="Tabs/API/VBox/Grid/ModelBox" unique_id=673980272]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="EffortLabel" type="Label" parent="Tabs/API/Grid" unique_id=1235615891]
+[node name="EffortLabel" type="Label" parent="Tabs/API/VBox/Grid" unique_id=1235615891]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "How much the model reasons before answering."
 mouse_filter = 1
 text = "Effort"
 
-[node name="EffortSelect" type="OptionButton" parent="Tabs/API/Grid" unique_id=1762208601]
+[node name="EffortSelect" type="OptionButton" parent="Tabs/API/VBox/Grid" unique_id=1762208601]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ThinkingLabel" type="Label" parent="Tabs/API/Grid" unique_id=384868590]
+[node name="ThinkingLabel" type="Label" parent="Tabs/API/VBox/Grid" unique_id=384868590]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Thinking"
 
-[node name="ThinkingCheck" type="CheckBox" parent="Tabs/API/Grid" unique_id=227152580]
+[node name="ThinkingCheck" type="CheckBox" parent="Tabs/API/VBox/Grid" unique_id=227152580]
 unique_name_in_owner = true
 layout_mode = 2
 button_pressed = true
 text = "Enabled"
 
-[node name="BudgetLabel" type="Label" parent="Tabs/API/Grid" unique_id=892697421]
+[node name="BudgetLabel" type="Label" parent="Tabs/API/VBox/Grid" unique_id=892697421]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Tokens the model may spend thinking. 0 uses the model's default."
 mouse_filter = 1
 text = "Thinking Budget"
 
-[node name="BudgetField" type="SpinBox" parent="Tabs/API/Grid" unique_id=391902288]
+[node name="BudgetField" type="SpinBox" parent="Tabs/API/VBox/Grid" unique_id=391902288]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 max_value = 200000.0
 step = 1024.0
 suffix = "tokens"
+
+[node name="SystemPromptLabel" type="Label" parent="Tabs/API/VBox/Grid" unique_id=1581251645]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Instructions sent with every request. Each chat keeps the prompt it was started with."
+mouse_filter = 1
+text = "System Prompt"
+
+[node name="CustomizeSystemPromptCheck" type="CheckBox" parent="Tabs/API/VBox/Grid" unique_id=70042895]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Customize"
+
+[node name="SystemPromptField" type="TextEdit" parent="Tabs/API/VBox" unique_id=1824882113]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+size_flags_vertical = 3
+wrap_mode = 1
 
 [node name="MCP" type="MarginContainer" parent="Tabs" unique_id=2098209274]
 visible = false
@@ -232,4 +255,4 @@ layout_mode = 2
 size_flags_vertical = 3
 hide_root = true
 
-[connection signal="item_selected" from="Tabs/API/Grid/ProfileSelect" to="." method="_on_profile_select_item_selected"]
+[connection signal="item_selected" from="Tabs/API/VBox/Grid/ProfileSelect" to="." method="_on_profile_select_item_selected"]

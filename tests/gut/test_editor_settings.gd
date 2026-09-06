@@ -3,6 +3,21 @@ extends GutTest
 const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
 
 
+func test_system_prompt_outside_the_editor_is_the_default() -> void:
+	assert_eq(GodaiEditorSettings.get_api_system_prompt(), GodaiEditorSettings.API_SYSTEM_PROMPT_DEFAULT)
+
+
+func test_system_prompt_env_override() -> void:
+	OS.set_environment(GodaiEditorSettings.API_SYSTEM_PROMPT_ENV, "Be helpful.")
+	assert_eq(GodaiEditorSettings.get_api_system_prompt(), "Be helpful.")
+
+	OS.set_environment(GodaiEditorSettings.API_SYSTEM_PROMPT_ENV, "")
+	assert_eq(GodaiEditorSettings.get_api_system_prompt(), "", "an empty override sends no prompt")
+
+	OS.unset_environment(GodaiEditorSettings.API_SYSTEM_PROMPT_ENV)
+	assert_eq(GodaiEditorSettings.get_api_system_prompt(), GodaiEditorSettings.API_SYSTEM_PROMPT_DEFAULT)
+
+
 func test_local_api_urls() -> void:
 	for url in [
 		"http://localhost:11434/v1/",

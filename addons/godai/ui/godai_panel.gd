@@ -488,8 +488,7 @@ func _resume_restarted_chat() -> void:
 
 
 func _start_new_chat() -> void:
-	# @todo We can give Claude some context here if we want
-	_set_current_session(_session_store.create_session())
+	_set_current_session(_session_store.create_session(ChatSessionStore.ClientKind.EDITOR, GodaiEditorSettings.get_api_system_prompt()))
 
 
 func _stop_current_chat() -> void:

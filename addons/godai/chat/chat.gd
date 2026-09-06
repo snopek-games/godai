@@ -155,6 +155,7 @@ class Message extends RefCounted:
 
 signal message_added(message: Message)
 
+var system: String
 var messages: Array[Message]
 
 
@@ -165,6 +166,7 @@ func add_message(p_msg: Message) -> void:
 
 func to_dict() -> Dictionary:
 	return {
+		system = system,
 		messages = messages.map(func (v): return v.to_dict()),
 	}
 
@@ -195,5 +197,7 @@ func repair_dangling_tool_use() -> void:
 
 func print_debug() -> void:
 	print(" === CHAT:")
+	if not system.is_empty():
+		print({system = system})
 	for msg in messages:
 		print(msg.to_dict())
