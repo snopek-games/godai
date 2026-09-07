@@ -145,7 +145,13 @@ func _try_list() -> bool:
 		var line := _lines[_line]
 		var start := _list_item_text_start(line)
 		if start < 0:
-			break
+			if not line.strip_edges().is_empty():
+				break
+			var next_item := _next_non_blank_line(_line)
+			if next_item < 0 or _list_item_text_start(_lines[next_item]) < 0:
+				break
+			_line = next_item
+			continue
 		items.append({
 			indent = line.length() - line.strip_edges(true, false).length(),
 			tag = _list_tag(line),
@@ -160,6 +166,13 @@ func _try_list() -> bool:
 		i = list[1]
 	_out.append("\n".join(lists))
 	return true
+
+
+func _next_non_blank_line(p_from: int) -> int:
+	var i := p_from
+	while i < _lines.size() and _lines[i].strip_edges().is_empty():
+		i += 1
+	return i if i < _lines.size() else -1
 
 
 func _list_item_bbcode(p_text: String) -> String:

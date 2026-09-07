@@ -131,6 +131,13 @@ func test_lists() -> void:
 	assert_eq(_md.convert("- [ ] task"), "[ul][lb] ] task[/ul]")
 
 
+func test_loose_lists_stay_one_list() -> void:
+	assert_eq(_md.convert("1. a\n\n2. b\n\n\n3. c"), "[ol]a\nb\nc[/ol]")
+	assert_eq(_md.convert("1. a\n  - n\n\n2. b\n  - m"), "[ol]a[ul]n[/ul]\nb[ul]m[/ul][/ol]")
+	assert_eq(_md.convert("- a\n\n- b\n\ntext"), "[ul]a\nb[/ul]\n\ntext")
+	assert_eq(_md.convert("- a\n\n"), "[ul]a[/ul]\n\n")
+
+
 func test_list_items_starting_with_code_get_a_normal_font_bullet() -> void:
 	assert_eq(_md.convert("- `x` first\n- then `y`"), "[ul]\u200b[code]x[/code] first\nthen [code]y[/code][/ul]")
 	assert_eq(_md.convert("1. `x`"), "[ol]\u200b[code]x[/code][/ol]")
