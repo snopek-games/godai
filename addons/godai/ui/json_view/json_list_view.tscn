@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://cbeyrdu3x1mfs"]
+
+[ext_resource type="Script" uid="uid://65g1fh5fcfb5" path="res://addons/godai/ui/json_view/json_list_view.gd" id="1_0seex"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_snbnh"]
+content_margin_left = 8.0
+content_margin_top = 2.0
+content_margin_right = 1.0
+content_margin_bottom = 2.0
+
+[node name="JsonListView" type="RichTextLabel" unique_id=1862392028]
+size_flags_horizontal = 3
+focus_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxEmpty_snbnh")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_snbnh")
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+context_menu_enabled = true
+selection_enabled = true
+script = ExtResource("1_0seex")
+
+[connection signal="meta_clicked" from="." to="." method="_on_meta_clicked"]

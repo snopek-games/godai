@@ -1512,6 +1512,7 @@
 					},
 					"content": {
 						"type": "string",
+						"contentMediaType": "text/x-gdscript",
 						"description": "Full contents of the script file. If omitted, a minimal template is generated."
 					}
 				},
@@ -1644,6 +1645,7 @@
 				"properties": {
 					"content": {
 						"type": "string",
+						"contentMediaType": "text/x-gdscript",
 						"description": "The contents of the script (the live editor buffer if open, otherwise the file on disk)"
 					},
 					"open_in_editor": {
@@ -1688,6 +1690,7 @@
 					},
 					"content": {
 						"type": "string",
+						"contentMediaType": "text/x-gdscript",
 						"description": "The full new contents of the script, which may be empty to blank the script out"
 					}
 				},
@@ -2185,6 +2188,7 @@
 					"code": {
 						"type": "string",
 						"minLength": 1,
+						"contentMediaType": "text/x-gdscript",
 						"description": "A snippet of GDScript code. It should use tabs rather than spaces for indentation. Don't wrap the code in a `_ready()` function."
 					}
 				},

@@ -26,6 +26,13 @@ func _fail(_input: Dictionary) -> ToolManager.ToolResult:
 	return ToolManager.ToolResult.rejected({errors = ["nope"]})
 
 
+func test_callback_tool_keeps_its_schemas() -> void:
+	var output_schema := {type = "object", properties = {code = {type = "string"}}}
+	var tool := ToolManager.CallbackTool.new("t", "T", "", _echo, {type = "object", properties = {}}, output_schema)
+	assert_eq(tool.output_schema, output_schema)
+	assert_eq(_tools.get_tool("echo").output_schema, ToolManager.OUTPUT_SCHEMA_STRING)
+
+
 func test_executes_immediately_when_not_busy() -> void:
 	var result := _tools.execute_tool("echo", {value = 1})
 	assert_true(result.is_done())

@@ -59,7 +59,7 @@ func test_show_chat_renders_each_message_kind() -> void:
 	# The tool item carries its use and result, shown when info is requested.
 	watch_signals(items[2])
 	items[2].info_button.pressed.emit()
-	assert_signal_emitted_with_parameters(items[2], "info_requested", ["toolu_1", TOOL, {}, "{}"])
+	assert_signal_emitted_with_parameters(items[2], "info_requested", ["toolu_1", TOOL, {}, "{}", false])
 
 
 func test_show_chat_replaces_the_previous_chat() -> void:
@@ -95,6 +95,24 @@ func test_tool_content_missing_its_keys_still_renders() -> void:
 	_view.show_message(Chat.Message.new(Chat.Role.USER, Chat.ToolResultContent.new("")))
 
 	assert_eq(_items().size(), 1)
+
+
+func test_tool_info_dialog_shows_structured_input_and_output_with_live_updates() -> void:
+	_view.show_message(Chat.Message.new(Chat.Role.ASSISTANT, Chat.ToolUseContent.new("toolu_1", "read_script", {file_path = "res://a.gd"})))
+	_items()[0].info_button.pressed.emit()
+
+	var dialog = _view.tool_use_info_dialog
+	assert_eq(dialog.tool_use_id, "toolu_1")
+	assert_eq(dialog.tool_input_field.value, {file_path = "res://a.gd"})
+	assert_eq(dialog.tool_input_field.schema, _view.tools.get_tool("read_script").input_schema)
+	assert_eq(dialog.tool_output_field.get_content().label.text, "(no output yet)")
+
+	_view.show_message(Chat.Message.new(Chat.Role.USER, Chat.ToolResultContent.new("toolu_1", '{"content": "extends Node\nfunc _ready():\n\tpass", "open_in_editor": false}')))
+
+	assert_eq(dialog.tool_output_field.value, {content = "extends Node\nfunc _ready():\n\tpass", open_in_editor = false})
+	var section = dialog.tool_output_field.get_content().get_child(1)
+	assert_eq(section.title, "Content")
+	assert_eq(section.get_body_content().media_type, "text/x-gdscript")
 
 
 func test_tool_result_for_an_unknown_id_adds_nothing() -> void:

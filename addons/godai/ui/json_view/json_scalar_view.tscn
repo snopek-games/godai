@@ -1,0 +1,39 @@
+[gd_scene format=3 uid="uid://b3xauso6yfb0w"]
+
+[ext_resource type="Script" uid="uid://kv4gyiv4pxi2" path="res://addons/godai/ui/json_view/json_scalar_view.gd" id="1_6u3ft"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cu1p0"]
+content_margin_left = 4.0
+content_margin_top = 2.0
+content_margin_right = 1.0
+content_margin_bottom = 2.0
+
+[node name="JsonScalarView" type="HBoxContainer" unique_id=415859547]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 4.0
+grow_horizontal = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 0
+script = ExtResource("1_6u3ft")
+
+[node name="Icon" type="TextureRect" parent="." unique_id=610762184]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+stretch_mode = 2
+
+[node name="Label" type="RichTextLabel" parent="." unique_id=1369968461]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxEmpty_cu1p0")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_cu1p0")
+fit_content = true
+scroll_active = false
+context_menu_enabled = true
+vertical_alignment = 1
+selection_enabled = true

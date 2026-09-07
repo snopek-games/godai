@@ -47,7 +47,7 @@ tooltip_text = "Show raw markdown"
 theme_override_styles/normal = SubResource("StyleBoxEmpty_byn0u")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_byn0u")
 toggle_mode = true
-text = "md"
+text = "{}"
 
 [connection signal="meta_clicked" from="Label" to="." method="_on_label_meta_clicked"]
 [connection signal="mouse_entered" from="ToggleButton" to="." method="_on_toggle_button_mouse_entered"]

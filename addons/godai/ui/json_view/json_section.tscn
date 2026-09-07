@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://g025hayqt2c7"]
+
+[ext_resource type="Script" uid="uid://c80hlblaxa7ky" path="res://addons/godai/ui/json_view/json_section.gd" id="1_dxy1k"]
+
+[node name="JsonSection" type="VBoxContainer" unique_id=849129885]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 0
+script = ExtResource("1_dxy1k")
+
+[node name="Header" type="Button" parent="." unique_id=1820041088]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 1
+toggle_mode = true
+button_pressed = true
+text = "▾ Header"
+flat = true
+alignment = 0
+text_overrun_behavior = 3
+
+[node name="Body" type="MarginContainer" parent="." unique_id=214002970]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 16
+
+[connection signal="toggled" from="Header" to="." method="_on_header_toggled"]

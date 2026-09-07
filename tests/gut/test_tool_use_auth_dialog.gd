@@ -15,7 +15,8 @@ func test_setup_fills_the_fields_and_menus() -> void:
 	_dialog.setup_tool_use_auth_dialog("create_file", {path = "res://x.txt"})
 
 	assert_eq(_dialog.name_field.text, "create_file")
-	assert_string_contains(_dialog.input_field.text, "res://x.txt")
+	assert_eq(_dialog.input_field.value, {path = "res://x.txt"})
+	assert_string_contains(_dialog.input_field.raw_text.text, "res://x.txt")
 	assert_eq(_dialog.allow_menu.get_item_text(0), 'Allow "create_file" for this session')
 	assert_eq(_dialog.allow_menu.get_item_text(1), 'Allow "create_file" always')
 	assert_eq(_dialog.deny_menu.get_item_text(0), 'Deny "create_file" for this session')

@@ -144,7 +144,8 @@ func _update_queue() -> void:
 		var request: ToolAuth.Request = _pending_requests[0]
 		if _shown_request != request:
 			_shown_request = request
-			_dialog.setup_tool_use_auth_dialog(request.tool_name, request.input)
+			var tool_obj := _tools.get_tool(request.tool_name)
+			_dialog.setup_tool_use_auth_dialog(request.tool_name, request.input, tool_obj.input_schema if tool_obj else {})
 			_dialog.popup_centered()
 	else:
 		_shown_request = null

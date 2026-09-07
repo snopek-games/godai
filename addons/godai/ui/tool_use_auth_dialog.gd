@@ -1,8 +1,11 @@
 @tool
 extends Window
 
+const JsonView = preload("res://addons/godai/ui/json_view/json_view.gd")
+
+@onready var panel_container: PanelContainer = %PanelContainer
 @onready var name_field: Label = %NameField
-@onready var input_field: RichTextLabel = %InputField
+@onready var input_field: JsonView = %InputField
 
 @onready var allow_button_container: HBoxContainer = %AllowButtonContainer
 @onready var allow_button: Button = %AllowButton
@@ -26,14 +29,24 @@ signal tool_use_denied(p_type: AllowDenyType)
 
 
 func _ready() -> void:
+	_update_panel_theme()
 	if Engine.is_editor_hint() and not is_part_of_edited_scene():
 		allow_menu_button.icon = EditorInterface.get_editor_theme().get_icon(&"GuiOptionArrow", &"EditorIcons")
 		deny_menu_button.icon = EditorInterface.get_editor_theme().get_icon(&"GuiOptionArrow", &"EditorIcons")
 
 
-func setup_tool_use_auth_dialog(p_tool_name: String, p_input) -> void:
+func _notification(p_what: int) -> void:
+	if p_what == NOTIFICATION_THEME_CHANGED and is_node_ready():
+		_update_panel_theme()
+
+
+func _update_panel_theme() -> void:
+	panel_container.add_theme_stylebox_override("panel", get_theme_stylebox("panel", "AcceptDialog"))
+
+
+func setup_tool_use_auth_dialog(p_tool_name: String, p_input, p_input_schema: Dictionary = {}) -> void:
 	name_field.text = p_tool_name
-	input_field.text = JSON.stringify(p_input, "    ")
+	input_field.set_value(p_input, p_input_schema)
 
 	allow_menu.set_item_text(0, 'Allow "%s" for this session' % p_tool_name)
 	allow_menu.set_item_text(1, 'Allow "%s" always' % p_tool_name)

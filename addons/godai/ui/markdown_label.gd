@@ -14,18 +14,14 @@ var _toggle_button_hovered := false
 
 
 func _ready() -> void:
-	var invisible := StyleBoxEmpty.new()
-	var boxed := toggle_button.get_theme_stylebox("pressed")
-	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
-		invisible.set_content_margin(side, boxed.get_margin(side))
-	toggle_button.add_theme_stylebox_override("normal", invisible)
-	toggle_button.add_theme_stylebox_override("focus", invisible)
+	if is_part_of_edited_scene():
+		return
+
 	_update_toggle_button()
-	if Engine.is_editor_hint() and not is_part_of_edited_scene():
+
+	if Engine.is_editor_hint():
 		var editor_theme := EditorInterface.get_editor_theme()
 		label.add_theme_font_override("mono_font", editor_theme.get_font(&"source", &"EditorFonts"))
-		toggle_button.icon = editor_theme.get_icon(&"RichTextLabel", &"EditorIcons")
-		toggle_button.text = ""
 
 
 func set_markdown(p_markdown: String) -> void:

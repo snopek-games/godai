@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://b6m0c04phsknd"]
 
 [ext_resource type="Script" uid="uid://dcd2jibcl0npy" path="res://addons/godai/ui/tool_use_auth_dialog.gd" id="1_34iok"]
+[ext_resource type="PackedScene" uid="uid://ceehv0ho3p0pf" path="res://addons/godai/ui/json_view/json_view.tscn" id="2_kdpkp"]
 
 [sub_resource type="DPITexture" id="DPITexture_34iok"]
 _source = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"12\" height=\"12\"><path fill=\"none\" stroke=\"#e0e0e0\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"m2 4 4 4 4-4\"/></svg>
@@ -26,12 +27,12 @@ keep_title_visible = true
 script = ExtResource("1_34iok")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=20715535]
+unique_name_in_owner = true
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_type_variation = &"AcceptDialog"
 
 [node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=1281550694]
 layout_mode = 2
@@ -56,14 +57,11 @@ text = "blah_blah"
 layout_mode = 2
 text = "Input:"
 
-[node name="InputField" type="RichTextLabel" parent="PanelContainer/VBoxContainer" unique_id=986329341]
+[node name="InputField" parent="PanelContainer/VBoxContainer" unique_id=986329341 instance=ExtResource("2_kdpkp")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
-size_flags_vertical = 3
-focus_mode = 2
-context_menu_enabled = true
-selection_enabled = true
+expand_all = true
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer" unique_id=1202022337]
 layout_mode = 2

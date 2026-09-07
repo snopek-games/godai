@@ -108,7 +108,7 @@ func show_message(p_msg: Chat.Message) -> void:
 			_add_tool_use_to_chat(content.id, content.name, content.input)
 
 		elif content is Chat.ToolResultContent:
-			_add_tool_result_to_chat(content.tool_use_id, content.content)
+			_add_tool_result_to_chat(content.tool_use_id, content.content, content.is_error)
 
 
 func show_error(p_msg: String) -> void:
@@ -167,14 +167,14 @@ func _add_tool_use_to_chat(p_id: String, p_name: String, p_input: Dictionary) ->
 	scroll_to_bottom()
 
 
-func _add_tool_result_to_chat(p_id: String, p_content) -> void:
+func _add_tool_result_to_chat(p_id: String, p_content, p_is_error: bool) -> void:
 	var chat = _pending_tool_items.get(p_id)
 	if chat:
-		chat.set_tool_output(p_content)
+		chat.set_tool_output(p_content, p_is_error)
 		_pending_tool_items.erase(p_id)
 
 	if tool_use_info_dialog.visible and tool_use_info_dialog.tool_use_id == p_id:
-		tool_use_info_dialog.update_output(p_content)
+		tool_use_info_dialog.update_output(p_content, p_is_error)
 
 
 func _add_cancelled_to_chat() -> void:
@@ -185,6 +185,6 @@ func _add_cancelled_to_chat() -> void:
 	scroll_to_bottom()
 
 
-func _show_tool_info(p_id: String, p_name: String, p_input, p_output) -> void:
+func _show_tool_info(p_id: String, p_name: String, p_input, p_output, p_is_error: bool) -> void:
 	tool_use_info_dialog.popup_centered_ratio(0.6)
-	tool_use_info_dialog.setup_tool_info(p_id, p_name, p_input, p_output)
+	tool_use_info_dialog.setup_tool_info(p_id, p_name, p_input, p_output, p_is_error, tools.get_tool(p_name))

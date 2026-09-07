@@ -4,7 +4,6 @@ TODO
 0.5: Finish critical addon stuff
 --------------------------------
 
-- Addon: Display parameters in tool use dialog in friendlier way (not JSON)
 - Addon: Markdown rendering as all `1.`'s
   ```
   1. **API** – Configuration for the AI provider/model:
@@ -21,6 +20,10 @@ TODO
     - "Auto-approve" checkbox
     - Two trees listing **Allowed** and **Denied** tools
   ```
+- Addon: MCP startup errors should be above the chat box rather than in it
+  - Should print it out too so it gets into the log output
+- Addon: The prompt bar with the "New/Clear" button should still be shown on CLI/MCP chats when MCP/CLI isn't currently connected
+- Addon: Showing the Godai dock should scroll to the bottom
 - Addon: Add to Godot asset store
 
 0.6: Evaluate, benchmark and improve effectiveness
@@ -67,6 +70,7 @@ Backlog
 - Addon: Use LLM to automatically set titles for sessions
 - Addon: Record errors are part of chat session? (but don't send them to the AI)
 - Addon: Add support for similar tools to everything in ee0pdt/Godot-MCP
+- Addon: Add support for block quotes (and other recursive blocks?) to Markdown to BBCode converter
 - Tool: Get Godot version and executeable path
 - Tool: Get class documentation
   - Depends on https://github.com/godotengine/godot/pull/112628

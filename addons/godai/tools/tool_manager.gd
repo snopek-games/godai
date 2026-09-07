@@ -214,6 +214,7 @@ class CallbackTool extends Tool:
 		title = p_title
 		description = p_description
 		input_schema = p_input_schema
+		output_schema = p_output_schema
 		callback = p_callback
 
 	func execute(p_input) -> ToolResult:

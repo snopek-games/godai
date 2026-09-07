@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://owro1n3a1ocp"]
+
+[ext_resource type="Script" uid="uid://byllk86p422hh" path="res://addons/godai/ui/json_view/json_code_view.gd" id="1_9oy1g"]
+
+[node name="JsonCodeView" type="CodeEdit" unique_id=222715719]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 8.0
+grow_horizontal = 2
+size_flags_horizontal = 3
+text = "var name = \"Godai\""
+editable = false
+deselect_on_focus_loss_enabled = false
+wrap_mode = 1
+scroll_smooth = true
+scroll_fit_content_height = true
+script = ExtResource("1_9oy1g")
