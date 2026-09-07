@@ -4,7 +4,6 @@ TODO
 0.5: Finish critical addon stuff
 --------------------------------
 
-- Addon: Showing the Godai dock should scroll to the bottom
 - Addon: Add to Godot asset store
 
 0.6: Evaluate, benchmark and improve effectiveness

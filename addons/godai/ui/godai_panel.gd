@@ -168,6 +168,7 @@ func _ready() -> void:
 func show_panel() -> void:
 	if not prompt.has_focus():
 		prompt.grab_focus()
+	chat_view.scroll_to_bottom.call_deferred()
 
 
 func _update_from_editor_settings() -> void:
