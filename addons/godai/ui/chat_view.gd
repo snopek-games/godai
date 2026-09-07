@@ -5,6 +5,7 @@ const Chat = preload("res://addons/godai/chat/chat.gd")
 const ChatClient = preload("res://addons/godai/chat/client.gd")
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const LoadingLabel = preload("res://addons/godai/ui/loading_label.gd")
+const WelcomeNote = preload("res://addons/godai/ui/welcome_note.gd")
 
 const UserChatScene = preload("res://addons/godai/ui/user_chat.tscn")
 const AssistantChatScene = preload("res://addons/godai/ui/assistant_chat.tscn")
@@ -15,32 +16,12 @@ const ErrorChatScene = preload("res://addons/godai/ui/error_chat.tscn")
 @onready var chat_container: VBoxContainer = %ChatContainer
 @onready var loading_label: LoadingLabel = %LoadingLabel
 @onready var tool_use_info_dialog: AcceptDialog = %ToolUseInfoDialog
-@onready var welcome_note: Control = %WelcomeNote
-@onready var not_configured_message: Control = %NotConfiguredMessage
-@onready var offline_message: Control = %OfflineMessage
-
-signal settings_requested
-signal go_online_requested
+@onready var welcome_note: WelcomeNote = %WelcomeNote
 
 var tools: ToolManager
 
-var api_configured := true:
-	set(p_configured):
-		api_configured = p_configured
-		_update_status_messages()
-
-var online := true:
-	set(p_online):
-		online = p_online
-		_update_status_messages()
-
-var _showing_editor_chat := false
 var _pending_tool_items: Dictionary
 var _scroll_queued := false
-
-const FIX_BOTH_TEXT := "In order to use this chat box, you'll need to configure an LLM API and go online:"
-const FIX_NOT_CONFIGURED_TEXT := "In order to use this chat box, you'll need to configure an LLM API:"
-const FIX_OFFLINE_TEXT := "In order to use this chat box, you'll need to go online:"
 
 
 func _ready() -> void:
@@ -48,13 +29,6 @@ func _ready() -> void:
 		return
 
 	_update_panel_theme()
-
-	welcome_note.settings_requested.connect(settings_requested.emit)
-	welcome_note.go_online_requested.connect(go_online_requested.emit)
-	not_configured_message.button_pressed.connect(settings_requested.emit)
-	offline_message.button_pressed.connect(go_online_requested.emit)
-
-	_update_status_messages()
 
 
 func _notification(p_what: int) -> void:
@@ -75,11 +49,9 @@ func _update_panel_theme() -> void:
 	add_theme_stylebox_override("panel", stylebox)
 
 
-func show_chat(p_chat: Chat, p_external := false) -> void:
+func show_chat(p_chat: Chat) -> void:
 	clear()
-	_showing_editor_chat = p_chat != null and not p_external
 	welcome_note.visible = p_chat == null
-	_update_status_messages()
 	if p_chat:
 		for msg in p_chat.messages:
 			show_message(msg)
@@ -136,25 +108,6 @@ func scroll_to_bottom() -> void:
 func set_loading(p_visible: bool, p_text := "Thinking") -> void:
 	loading_label.visible = p_visible
 	loading_label.base_text = p_text
-
-
-func _update_status_messages() -> void:
-	if not is_node_ready() or is_part_of_edited_scene():
-		return
-
-	not_configured_message.visible = _showing_editor_chat and not api_configured
-	offline_message.visible = _showing_editor_chat and api_configured and not online
-
-	welcome_note.fix_section.visible = not api_configured or not online
-	welcome_note.get_started_label.visible = api_configured and online
-	welcome_note.settings_button.visible = not api_configured
-	welcome_note.go_online_button.visible = not online
-	if not api_configured and not online:
-		welcome_note.fix_label.text = FIX_BOTH_TEXT
-	elif not api_configured:
-		welcome_note.fix_label.text = FIX_NOT_CONFIGURED_TEXT
-	else:
-		welcome_note.fix_label.text = FIX_OFFLINE_TEXT
 
 
 func _add_tool_use_to_chat(p_id: String, p_name: String, p_input: Dictionary) -> void:

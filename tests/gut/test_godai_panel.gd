@@ -253,11 +253,9 @@ func test_prompt_bar_hides_until_the_chat_is_usable() -> void:
 
 	panel._set_chat_availability(false, true)
 	assert_false(panel.prompt_bar.visible)
-	assert_false(panel.chat_view.api_configured)
 
 	panel._set_chat_availability(true, false)
 	assert_false(panel.prompt_bar.visible)
-	assert_false(panel.chat_view.online)
 
 	panel._set_chat_availability(true, true)
 	assert_true(panel.prompt_bar.visible)
@@ -277,13 +275,90 @@ func test_prompt_bar_keeps_its_cancel_button_when_the_chat_becomes_unusable() ->
 	assert_false(panel.prompt_bar.visible)
 
 
-func test_chat_view_settings_request_opens_the_dialog() -> void:
+func test_welcome_note_names_each_problem() -> void:
+	var panel := _make_panel()
+	var welcome_note = panel.chat_view.welcome_note
+	assert_true(welcome_note.visible)
+	assert_true(welcome_note.get_started_label.visible)
+	assert_false(welcome_note.fix_section.visible)
+
+	panel._set_chat_availability(false, true)
+	assert_true(welcome_note.fix_section.visible)
+	assert_false(welcome_note.get_started_label.visible)
+	assert_eq(welcome_note.fix_label.text, panel.FIX_NOT_CONFIGURED_TEXT)
+	assert_true(welcome_note.settings_button.visible)
+	assert_false(welcome_note.go_online_button.visible)
+
+	panel._set_chat_availability(false, false)
+	assert_eq(welcome_note.fix_label.text, panel.FIX_BOTH_TEXT)
+	assert_true(welcome_note.settings_button.visible)
+	assert_true(welcome_note.go_online_button.visible)
+
+	panel._set_chat_availability(true, false)
+	assert_eq(welcome_note.fix_label.text, panel.FIX_OFFLINE_TEXT)
+	assert_false(welcome_note.settings_button.visible)
+	assert_true(welcome_note.go_online_button.visible)
+
+	panel._set_chat_availability(true, true)
+	assert_false(welcome_note.fix_section.visible)
+	assert_true(welcome_note.get_started_label.visible)
+
+
+func test_status_messages_only_show_on_editor_chats() -> void:
+	var panel := _make_panel()
+	_install_stub_client(panel)
+	panel._set_chat_availability(false, false)
+
+	assert_false(panel.not_configured_message.visible, "not on <new>")
+	assert_false(panel.offline_message.visible)
+
+	panel._on_mcp_tool_use_requested("mcp:1", READ_ONLY_TOOL, {}, MCPServer.CLIENT_KIND_CLI)
+	_track_session_file(panel)
+	assert_false(panel.not_configured_message.visible, "not on external chats")
+	assert_false(panel.offline_message.visible)
+
+	panel._set_current_session(null)
+	panel._set_chat_availability(true, true)
+	_submit_and_track(panel, "hello")
+	panel._set_chat_availability(false, false)
+	assert_true(panel.not_configured_message.visible)
+	assert_false(panel.offline_message.visible, "configuration comes before going online")
+
+	panel._set_chat_availability(true, false)
+	assert_false(panel.not_configured_message.visible)
+	assert_true(panel.offline_message.visible)
+
+	panel._set_chat_availability(true, true)
+	assert_false(panel.not_configured_message.visible)
+	assert_false(panel.offline_message.visible)
+
+
+func test_settings_requests_open_the_dialog() -> void:
 	var panel := _make_panel()
 
-	panel.chat_view.settings_requested.emit()
+	panel.chat_view.welcome_note.settings_button.pressed.emit()
 
 	assert_engine_error("spawned at invalid position", "popping the dialog headless is fine")
 	assert_true(panel.settings_dialog.visible)
+
+	panel.settings_dialog.hide()
+	panel.not_configured_message.button.pressed.emit()
+
+	assert_true(panel.settings_dialog.visible)
+
+
+func test_mcp_error_shows_as_a_status_message_with_the_dialog_behind_it() -> void:
+	var panel := _make_panel()
+
+	panel._report_mcp_error("Cannot start MCP server: boom")
+
+	assert_true(panel.mcp_error_message.visible)
+	assert_eq(panel.mcp_error_message.label.text, "Cannot start MCP server: boom")
+	assert_eq(panel.chat_view.chat_container.get_child_count(), 0, "not added to the chat")
+
+	panel.mcp_error_message.button.pressed.emit()
+
+	assert_true(panel.mcp_dialog.visible)
 
 
 func test_submit_button_follows_text_changes_from_any_source() -> void:

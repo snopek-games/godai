@@ -18,6 +18,7 @@ const ExternalSessionRecorder = preload("res://addons/godai/chat/external_sessio
 const ToolUseAuthDialog = preload("res://addons/godai/ui/tool_use_auth_dialog.gd")
 const ToolAuthQueue = preload("res://addons/godai/ui/tool_auth_queue.gd")
 const ChatView = preload("res://addons/godai/ui/chat_view.gd")
+const WelcomeNote = preload("res://addons/godai/ui/welcome_note.gd")
 const SettingsDialog = preload("res://addons/godai/ui/settings_dialog.gd")
 const ModelCatalog = preload("res://addons/godai/chat/model_catalog.gd")
 const Profiles = preload("res://addons/godai/chat/profiles.gd")
@@ -32,12 +33,16 @@ const SuccessIcon = preload("res://addons/godai/ui/icons/status_success.svg")
 @onready var session_list: ItemList = %SessionList
 @onready var mcp_button: Button = %MCPButton
 @onready var settings_button: Button = %SettingsButton
+@onready var mcp_error_message: Control = %MCPErrorMessage
+@onready var not_configured_message: Control = %NotConfiguredMessage
+@onready var offline_message: Control = %OfflineMessage
 @onready var settings_dialog: SettingsDialog = %SettingsDialog
 @onready var mcp_stopping_timer: Timer = %MCPStoppingTimer
 @onready var mcp_dialog: AcceptDialog = %MCPDialog
 @onready var start_mcp_button: Button = mcp_dialog.add_button("Start MCP Server", true)
 @onready var stop_mcp_button: Button = mcp_dialog.add_button("Stop MCP Server", true)
 @onready var chat_view: ChatView = %ChatView
+@onready var welcome_note: WelcomeNote = chat_view.welcome_note
 @onready var prompt_bar: Control = %PromptBar
 @onready var prompt: TextEdit = %Prompt
 @onready var submit_button: Button = %SubmitButton
@@ -85,6 +90,9 @@ const NEW_CHAT_SESSION_NAME := "<new>"
 const RESUME_FILE := ".godot/godai-resume-session.json"
 const RESUME_MAX_AGE_SECONDS := 300
 
+const FIX_BOTH_TEXT := "In order to use this chat box, you'll need to configure an LLM API and go online:"
+const FIX_NOT_CONFIGURED_TEXT := "In order to use this chat box, you'll need to configure an LLM API:"
+const FIX_OFFLINE_TEXT := "In order to use this chat box, you'll need to go online:"
 const MCP_CONNECTED_CANCEL_TEXT := "The current chat is still in progress. The MCP client's tool calls will wait for it to finish. Would you like to cancel it now?"
 
 
@@ -123,6 +131,8 @@ func _ready() -> void:
 	_external_recorder.message_recorded.connect(_on_external_message_recorded)
 
 	settings_dialog.closed.connect(_on_settings_dialog_closed)
+	welcome_note.settings_requested.connect(_on_settings_button_pressed)
+	welcome_note.go_online_requested.connect(_on_go_online_requested)
 
 	add_child(_model_catalog)
 	settings_dialog.catalog = _model_catalog
@@ -142,6 +152,7 @@ func _ready() -> void:
 	if Engine.is_editor_hint() and GodaiEditorSettings.is_network_online():
 		_model_catalog.refresh_if_stale()
 
+	_update_status_messages()
 	_load_chat_sessions()
 	_update_mcp_status()
 	_start_mcp()
@@ -176,9 +187,25 @@ func _update_from_editor_settings() -> void:
 func _set_chat_availability(p_api_configured: bool, p_online: bool) -> void:
 	_api_configured = p_api_configured
 	_online = p_online
-	chat_view.api_configured = p_api_configured
-	chat_view.online = p_online
+	_update_status_messages()
 	_update_prompt_bar()
+
+
+func _update_status_messages() -> void:
+	var editor_chat := _current_session != null and not _current_session.is_external()
+	not_configured_message.visible = editor_chat and not _api_configured
+	offline_message.visible = editor_chat and _api_configured and not _online
+
+	welcome_note.fix_section.visible = not _api_configured or not _online
+	welcome_note.get_started_label.visible = _api_configured and _online
+	welcome_note.settings_button.visible = not _api_configured
+	welcome_note.go_online_button.visible = not _online
+	if not _api_configured and not _online:
+		welcome_note.fix_label.text = FIX_BOTH_TEXT
+	elif not _api_configured:
+		welcome_note.fix_label.text = FIX_NOT_CONFIGURED_TEXT
+	else:
+		welcome_note.fix_label.text = FIX_OFFLINE_TEXT
 
 
 func _load_chat_sessions() -> void:
@@ -299,6 +326,7 @@ func _update_mcp_status() -> void:
 
 func _start_mcp() -> void:
 	var err: Error
+	mcp_error_message.visible = false
 
 	# Claim this project for this MCP instance.
 	err = _mcp_instance.claim_project()
@@ -329,7 +357,8 @@ func _start_mcp() -> void:
 
 func _report_mcp_error(p_msg: String) -> void:
 	printerr("godai: " + p_msg)
-	chat_view.show_error(p_msg)
+	mcp_error_message.text = p_msg
+	mcp_error_message.visible = true
 
 
 func _log_diagnostic(p_msg: String) -> void:
@@ -351,11 +380,7 @@ func _on_settings_dialog_closed(p_values: Dictionary) -> void:
 	GodaiEditorSettings.set_dialog_settings(p_values)
 
 
-func _on_chat_view_settings_requested() -> void:
-	_on_settings_button_pressed()
-
-
-func _on_chat_view_go_online_requested() -> void:
+func _on_go_online_requested() -> void:
 	GodaiEditorSettings.set_network_online()
 
 
@@ -533,8 +558,8 @@ func _set_current_session(p_session: ChatSessionStore.ChatSession) -> void:
 		_current_session.chat.message_added.connect(_on_current_chat_message_added)
 
 	clear_button.disabled = _current_session == null or _current_session.is_external()
-	chat_view.show_chat(_current_session.chat if _current_session else null,
-		_current_session != null and _current_session.is_external())
+	chat_view.show_chat(_current_session.chat if _current_session else null)
+	_update_status_messages()
 	_update_prompt_bar()
 
 

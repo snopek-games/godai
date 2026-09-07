@@ -133,8 +133,6 @@ func test_set_loading() -> void:
 func test_welcome_note_shows_only_before_a_chat_starts() -> void:
 	_view.show_chat(null)
 	assert_true(_view.welcome_note.visible)
-	assert_true(_view.welcome_note.get_started_label.visible)
-	assert_false(_view.welcome_note.fix_section.visible)
 
 	_view.show_message(Chat.Message.new(Chat.Role.USER, "hello"))
 	assert_false(_view.welcome_note.visible)
@@ -146,65 +144,3 @@ func test_welcome_note_shows_only_before_a_chat_starts() -> void:
 
 	_view.show_chat(null)
 	assert_true(_view.welcome_note.visible)
-
-
-func test_welcome_note_names_each_problem() -> void:
-	_view.show_chat(null)
-
-	_view.api_configured = false
-	assert_true(_view.welcome_note.fix_section.visible)
-	assert_false(_view.welcome_note.get_started_label.visible)
-	assert_eq(_view.welcome_note.fix_label.text, _view.FIX_NOT_CONFIGURED_TEXT)
-	assert_true(_view.welcome_note.settings_button.visible)
-	assert_false(_view.welcome_note.go_online_button.visible)
-
-	_view.online = false
-	assert_eq(_view.welcome_note.fix_label.text, _view.FIX_BOTH_TEXT)
-	assert_true(_view.welcome_note.settings_button.visible)
-	assert_true(_view.welcome_note.go_online_button.visible)
-
-	_view.api_configured = true
-	assert_eq(_view.welcome_note.fix_label.text, _view.FIX_OFFLINE_TEXT)
-	assert_false(_view.welcome_note.settings_button.visible)
-	assert_true(_view.welcome_note.go_online_button.visible)
-
-	_view.online = true
-	assert_false(_view.welcome_note.fix_section.visible)
-	assert_true(_view.welcome_note.get_started_label.visible)
-
-
-func test_status_messages_only_show_on_editor_chats() -> void:
-	_view.api_configured = false
-	_view.online = false
-
-	_view.show_chat(null)
-	assert_false(_view.not_configured_message.visible, "not on <new>")
-	assert_false(_view.offline_message.visible)
-
-	_view.show_chat(Chat.new(), true)
-	assert_false(_view.not_configured_message.visible, "not on external chats")
-	assert_false(_view.offline_message.visible)
-
-	_view.show_chat(Chat.new())
-	assert_true(_view.not_configured_message.visible)
-	assert_false(_view.offline_message.visible, "configuration comes before going online")
-
-	_view.api_configured = true
-	assert_false(_view.not_configured_message.visible)
-	assert_true(_view.offline_message.visible)
-
-	_view.online = true
-	assert_false(_view.not_configured_message.visible)
-	assert_false(_view.offline_message.visible)
-
-
-func test_fix_buttons_forward_their_requests() -> void:
-	watch_signals(_view)
-
-	_view.welcome_note.settings_button.pressed.emit()
-	_view.not_configured_message.button.pressed.emit()
-	assert_signal_emit_count(_view, "settings_requested", 2)
-
-	_view.welcome_note.go_online_button.pressed.emit()
-	_view.offline_message.button.pressed.emit()
-	assert_signal_emit_count(_view, "go_online_requested", 2)
