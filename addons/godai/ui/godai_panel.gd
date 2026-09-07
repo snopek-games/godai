@@ -94,6 +94,8 @@ const FIX_BOTH_TEXT := "In order to use this chat box, you'll need to configure 
 const FIX_NOT_CONFIGURED_TEXT := "In order to use this chat box, you'll need to configure an LLM API:"
 const FIX_OFFLINE_TEXT := "In order to use this chat box, you'll need to go online:"
 const MCP_CONNECTED_CANCEL_TEXT := "The current chat is still in progress. The MCP client's tool calls will wait for it to finish. Would you like to cancel it now?"
+const PROMPT_PLACEHOLDER_TEXT := "Type your prompt here!"
+const PROMPT_UNAVAILABLE_TEXT := "Cannot chat with MCP or CLI sessions."
 
 
 func _ready() -> void:
@@ -103,7 +105,6 @@ func _ready() -> void:
 	chat_client = ChatClient.new()
 	add_child(chat_client)
 
-	clear_button.disabled = true
 	sidebar_container.visible = false
 
 	DefaultToolsLoader.load_default_tools(tools)
@@ -153,6 +154,7 @@ func _ready() -> void:
 		_model_catalog.refresh_if_stale()
 
 	_update_status_messages()
+	_update_prompt_bar()
 	_load_chat_sessions()
 	_update_mcp_status()
 	_start_mcp()
@@ -445,10 +447,18 @@ func _on_external_message_recorded(p_session: ChatSessionStore.ChatSession) -> v
 
 
 func _update_prompt_bar() -> void:
+	var request_active := _current_request != null
 	var client_connected := mcp_server.get_client_state() == MCPServer.ClientState.CONNECTED
 	var chat_available := _api_configured and _online and not client_connected
-	prompt_bar.visible = (_current_request != null or chat_available) \
-		and not (_current_session and _current_session.is_external())
+	var viewing_external_session := _current_session != null and _current_session.is_external()
+
+	prompt_bar.visible = request_active or chat_available
+	prompt.editable = not request_active and not viewing_external_session
+	prompt.placeholder_text = PROMPT_PLACEHOLDER_TEXT if prompt.editable else (PROMPT_UNAVAILABLE_TEXT if viewing_external_session else "")
+	submit_button.visible = not request_active
+	submit_button.disabled = not prompt.editable or prompt.text.strip_edges().is_empty()
+	cancel_button.visible = request_active
+	clear_button.disabled = _current_session == null
 
 
 func _resume_file_path() -> String:
@@ -518,9 +528,7 @@ func _start_new_chat() -> void:
 
 func _stop_current_chat() -> void:
 	_set_current_session(null)
-
 	prompt.clear()
-	submit_button.disabled = true
 
 	_ensure_new_chat_item()
 	session_list.select(0)
@@ -557,7 +565,6 @@ func _set_current_session(p_session: ChatSessionStore.ChatSession) -> void:
 		_current_session = p_session
 		_current_session.chat.message_added.connect(_on_current_chat_message_added)
 
-	clear_button.disabled = _current_session == null or _current_session.is_external()
 	chat_view.show_chat(_current_session.chat if _current_session else null)
 	_update_status_messages()
 	_update_prompt_bar()
@@ -656,7 +663,6 @@ func _submit_message() -> void:
 		return
 
 	prompt.clear()
-	submit_button.disabled = true
 
 	if _current_session == null:
 		_start_new_chat()
@@ -666,10 +672,7 @@ func _submit_message() -> void:
 
 
 func _continue_chat() -> void:
-	submit_button.visible = false
-	cancel_button.visible = true
 	chat_view.set_loading(true)
-	prompt.editable = false
 
 	var request := chat_client.submit_chat(_current_session.chat)
 	_set_current_request(request)
@@ -682,12 +685,7 @@ func _continue_chat() -> void:
 		# If the request was cleared or changed while we were waiting, then bail.
 		return
 	_set_current_request(null)
-
-	submit_button.visible = true
-	cancel_button.visible = false
-	cancel_button.disabled = false
 	chat_view.set_loading(false)
-	prompt.editable = true
 
 	if resp.is_error():
 		var error := resp.get_error()
@@ -698,7 +696,7 @@ func _continue_chat() -> void:
 
 
 func _on_prompt_text_changed() -> void:
-	submit_button.disabled = prompt.text.strip_edges().is_empty()
+	_update_prompt_bar()
 
 
 func _on_prompt_gui_input(p_event: InputEvent) -> void:

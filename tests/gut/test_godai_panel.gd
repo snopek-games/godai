@@ -114,14 +114,36 @@ func test_mcp_tool_use_waits_for_current_request() -> void:
 
 func test_mcp_session_is_read_only() -> void:
 	var panel := _make_panel()
+	panel.prompt.text = "typed before switching"
 
 	panel._on_mcp_tool_use_requested("mcp:1", READ_ONLY_TOOL, {}, MCPServer.CLIENT_KIND_CLI)
 	_track_session_file(panel)
 
-	assert_false(panel.prompt_bar.visible)
+	assert_true(panel.prompt_bar.visible, "only the text entry is disabled while no client is connected")
+	assert_false(panel.prompt.editable)
+	assert_eq(panel.prompt.placeholder_text, panel.PROMPT_UNAVAILABLE_TEXT)
+	assert_true(panel.submit_button.disabled)
+	assert_false(panel.clear_button.disabled)
 
 	panel._set_current_session(null)
-	assert_true(panel.prompt_bar.visible)
+	assert_true(panel.prompt.editable)
+	assert_eq(panel.prompt.placeholder_text, panel.PROMPT_PLACEHOLDER_TEXT)
+	assert_false(panel.submit_button.disabled)
+	assert_true(panel.clear_button.disabled)
+
+
+func test_clear_button_leaves_an_external_session() -> void:
+	var panel := _make_panel()
+	panel._on_mcp_tool_use_requested("mcp:1", READ_ONLY_TOOL, {}, MCPServer.CLIENT_KIND_CLI)
+	_track_session_file(panel)
+
+	panel.clear_button.pressed.emit()
+
+	assert_null(panel._current_session)
+	assert_true(panel.prompt.editable)
+	assert_eq(panel.session_list.get_item_metadata(0), panel.NEW_CHAT_SESSION_NAME)
+	assert_true(panel.session_list.is_selected(0))
+	assert_eq(_chat_items(panel).size(), 0)
 
 
 func test_mcp_recording_does_not_switch_chats_while_a_request_is_active() -> void:
@@ -201,10 +223,13 @@ func test_client_disconnect_keeps_the_editor_chats_pending_auth() -> void:
 
 func test_prompt_bar_returns_after_the_mcp_client_disconnects() -> void:
 	var panel := _make_panel()
+	panel.mcp_server._client_state = MCPServer.ClientState.CONNECTED
+	panel.mcp_server.client_state_changed.emit(MCPServer.ClientState.CONNECTED)
 	panel.mcp_server.tool_use_requested.emit("mcp:1", READ_ONLY_TOOL, {}, MCPServer.CLIENT_KIND_MCP)
 	_track_session_file(panel)
 	assert_false(panel.prompt_bar.visible)
 
+	panel.mcp_server._client_state = MCPServer.ClientState.NOT_CONNECTED
 	panel.mcp_server.client_state_changed.emit(MCPServer.ClientState.NOT_CONNECTED)
 
 	assert_true(panel.prompt_bar.visible)
@@ -222,7 +247,9 @@ func test_cli_session_stays_selected_after_each_command_disconnects() -> void:
 
 	assert_eq(panel._current_session, session)
 	assert_eq(panel.session_list.get_item_metadata(panel.session_list.get_selected_items()[0]), session.id)
-	assert_false(panel.prompt_bar.visible)
+	assert_true(panel.prompt_bar.visible)
+	assert_false(panel.prompt.editable)
+	assert_false(panel.clear_button.disabled)
 
 	panel.mcp_server.tool_use_requested.emit("mcp:2", READ_ONLY_TOOL, {}, MCPServer.CLIENT_KIND_CLI)
 
@@ -416,6 +443,7 @@ func test_submitting_a_prompt_round_trips_through_the_ui() -> void:
 	assert_false(panel.submit_button.visible)
 	assert_true(panel.cancel_button.visible)
 	assert_false(panel.prompt.editable)
+	assert_eq(panel.prompt.placeholder_text, "")
 	assert_true(panel.chat_view.loading_label.visible)
 	assert_eq(panel.session_list.get_item_metadata(0), panel._current_session.id, "the <new> item becomes the session")
 	assert_false(panel.clear_button.disabled)
@@ -426,6 +454,7 @@ func test_submitting_a_prompt_round_trips_through_the_ui() -> void:
 	assert_true(panel.submit_button.visible)
 	assert_false(panel.cancel_button.visible)
 	assert_true(panel.prompt.editable)
+	assert_eq(panel.prompt.placeholder_text, panel.PROMPT_PLACEHOLDER_TEXT)
 	assert_false(panel.chat_view.loading_label.visible)
 	assert_eq(panel._current_session.chat.messages.size(), 2)
 

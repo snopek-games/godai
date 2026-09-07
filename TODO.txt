@@ -4,7 +4,6 @@ TODO
 0.5: Finish critical addon stuff
 --------------------------------
 
-- Addon: The prompt bar with the "New/Clear" button should still be shown on CLI/MCP chats when MCP/CLI isn't currently connected
 - Addon: Showing the Godai dock should scroll to the bottom
 - Addon: Add to Godot asset store
 
