@@ -1,4 +1,4 @@
-Godai - Godot automation (and AI agent integration)
+Godai - Godot automation, for you and your AI agent
 ===================================================
 
 <img src="./assets/hub/godai-hub-margin.svg" align="left" width="200" />
