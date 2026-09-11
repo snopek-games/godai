@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
 <title>godai — active hub</title>
-<rect x="4" y="4" width="248" height="248" rx="56" fill="#478cbf"/>
+<defs><linearGradient id="tile-gradient-light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d4252"/><stop offset="1" stop-color="#1c1f22"/></linearGradient></defs>
+<rect x="4" y="4" width="248" height="248" rx="56" fill="url(#tile-gradient-light)"/>
 <line stroke="#ffffff" opacity="0.8" stroke-width="13" x1="128.4" y1="204" x2="55" y2="149.3">
   
 </line>

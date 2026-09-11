@@ -30,13 +30,18 @@ const STATIC_POSE_TIME = 2.825;
 //const STATIC_POSE_TIME = 6.0;
 
 // ---- colors.
+// `tile` is a hex, or `{ top: '#hex', bottom: '#hex' }` for a vertical gradient.
 // ring lines default to `foreground` at `ringOpacity`, so they
 // blend with whatever is behind them (the tile, or the page in -nobg
 // variants). Set `ringColor` to an explicit hex to make them a solid,
 // background-independent color instead.
 const THEMES = {
   light: {
-    tile:       '#478cbf',
+    tile: {
+      top: '#2d4252',
+      //top: '#273039',
+      bottom: '#1c1f22',
+    },
     foreground: '#ffffff',
     // ring-line opacity (foreground over whatever's behind)
     ringOpacity: 0.45,
@@ -300,7 +305,13 @@ function buildSvg(tracks, { theme, bg, size, static: staticAt, margin = 0 }) {
 
   let body = '';
   if (bg) {
-    body += `<rect x="${TILE.inset}" y="${TILE.inset}" width="${CANVAS_SIZE - 2 * TILE.inset}" height="${CANVAS_SIZE - 2 * TILE.inset}" rx="${TILE.cornerRadius}" fill="${colors.tile}"/>\n`;
+    let tileFill = colors.tile;
+    if (typeof colors.tile === 'object') {
+      const gradientId = `tile-gradient-${theme}`;
+      body += `<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${colors.tile.top}"/><stop offset="1" stop-color="${colors.tile.bottom}"/></linearGradient></defs>\n`;
+      tileFill = `url(#${gradientId})`;
+    }
+    body += `<rect x="${TILE.inset}" y="${TILE.inset}" width="${CANVAS_SIZE - 2 * TILE.inset}" height="${CANVAS_SIZE - 2 * TILE.inset}" rx="${TILE.cornerRadius}" fill="${tileFill}"/>\n`;
   }
   // ring lines (translucent by default, so they mix with the background)
   for (let i = 0; i < 5; i++) {
