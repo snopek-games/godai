@@ -26,6 +26,9 @@ func TestWarnIgnoredOpenFlags(t *testing.T) {
 		{"headless", []string{"--headless"}, core.OpenProjectResult{AlreadyOpen: true}, "--headless had no effect"},
 		{"headless already", []string{"--headless"}, core.OpenProjectResult{AlreadyOpen: true, Headless: true}, ""},
 		{"both", []string{"--headless", "--auto-approve"}, core.OpenProjectResult{AlreadyOpen: true}, "--headless and --auto-approve had no effect"},
+		{"offscreen", []string{"--offscreen"}, core.OpenProjectResult{AlreadyOpen: true}, "--offscreen had no effect"},
+		{"offscreen already", []string{"--offscreen"}, core.OpenProjectResult{AlreadyOpen: true, Offscreen: true}, ""},
+		{"offscreen size already", []string{"--offscreen", "--offscreen-size", "800x600"}, core.OpenProjectResult{AlreadyOpen: true, Offscreen: true}, "--offscreen-size had no effect"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			warning := openFlagWarning(t, tc.args, tc.result)

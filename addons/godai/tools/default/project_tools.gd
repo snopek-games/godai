@@ -25,6 +25,7 @@ class ProjectGetCurrent extends DefaultTool:
 			project_path = ProjectSettings.globalize_path("res://").simplify_path(),
 			project_name = ProjectSettings.get_setting("application/config/name"),
 			headless = (DisplayServer.get_name() == "headless"),
+			offscreen = GodaiEditorSettings.is_offscreen(),
 			godot_version = _get_godot_version(),
 		})
 

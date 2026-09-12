@@ -274,22 +274,22 @@ func printer(cmd *cli.Command) *output.Printer {
 
 func sessionConfig(cmd *cli.Command, configPath string) (core.Config, error) {
 	config := core.Config{
-		Scope:               core.ScopeGlobal,
-		RootPaths:           cmd.StringSlice("root"),
-		EditorInstancesPath: cmd.String("editor-instances-path"),
-		EditorScanInterval:  durationFlag(cmd, "editor-scan-interval", cliScanInterval),
-		EditorRetryDelay:    durationFlag(cmd, "editor-retry-delay", cliRetryDelay),
-		EditorTimeout:       durationFlag(cmd, "editor-timeout", editorTimeout),
-		EditorToolTimeout:   durationFlag(cmd, "editor-tool-timeout", editorToolTimeout),
-		OpenProjectTimeout:  durationFlag(cmd, "open-timeout", cliOpenWait),
-		GodotVersion:        cmd.String("godot-version"),
-		GodotPath:           cmd.String("godot-path"),
-		NoAutoInstall:       cmd.Bool("no-auto-install"),
-		ProjectBasePath:     cmd.String("project-base-path"),
-		X11Display:          cmd.String("x11-display"),
-		Debug:               cmd.Bool("debug"),
-		SavedConfigPath:     configPath,
-		CloseHeadlessOnExit: false,
+		Scope:                 core.ScopeGlobal,
+		RootPaths:             cmd.StringSlice("root"),
+		EditorInstancesPath:   cmd.String("editor-instances-path"),
+		EditorScanInterval:    durationFlag(cmd, "editor-scan-interval", cliScanInterval),
+		EditorRetryDelay:      durationFlag(cmd, "editor-retry-delay", cliRetryDelay),
+		EditorTimeout:         durationFlag(cmd, "editor-timeout", editorTimeout),
+		EditorToolTimeout:     durationFlag(cmd, "editor-tool-timeout", editorToolTimeout),
+		OpenProjectTimeout:    durationFlag(cmd, "open-timeout", cliOpenWait),
+		GodotVersion:          cmd.String("godot-version"),
+		GodotPath:             cmd.String("godot-path"),
+		NoAutoInstall:         cmd.Bool("no-auto-install"),
+		ProjectBasePath:       cmd.String("project-base-path"),
+		X11Display:            cmd.String("x11-display"),
+		Debug:                 cmd.Bool("debug"),
+		SavedConfigPath:       configPath,
+		CloseUnattendedOnExit: false,
 
 		// The saved default is the flag's value when it isn't given, so IsSet
 		// is what separates "use this one" from "this is my usual one".

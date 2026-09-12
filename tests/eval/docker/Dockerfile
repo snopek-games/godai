@@ -15,7 +15,10 @@ ARG CLAUDE_VERSION=2.1.229
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates curl git unzip wget libfontconfig1 \
- && rm -rf /var/lib/apt/lists/*
+      xvfb libx11-6 libxcursor1 libxinerama1 libxrandr2 libxi6 libxext6 \
+      libxkbcommon0 libgl1 libegl1 libvulkan1 mesa-vulkan-drivers \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
 
 COPY scripts/install-godot.sh /tmp/install-godot.sh
 RUN GODOT_VERSION=${GODOT_VERSION} /tmp/install-godot.sh && rm /tmp/install-godot.sh

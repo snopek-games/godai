@@ -43,6 +43,7 @@ to test a released binary instead.
 | `--verbose` | Narrate each conversation to stderr as it happens |
 | `--keep-work` | Keep the scratch project to poke at after a failure |
 | `--bare` | See "Reproducibility" below |
+| `--headless` / `--offscreen` | How the editors are displayed. See "Displays" |
 | `--godot` | Godot binary; defaults to whatever `godai engine which` reports |
 
 ## Docker
@@ -52,8 +53,8 @@ to test a released binary instead.
 
 ```sh
 ./tests/eval/docker/build.sh                 # build (or rebuild) the image
-./tests/eval/docker/run.sh run --solution
-./tests/eval/docker/run.sh run --model haiku --bare --out results.json
+./tests/eval/docker/run.sh run --offscreen --solution
+./tests/eval/docker/run.sh run --offscreen --model haiku --bare --out results.json
 ```
 
 `run.sh` hands its arguments to `godai-eval` with the repo mounted at `/work`,
@@ -81,10 +82,12 @@ Otherwise, everything should work the same!
 
 1. Copy `tasks/<id>/fixture/` into a scratch directory and init a git repo
    there, to track what the agent changes.
-2. Open a **headless, auto-approving** editor on it. This also installs and
-   enables the addon, which edits `project.godot`.
-3. Commit the git baseline — after step 2, so the addon's own changes don't
-   look like the agent touching a protected path.
+2. Open an **auto-approving** editor on it, headless or offscreen if asked (see
+   "Displays"). This also installs and enables the addon, which edits
+   `project.godot`.
+3. Commit the git baseline — after step 2, so neither the addon's own changes
+   nor the editor rewriting `project.godot` as it opens look like the agent
+   touching a protected path.
 4. Run the agent in the scratch project with the task's `instruction.md`, with
    Godai reachable only through `--surface` and nothing else.
 5. Close the editor with `--skip-save`.
@@ -215,6 +218,21 @@ and verifiers, but no agent at all. Every task is expected to *fail* — a task
 that passes untouched has verifiers that check nothing, so an agent that does
 nothing would score on it. Like `--solution` it is free, exits non-zero on the
 first offending task, and runs on every CI pipeline.
+
+## Displays
+
+By default every editor an attempt opens is a normal window on your desktop,
+which is handy for watching an agent work, but it gets in the way of doing
+anything else.
+
+- `--headless` opens the editor with no display or audio at all, like CI does.
+- `--offscreen` renders normally, but to a virtual display nobody can see,
+  so screenshots and anything else that needs real rendering still works. It is
+  Linux-only and needs `Xvfb` installed. `--offscreen-size WIDTHxHEIGHT` sets
+  that display's size (default `1920x1080`)
+
+The two are mutually exclusive, and whichever is given also applies to any
+editor the agent opens itself.
 
 ## Reproducibility
 

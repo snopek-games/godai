@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"gitlab.com/snopek-games/godai/internal/core"
 )
 
 const (
@@ -45,6 +47,11 @@ type Config struct {
 	// OpenTimeout, when set, becomes GODAI_OPEN_TIMEOUT for every godai the
 	// attempts run, since the stock default undershoots on a loaded machine.
 	OpenTimeout time.Duration
+
+	// Display is core.DisplayHeadless, core.DisplayOffscreen, or empty for a
+	// visible window; it applies to every editor an attempt opens.
+	Display       string
+	OffscreenSize string
 
 	// Bare runs Claude Code with --bare, which skips hooks, plugins, CLAUDE.md
 	// and auto-memory. It also refuses OAuth, so it needs ANTHROPIC_API_KEY.
@@ -303,6 +310,21 @@ func runAgent(ctx context.Context, cfg Config, spec *Spec, work *Workspace) agen
 	return agentRun{metrics: metrics, stream: stream, code: code, errs: errs}
 }
 
+func (cfg Config) displayArgs() []string {
+	switch cfg.Display {
+	case core.DisplayHeadless:
+		return []string{"--headless"}
+	case core.DisplayOffscreen:
+		args := []string{"--offscreen"}
+		if cfg.OffscreenSize != "" {
+			args = append(args, "--offscreen-size", cfg.OffscreenSize)
+		}
+		return args
+	default:
+		return nil
+	}
+}
+
 // mcpArgs reaches godai only as MCP tools. --strict-mcp-config keeps whatever
 // MCP servers the developer has configured from changing the result.
 func mcpArgs(cfg Config, work *Workspace) []string {
@@ -316,10 +338,9 @@ func mcpArgs(cfg Config, work *Workspace) []string {
 		"mcpServers": map[string]any{
 			"godai": map[string]any{
 				"command": cfg.GodaiBin,
-				// --headless --auto-approve so an editor the agent opens works
-				// like the one the harness opened: no display, nobody to
-				// answer approval dialogs.
-				"args": work.GodaiArgs("mcp", "--no-update-check", "--headless", "--auto-approve"),
+				// The same display and --auto-approve as the editor the harness
+				// opened, so one the agent opens behaves the same way.
+				"args": work.GodaiArgs(append([]string{"mcp", "--no-update-check", "--auto-approve"}, cfg.displayArgs()...)...),
 				"env":  env,
 			},
 		},

@@ -209,7 +209,7 @@ func (s *Session) StopThenStartEditor(ctx context.Context, projectPath string, a
 
 func (s *Session) stopThenStartEditor(ctx context.Context, editor *Editor, args Args) error {
 	projectPath := editor.ProjectPath
-	headless := editor.Headless
+	headless, offscreen := editor.Headless, editor.Offscreen
 
 	slog.Info("the editor's addon doesn't match; closing and reopening it",
 		"projectPath", projectPath, "addonVersion", editor.AddonVersion, "version", Version)
@@ -219,7 +219,7 @@ func (s *Session) stopThenStartEditor(ctx context.Context, editor *Editor, args 
 	}
 
 	// OpenProject installs the embedded addon before launching.
-	if _, err := s.OpenProject(ctx, projectPath, OpenProjectOptions{Headless: headless}); err != nil {
+	if _, err := s.OpenProject(ctx, projectPath, OpenProjectOptions{Headless: headless, Offscreen: offscreen}); err != nil {
 		return err
 	}
 	return nil
@@ -254,7 +254,7 @@ func (s *Session) CloseEditor(ctx context.Context, projectPath string, args Args
 		}
 	}
 
-	s.unmarkHeadlessProject(projectPath)
+	s.unmarkUnattendedProject(projectPath)
 
 	return nil
 }
@@ -299,31 +299,31 @@ func (s *Session) callAndHonorRefusal(ctx context.Context, editor *Editor, name 
 	return nil
 }
 
-// shutdownCloseTimeout bounds how long we wait for a headless editor to save and
-// shut down when the session closes.
+// shutdownCloseTimeout bounds how long we wait for an unattended editor to
+// save and shut down when the session closes.
 const shutdownCloseTimeout = 30 * time.Second
 
-// closeHeadlessEditors shuts down the headless editors we launched. It runs at
-// exit, so it uses fresh contexts rather than the (now-cancelled) run context.
-// We look up the live connection by project path, so this still works after an
-// editor has restarted with a new connection.
+// closeUnattendedEditors shuts down the headless and offscreen editors we
+// launched. It runs at exit, so it uses fresh contexts rather than the
+// (now-cancelled) run context. We look up the live connection by project path,
+// so this still works after an editor has restarted with a new connection.
 //
-// We only close an editor that is *currently* headless. If the user killed our
-// headless editor and launched their own (non-headless) editor for the same
-// project, that replacement is left alone.
-func (s *Session) closeHeadlessEditors() {
-	s.headlessMutex.Lock()
-	projects := make([]string, 0, len(s.headlessProjects))
-	for p := range s.headlessProjects {
+// We only close an editor that is *currently* unattended. If the user killed
+// our editor and launched their own (windowed) editor for the same project,
+// that replacement is left alone.
+func (s *Session) closeUnattendedEditors() {
+	s.unattendedMutex.Lock()
+	projects := make([]string, 0, len(s.unattendedProjects))
+	for p := range s.unattendedProjects {
 		projects = append(projects, p)
 	}
-	s.headlessProjects = make(map[string]struct{})
-	s.headlessMutex.Unlock()
+	s.unattendedProjects = make(map[string]string)
+	s.unattendedMutex.Unlock()
 
 	var wg sync.WaitGroup
 	for _, projectPath := range projects {
 		editor := s.findEditor(projectPath)
-		if editor == nil || !editor.Headless {
+		if editor == nil || !(editor.Headless || editor.Offscreen) {
 			// Already gone (crashed, or closed by the user), or replaced by an
 			// editor we didn't launch.
 			continue
@@ -335,15 +335,15 @@ func (s *Session) closeHeadlessEditors() {
 		go func(projectPath string, conn *godot.Connection) {
 			defer wg.Done()
 
-			// A headless editor has no user to prompt, so close_editor saves and
-			// quits on its own.
+			// An unattended editor has no user to prompt, so close_editor saves
+			// and quits on its own.
 			ctx, cancel := context.WithTimeout(context.Background(), shutdownCloseTimeout)
 			defer cancel()
 			if _, err := conn.CallMethod(ctx, "tools/call", &callToolParams{
 				Name:      "close_editor",
 				Arguments: json.RawMessage("{}"),
 			}); err != nil && !errors.Is(err, godot.ErrConnectionClosed) {
-				slog.Error("error closing headless editor on shutdown", "projectPath", projectPath, "error", err)
+				slog.Error("error closing unattended editor on shutdown", "projectPath", projectPath, "error", err)
 			}
 		}(projectPath, editor.conn)
 	}

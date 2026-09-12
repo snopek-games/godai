@@ -178,7 +178,7 @@ func test_mcp_session_appears_in_the_session_list() -> void:
 
 func test_client_disconnect_denies_pending_tool_auth() -> void:
 	var panel := _make_panel()
-	panel._tool_auth_queue._headless = false
+	panel._tool_auth_queue._unattended = false
 	var request = panel.mcp_server.tool_use_authorizer.call(WRITE_TOOL, {})
 	assert_false(request.is_done())
 
@@ -191,7 +191,7 @@ func test_client_disconnect_denies_pending_tool_auth() -> void:
 
 func test_client_disconnect_denies_auth_gated_behind_a_busy_chat() -> void:
 	var panel := _make_panel()
-	panel._tool_auth_queue._headless = false
+	panel._tool_auth_queue._unattended = false
 	panel._set_current_request(_make_request())
 
 	var gated = panel.mcp_server.tool_use_authorizer.call(WRITE_TOOL, {})
@@ -210,7 +210,7 @@ func test_client_disconnect_denies_auth_gated_behind_a_busy_chat() -> void:
 func test_client_disconnect_keeps_the_editor_chats_pending_auth() -> void:
 	var panel := _make_panel()
 	var stub := _install_stub_client(panel)
-	panel._tool_auth_queue._headless = false
+	panel._tool_auth_queue._unattended = false
 	_submit_and_track(panel, "hello")
 	var request = stub.tool_use_authorizer.call(WRITE_TOOL, {})
 	assert_false(request.is_done())
@@ -513,7 +513,7 @@ func test_headless_mcp_connect_cancels_the_chat_instead_of_asking() -> void:
 
 func test_confirming_the_mcp_connect_cancel_keeps_the_chat_until_a_tool_use_arrives() -> void:
 	var panel := _make_panel()
-	panel._headless = false
+	panel._unattended = false
 	_install_stub_client(panel)
 	_submit_and_track(panel, "hello")
 	var session = panel._current_session
@@ -535,7 +535,7 @@ func test_confirming_the_mcp_connect_cancel_keeps_the_chat_until_a_tool_use_arri
 
 func test_gui_mcp_connect_asks_before_cancelling_the_chat() -> void:
 	var panel := _make_panel()
-	panel._headless = false
+	panel._unattended = false
 	_install_stub_client(panel)
 	_submit_and_track(panel, "hello")
 
@@ -702,7 +702,7 @@ func test_selecting_a_saved_session_enables_the_clear_button() -> void:
 
 func test_mcp_connect_during_a_chat_keeps_the_cancel_ui() -> void:
 	var panel := _make_panel()
-	panel._headless = false
+	panel._unattended = false
 	var stub := _install_stub_client(panel)
 	_submit_and_track(panel, "hello")
 

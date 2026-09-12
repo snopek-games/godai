@@ -86,7 +86,7 @@ func test_headless_denies_write_tools_without_asking() -> void:
 
 
 func test_write_tool_requests_queue_and_advance_through_the_dialog() -> void:
-	_queue._headless = false
+	_queue._unattended = false
 	var first = _queue.authorize(WRITE_TOOL, {settings = {a = "1"}})
 	var second = _queue.authorize(WRITE_TOOL, {settings = {b = "2"}})
 
@@ -110,7 +110,7 @@ func test_write_tool_requests_queue_and_advance_through_the_dialog() -> void:
 
 
 func test_allow_for_session_drains_queued_requests_for_the_tool() -> void:
-	_queue._headless = false
+	_queue._unattended = false
 	var first = _queue.authorize(WRITE_TOOL, {})
 	var second = _queue.authorize(WRITE_TOOL, {})
 
@@ -129,7 +129,7 @@ func test_allow_for_session_drains_queued_requests_for_the_tool() -> void:
 
 
 func test_cancel_pending_denies_everything_and_hides_the_dialog() -> void:
-	_queue._headless = false
+	_queue._unattended = false
 	var first = _queue.authorize(WRITE_TOOL, {})
 	var second = _queue.authorize(WRITE_TOOL, {})
 
@@ -145,7 +145,7 @@ func test_cancel_pending_denies_everything_and_hides_the_dialog() -> void:
 
 
 func test_cancel_external_denies_a_request_gated_behind_a_busy_chat() -> void:
-	_queue._headless = false
+	_queue._unattended = false
 	_busy.set_busy(true)
 	var gated = _queue.authorize_when_idle(WRITE_TOOL, {})
 	assert_false(gated.is_done())
@@ -161,7 +161,7 @@ func test_cancel_external_denies_a_request_gated_behind_a_busy_chat() -> void:
 
 
 func test_cancel_external_leaves_other_pending_requests_alone() -> void:
-	_queue._headless = false
+	_queue._unattended = false
 	var editor_request = _queue.authorize(WRITE_TOOL, {})
 	var external_request = _queue.authorize_when_idle(WRITE_TOOL, {})
 

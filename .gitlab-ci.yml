@@ -514,7 +514,7 @@ eval-solution:
   before_script:
     - ./scripts/install-godot.sh
   script:
-    - go run ./cmd/godai-eval run --solution --godot /usr/local/bin/godot --out results-solution.json
+    - go run ./cmd/godai-eval run --solution --headless --godot /usr/local/bin/godot --out results-solution.json
   artifacts:
     when: always
     expire_in: 1 week
@@ -531,7 +531,7 @@ eval-pristine:
   before_script:
     - ./scripts/install-godot.sh
   script:
-    - go run ./cmd/godai-eval run --pristine --godot /usr/local/bin/godot --out results-pristine.json
+    - go run ./cmd/godai-eval run --pristine --headless --godot /usr/local/bin/godot --out results-pristine.json
   artifacts:
     when: always
     expire_in: 1 week
@@ -578,6 +578,7 @@ eval-cells:
         --out "results/${MODEL}-${SURFACE}.json" \
         --verbose \
         --bare \
+        --headless \
         $EXTRA
   artifacts:
     when: always

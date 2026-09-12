@@ -96,6 +96,9 @@ func (w *Workspace) IsolationEnv() []string {
 		// Editors log to the workspace cache dir, so a connection timeout
 		// shows what Godot printed instead of nothing.
 		"GODAI_EDITOR_LOG=1",
+		// A windowed editor would otherwise wait on its close confirmation
+		// when the harness shuts it down.
+		"GODAI_UNATTENDED=1",
 	)
 	if w.cfg.OpenTimeout > 0 {
 		env = append(env, fmt.Sprintf("GODAI_OPEN_TIMEOUT=%g", w.cfg.OpenTimeout.Seconds()))
@@ -201,12 +204,18 @@ func (w *Workspace) OpenEditor(ctx context.Context) error {
 // told to run a prompt of its own.
 func (w *Workspace) OpenEditorWith(ctx context.Context, env []string) error {
 	// --auto-approve is required: nobody is there to answer the approval
-	// dialog in a headless editor.
-	out, err := w.godaiWith(ctx, env, "project", "open", w.Project, "--headless", "--auto-approve")
+	// dialog, whatever the display.
+	args := append([]string{"project", "open", w.Project, "--auto-approve"}, w.cfg.displayArgs()...)
+	out, err := w.godaiWith(ctx, env, args...)
 	if err != nil {
 		return fmt.Errorf("open editor: %w: %s", err, out)
 	}
 	w.editorClosed = false
+	// A windowed or offscreen editor rewrites project.godot as it opens (a
+	// headless one doesn't), and that must not count as the agent's doing.
+	if err := w.commitEditorChanges(); err != nil {
+		return fmt.Errorf("commit editor changes: %w", err)
+	}
 	return nil
 }
 
@@ -270,11 +279,28 @@ func (w *Workspace) commitBaseline() error {
 		{"add", "-A"},
 		{"-c", "user.email=eval@localhost", "-c", "user.name=eval", "commit", "-qm", "fixture"},
 	} {
-		cmd := exec.Command("git", args...)
-		cmd.Dir = w.Project
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("git %v: %v: %s", args, err, out)
+		if err := w.git(args...); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+func (w *Workspace) commitEditorChanges() error {
+	if err := w.git("add", "-A"); err != nil {
+		return err
+	}
+	if w.git("diff", "--cached", "--quiet") == nil {
+		return nil
+	}
+	return w.git("-c", "user.email=eval@localhost", "-c", "user.name=eval", "commit", "-qm", "editor opened")
+}
+
+func (w *Workspace) git(args ...string) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = w.Project
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git %v: %v: %s", args, err, out)
 	}
 	return nil
 }

@@ -52,6 +52,8 @@ func projectCommand(configPath string) *cli.Command {
 						Name:  "headless",
 						Usage: "launch the editor without visual or audio output",
 					},
+					offscreenFlag("launch the editor rendering to a virtual display nobody can see (Linux only, needs Xvfb)"),
+					offscreenSizeFlag(),
 					&cli.BoolFlag{
 						Name:  "auto-approve",
 						Usage: "run tools in this editor without asking for approval",
@@ -59,6 +61,9 @@ func projectCommand(configPath string) *cli.Command {
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					if err := atMostOneArg(cmd, "project path"); err != nil {
+						return err
+					}
+					if err := checkDisplayFlags(cmd); err != nil {
 						return err
 					}
 
@@ -76,8 +81,10 @@ func projectCommand(configPath string) *cli.Command {
 						}
 
 						result, err := session.OpenProject(ctx, projectPath, core.OpenProjectOptions{
-							Headless:    cmd.Bool("headless"),
-							AutoApprove: cmd.Bool("auto-approve"),
+							Headless:      cmd.Bool("headless"),
+							Offscreen:     cmd.Bool("offscreen"),
+							OffscreenSize: cmd.String("offscreen-size"),
+							AutoApprove:   cmd.Bool("auto-approve"),
 						})
 						if err != nil {
 							return err
@@ -96,7 +103,7 @@ func projectCommand(configPath string) *cli.Command {
 						}
 
 						warnIgnoredOpenFlags(out, cmd, result)
-						noteHeadlessEditors(out, session)
+						noteUnattendedEditors(out, session)
 						return nil
 					})
 				},
@@ -213,6 +220,12 @@ func warnIgnoredOpenFlags(out *Printer, cmd *cli.Command, result *core.OpenProje
 	if cmd.Bool("headless") && !result.Headless {
 		ignored = append(ignored, "--headless")
 	}
+	if cmd.Bool("offscreen") && !result.Offscreen {
+		ignored = append(ignored, "--offscreen")
+	}
+	if cmd.IsSet("offscreen-size") {
+		ignored = append(ignored, "--offscreen-size")
+	}
 	if cmd.Bool("auto-approve") {
 		ignored = append(ignored, "--auto-approve")
 	}
@@ -243,8 +256,35 @@ func orUnknown(value string) string {
 	return value
 }
 
-func noteHeadlessEditors(out *Printer, session *core.Session) {
-	for _, projectPath := range session.HeadlessProjects() {
-		out.Note("launched a headless editor for %s; close it with `godai editor close %s`", projectPath, projectPath)
+func noteUnattendedEditors(out *Printer, session *core.Session) {
+	for _, editor := range session.UnattendedEditors() {
+		out.Note("launched an %s editor for %s; close it with `godai editor close %s`", editor.Display, editor.ProjectPath, editor.ProjectPath)
 	}
+}
+
+func offscreenFlag(usage string) cli.Flag {
+	return &cli.BoolFlag{Name: "offscreen", Usage: usage}
+}
+
+func offscreenSizeFlag() cli.Flag {
+	return &cli.StringFlag{
+		Name:  "offscreen-size",
+		Usage: "the virtual display's size in pixels, as WIDTHxHEIGHT, for --offscreen",
+		Value: core.DefaultOffscreenSize,
+	}
+}
+
+func checkDisplayFlags(cmd *cli.Command) error {
+	if cmd.Bool("headless") && cmd.Bool("offscreen") {
+		return newUsageError("--headless and --offscreen are mutually exclusive")
+	}
+	if cmd.IsSet("offscreen-size") && !cmd.Bool("offscreen") {
+		return newUsageError("--offscreen-size only applies with --offscreen")
+	}
+	if cmd.Bool("offscreen") {
+		if err := core.CheckOffscreenSize(cmd.String("offscreen-size")); err != nil {
+			return newUsageError("%s", err.Error())
+		}
+	}
+	return nil
 }

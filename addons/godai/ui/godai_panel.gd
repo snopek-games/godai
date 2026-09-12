@@ -65,7 +65,7 @@ var _current_session: ChatSessionStore.ChatSession
 var _current_request: ChatClient.Request
 var _pending_cancel_action: Callable
 var _cancel_confirmed := false
-var _headless := DisplayServer.get_name() == "headless"
+var _unattended := GodaiEditorSettings.is_unattended()
 var _api_configured := true
 var _online := true
 
@@ -250,7 +250,7 @@ func _on_mcp_client_state_changed(p_client_state: MCPServer.ClientState) -> void
 
 	_update_mcp_status()
 	if p_client_state == MCPServer.ClientState.CONNECTED and _current_request:
-		if _headless:
+		if _unattended:
 			_cancel_current_request()
 		else:
 			_confirm_cancel_current_request(_sync_session_selection, MCP_CONNECTED_CANCEL_TEXT)

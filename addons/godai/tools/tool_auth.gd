@@ -6,9 +6,9 @@ const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const DENIED_MESSAGE = "The user denied permission to use the '%s' tool."
 const TIMED_OUT_MESSAGE = "Timed out waiting for the user before running the '%s' tool."
 
-## Refusing these in a headless editor would leave whoever launched it with no
-## way to shut it down again.
-const HEADLESS_ALWAYS_ALLOWED_TOOLS: PackedStringArray = ["close_editor", "restart_editor"]
+## Refusing these in an unattended editor would leave whoever launched it with
+## no way to shut it down again.
+const UNATTENDED_ALWAYS_ALLOWED_TOOLS: PackedStringArray = ["close_editor", "restart_editor"]
 
 enum Decision {
 	ASK,

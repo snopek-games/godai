@@ -6,10 +6,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/matryer/is"
+
+	"gitlab.com/snopek-games/godai/internal/fakebin"
 )
 
 func writeInstanceFile(t *testing.T, dir, instanceID, projectPath string, port int) {
@@ -114,4 +117,35 @@ func TestALinkedEngineOfUnknownVersionIsTakenAtItsWord(t *testing.T) {
 
 	editor := &Editor{ProjectPath: "/games/platformer", GodotVersion: "4.5-stable"}
 	is.NoErr(session.checkEditorVersion(editor, OpenProjectOptions{GodotVersion: "my-build"}))
+}
+
+func TestOpenProjectFailsAsSoonAsGodotExits(t *testing.T) {
+	is := is.New(t)
+
+	projectPath := canonicalTempDir(t)
+	is.NoErr(os.WriteFile(filepath.Join(projectPath, "project.godot"), []byte("config_version=5\n\n[application]\n\nconfig/name=\"Exits\"\n"), 0o644))
+
+	// Answers the version probe like a real Godot, then dies on launch.
+	godotBin, err := fakebin.Write(filepath.Join(t.TempDir(), "godot"),
+		"[ \"$1\" = --version ] && { echo 4.6.stable.official.89cf1416a; exit 0; }\nexit 1\n",
+		"if \"%1\"==\"--version\" (echo 4.6.stable.official.89cf1416a) else (exit /b 1)\r\n")
+	is.NoErr(err)
+
+	s, err := New(Config{
+		Scope:               ScopeGlobal,
+		EditorInstancesPath: t.TempDir(),
+		EditorRetryDelay:    time.Second,
+		GodotPath:           godotBin,
+	})
+	is.NoErr(err)
+
+	is.NoErr(s.Start(context.Background()))
+	defer s.Close()
+
+	started := time.Now()
+	_, err = s.OpenProject(context.Background(), projectPath, OpenProjectOptions{Wait: 30 * time.Second})
+	is.True(err != nil)
+	is.True(strings.Contains(err.Error(), "the Godot editor exited before connecting")) // not the timeout
+	is.True(strings.Contains(err.Error(), "exit status 1"))
+	is.True(time.Since(started) < 10*time.Second) // long before the wait would have run out
 }

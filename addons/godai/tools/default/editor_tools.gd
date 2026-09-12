@@ -76,8 +76,8 @@ class EditorRestart extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var save := not bool(p_input.get('skip_save', false))
 
-		# Headless (e.g. automated): there's no user to prompt, so go ahead.
-		if DisplayServer.get_name() == "headless":
+		# Unattended (e.g. automated): there's no user to prompt, so go ahead.
+		if GodaiEditorSettings.is_unattended():
 			var result := ToolResult.resolved({success = true})
 			_restart.call_deferred(save)
 			return result
@@ -127,7 +127,7 @@ class EditorRestart extends DefaultTool:
 			return
 
 		# Not EditorInterface.restart_editor(): its unsaved-changes prompt has no
-		# user to answer it headless. OS.get_cmdline_args() strips --editor/--path
+		# user to answer it unattended. OS.get_cmdline_args() strips --editor/--path
 		# (and the headless flags), so those are rebuilt and the rest kept.
 		var args := PackedStringArray(["--editor", "--path", ProjectSettings.globalize_path("res://").simplify_path()])
 		if DisplayServer.get_name() == "headless":
@@ -145,8 +145,8 @@ class EditorClose extends DefaultTool:
 	func execute(p_input) -> ToolResult:
 		var save := not bool(p_input.get('skip_save', false))
 
-		# Headless (e.g. automated): there's no user to prompt, so go ahead.
-		if DisplayServer.get_name() == "headless":
+		# Unattended (e.g. automated): there's no user to prompt, so go ahead.
+		if GodaiEditorSettings.is_unattended():
 			var result := ToolResult.resolved({success = true})
 			_close.call_deferred(save)
 			return result

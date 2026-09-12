@@ -73,6 +73,8 @@ const MCP_BASE_PORT_ENV = "GODAI_MCP_BASE_PORT"
 const MCP_PORT_COUNT_ENV = "GODAI_MCP_PORT_COUNT"
 const MCP_SKIP_SECRET_CHECK_ENV = "GODAI_MCP_SKIP_SECRET_CHECK"
 const AUTO_APPROVE_TOOLS_ENV = "GODAI_AUTO_APPROVE_TOOLS"
+const OFFSCREEN_ENV = "GODAI_OFFSCREEN"
+const UNATTENDED_ENV = "GODAI_UNATTENDED"
 
 
 static func is_godai_setting(p_name) -> bool:
@@ -315,8 +317,21 @@ static func _editor_settings() -> EditorSettings:
 	return EditorInterface.get_editor_settings() if Engine.is_editor_hint() else null
 
 
-## When true, tools that would otherwise need the user's approval run without
-## asking. Needed for headless editors, where nobody can answer the dialog.
+static func _env_flag(p_name: String) -> bool:
+	if not OS.has_environment(p_name):
+		return false
+	var value := OS.get_environment(p_name)
+	return not value.is_empty() and value != "0"
+
+
+static func is_offscreen() -> bool:
+	return _env_flag(OFFSCREEN_ENV)
+
+
+static func is_unattended() -> bool:
+	return DisplayServer.get_name() == "headless" or _env_flag(UNATTENDED_ENV)
+
+
 static func get_auto_approve_tools() -> bool:
 	if OS.has_environment(AUTO_APPROVE_TOOLS_ENV):
 		var value := OS.get_environment(AUTO_APPROVE_TOOLS_ENV)

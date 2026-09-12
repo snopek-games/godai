@@ -15,7 +15,7 @@ var _pending_requests: Array[ToolAuth.Request]
 var _external_requests: Array[ToolAuth.Request]
 var _shown_request: ToolAuth.Request
 var _updating_queue := false
-var _headless := DisplayServer.get_name() == "headless"
+var _unattended := GodaiEditorSettings.is_unattended()
 
 
 func _init(p_tools: ToolManager, p_tool_auth: ToolAuth, p_dialog: ToolUseAuthDialog, p_is_busy: Callable, p_busy_changed: Signal) -> void:
@@ -34,7 +34,7 @@ func authorize(p_name: String, p_input) -> ToolAuth.Request:
 	if not ToolAuth.needs_authorization(tool_obj):
 		return ToolAuth.Request.resolved(p_name, p_input, true)
 
-	if _headless and p_name in ToolAuth.HEADLESS_ALWAYS_ALLOWED_TOOLS:
+	if _unattended and p_name in ToolAuth.UNATTENDED_ALWAYS_ALLOWED_TOOLS:
 		return ToolAuth.Request.resolved(p_name, p_input, true)
 
 	match _tool_auth.get_decision(p_name):
@@ -46,8 +46,8 @@ func authorize(p_name: String, p_input) -> ToolAuth.Request:
 	if GodaiEditorSettings.get_auto_approve_tools():
 		return ToolAuth.Request.resolved(p_name, p_input, true)
 
-	if _headless:
-		push_warning("Denying use of the '%s' tool: running headless, and %s is not set."
+	if _unattended:
+		push_warning("Denying use of the '%s' tool: running unattended, and %s is not set."
 			% [p_name, GodaiEditorSettings.AUTO_APPROVE_TOOLS_ENV])
 		return ToolAuth.Request.resolved(p_name, p_input, false)
 

@@ -71,6 +71,9 @@ func run(ctx context.Context, cmd *cli.Command) error {
 	if err := checkCredentials(cmd.Bool("bare"), credentialed); err != nil {
 		return err
 	}
+	if err := checkDisplayFlags(cmd); err != nil {
+		return err
+	}
 
 	specs, err := eval.LoadTasks(cmd.String("tasks"), cmd.StringSlice("tags"), cmd.StringSlice("ids"))
 	if err != nil {

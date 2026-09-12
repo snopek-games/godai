@@ -2,12 +2,14 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -24,6 +26,7 @@ type OpenProjectInfo struct {
 	ProjectPath  string `json:"project_path"`
 	ProjectName  string `json:"project_name,omitempty"`
 	Headless     bool   `json:"headless"`
+	Offscreen    bool   `json:"offscreen"`
 	GodotVersion string `json:"godot_version,omitempty"`
 }
 
@@ -169,6 +172,7 @@ func (s *Session) ListOpenProjects(ctx context.Context) ([]OpenProjectInfo, erro
 			ProjectPath:  e.ProjectPath,
 			ProjectName:  e.ProjectName,
 			Headless:     e.Headless,
+			Offscreen:    e.Offscreen,
 			GodotVersion: e.GodotVersion,
 		})
 	}
@@ -178,12 +182,36 @@ func (s *Session) ListOpenProjects(ctx context.Context) ([]OpenProjectInfo, erro
 	return list, nil
 }
 
-const autoApproveToolsEnv = "GODAI_AUTO_APPROVE_TOOLS"
+const (
+	autoApproveToolsEnv = "GODAI_AUTO_APPROVE_TOOLS"
+	offscreenEnv        = "GODAI_OFFSCREEN"
+	unattendedEnv       = "GODAI_UNATTENDED"
+)
+
+const (
+	DisplayHeadless  = "headless"
+	DisplayOffscreen = "offscreen"
+)
+
+const DefaultOffscreenSize = "1920x1080"
+
+var offscreenSizePattern = regexp.MustCompile(`^[1-9][0-9]*x[1-9][0-9]*$`)
+
+func CheckOffscreenSize(size string) error {
+	if !offscreenSizePattern.MatchString(size) {
+		return NewUserError(fmt.Sprintf("invalid offscreen size %q: it must be WIDTHxHEIGHT in pixels, for example %s", size, DefaultOffscreenSize), nil, nil)
+	}
+	return nil
+}
 
 type OpenProjectOptions struct {
-	Headless    bool
-	AutoApprove bool
-	Wait        time.Duration
+	Headless bool
+	// Offscreen renders the editor to a virtual display nobody can see, sized
+	// by OffscreenSize (WIDTHxHEIGHT; DefaultOffscreenSize when empty).
+	Offscreen     bool
+	OffscreenSize string
+	AutoApprove   bool
+	Wait          time.Duration
 	// GodotVersion opens the project with the version named, whatever the
 	// project itself asks for.
 	GodotVersion string
@@ -211,6 +239,7 @@ type OpenProjectResult struct {
 	ProjectPath string `json:"project_path"`
 	AlreadyOpen bool   `json:"already_open"`
 	Headless    bool   `json:"headless"`
+	Offscreen   bool   `json:"offscreen"`
 }
 
 // InstallAddon installs and enables the godai addon in a project, exactly as
@@ -233,7 +262,26 @@ func (s *Session) InstallAddon(path string) (string, error) {
 }
 
 func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProjectOptions) (*OpenProjectResult, error) {
-	opts.Headless = opts.Headless || s.config.ForceHeadless
+	if s.config.ForceHeadless {
+		opts.Headless, opts.Offscreen = true, false
+	}
+	if s.config.ForceOffscreen {
+		opts.Offscreen, opts.Headless = true, false
+	}
+	if opts.Headless && opts.Offscreen {
+		return nil, NewUserError("headless and offscreen are mutually exclusive", nil, nil)
+	}
+	if opts.OffscreenSize == "" {
+		opts.OffscreenSize = s.config.OffscreenSize
+	}
+	if opts.OffscreenSize == "" {
+		opts.OffscreenSize = DefaultOffscreenSize
+	}
+	if opts.Offscreen {
+		if err := CheckOffscreenSize(opts.OffscreenSize); err != nil {
+			return nil, err
+		}
+	}
 	opts.AutoApprove = opts.AutoApprove || s.config.ForceAutoApprove
 
 	realProjectPath, err := s.AllowedProjectPath(path)
@@ -266,7 +314,7 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 			return nil, err
 		}
 
-		return &OpenProjectResult{ProjectPath: realProjectPath, AlreadyOpen: true, Headless: editor.Headless}, nil
+		return &OpenProjectResult{ProjectPath: realProjectPath, AlreadyOpen: true, Headless: editor.Headless, Offscreen: editor.Offscreen}, nil
 	}
 
 	project, err := godot.ProjectFromPath(realProjectPath)
@@ -293,8 +341,17 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 		args = append(args, "--display-driver", "headless", "--audio-driver", "Dummy")
 	}
 
+	display := s.config.X11Display
+	env := os.Environ()
+	if opts.Offscreen {
+		if display, err = startVirtualDisplay(opts.OffscreenSize); err != nil {
+			return nil, err
+		}
+		env = append(env, offscreenEnv+"=1", unattendedEnv+"=1")
+	}
+
 	cmd := exec.Command(godotPath, args...)
-	cmd.Env = append(os.Environ(), "DISPLAY="+s.config.X11Display)
+	cmd.Env = append(env, "DISPLAY="+display)
 	if opts.AutoApprove {
 		cmd.Env = append(cmd.Env, autoApproveToolsEnv+"=1")
 	}
@@ -321,23 +378,41 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 		})
 	}
 
-	// Reap the zombies!
-	go func() { _ = cmd.Wait() }()
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
 
-	if opts.Headless {
-		// Mark before waiting to connect: a slow first import can take longer
-		// than our timeout, and an editor that connects after we've returned is
-		// still one we launched and must be shut down with the session.
-		s.markHeadlessProject(realProjectPath)
+	// Mark before waiting to connect: a slow first import can take longer
+	// than our timeout, and an editor that connects after we've returned is
+	// still one we launched and must be shut down with the session.
+	switch {
+	case opts.Headless:
+		s.markUnattendedProject(realProjectPath, DisplayHeadless)
+	case opts.Offscreen:
+		s.markUnattendedProject(realProjectPath, DisplayOffscreen)
 	}
 
-	waitCtx, cancel := context.WithTimeout(ctx, wait)
-	defer cancel()
+	timeoutCtx, cancelTimeout := context.WithTimeout(ctx, wait)
+	defer cancelTimeout()
+	waitCtx, cancelWait := context.WithCancelCause(timeoutCtx)
+	defer cancelWait(nil)
+	go func() {
+		select {
+		case err := <-exited:
+			if err == nil {
+				err = errors.New("exit status 0")
+			}
+			cancelWait(fmt.Errorf("%w: %v", errEditorExited, err))
+		case <-waitCtx.Done():
+		}
+	}()
 	if _, err := s.WaitForEditor(waitCtx, realProjectPath); err != nil {
+		if cause := context.Cause(waitCtx); errors.Is(cause, errEditorExited) {
+			return nil, NewUserError(cause.Error()+editorLogTail(logPath), nil, editorExitedSolutions(logPath))
+		}
 		return nil, waitError(waitCtx, "timed out waiting for connection from Godot editor for '"+realProjectPath+"'"+editorLogTail(logPath), err)
 	}
 
-	return &OpenProjectResult{ProjectPath: realProjectPath, Headless: opts.Headless}, nil
+	return &OpenProjectResult{ProjectPath: realProjectPath, Headless: opts.Headless, Offscreen: opts.Offscreen}, nil
 }
 
 // checkEditorVersion refuses to hand back an editor that isn't the version
@@ -372,6 +447,15 @@ func (s *Session) checkEditorVersion(editor *Editor, opts OpenProjectOptions) er
 
 // Reports why the wait ended, so that a timeout or an interrupt doesn't get
 // reported (and exit) as "no editor connected".
+var errEditorExited = errors.New("the Godot editor exited before connecting")
+
+func editorExitedSolutions(logPath string) []string {
+	if logPath != "" {
+		return nil
+	}
+	return []string{"Run it again with " + editorLogEnv + "=1 to capture what Godot printed"}
+}
+
 func waitError(waitCtx context.Context, message string, err error) error {
 	if ctxErr := waitCtx.Err(); ctxErr != nil {
 		err = ctxErr

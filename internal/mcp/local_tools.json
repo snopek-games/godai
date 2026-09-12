@@ -51,7 +51,7 @@
 				"",
 				"Safe to call first for any project, open or not: one that is already open returns its running editor rather than starting a second one, so there is no need to check with list_open_projects beforehand.",
 				"",
-				"An editor that is already open keeps the version of Godot and the headless setting it was started with: headless is ignored for it, and asking for a godot_version it isn't running is an error rather than a silent no-op. Check already_open in the result to see whether an editor was already there."
+				"An editor that is already open keeps the version of Godot and the display mode it was started with: headless, offscreen and offscreen_size are ignored for it, and asking for a godot_version it isn't running is an error rather than a silent no-op. Check already_open in the result to see whether an editor was already there."
 			],
 			"inputSchema": {
 				"type": "object",
@@ -63,7 +63,16 @@
 					"headless": {
 						"type": "boolean",
 						"default": false,
-						"description": "Launch the editor without visual or audio output (default: false)"
+						"description": "Launch the editor without visual or audio output (default: false). Mutually exclusive with offscreen."
+					},
+					"offscreen": {
+						"type": "boolean",
+						"default": false,
+						"description": "Launch the editor rendering normally, but to a virtual display nobody can see (default: false). Linux only, and needs Xvfb installed. Mutually exclusive with headless."
+					},
+					"offscreen_size": {
+						"type": "string",
+						"description": "The virtual display's size in pixels as WIDTHxHEIGHT, for offscreen (default: 1920x1080)"
 					},
 					"godot_version": {
 						"type": "string",
@@ -87,7 +96,7 @@
 					},
 					"already_open": {
 						"type": "boolean",
-						"description": "True if an editor was already running for this project, in which case headless was ignored and godot_version, if it was given, matched what that editor is running"
+						"description": "True if an editor was already running for this project, in which case headless, offscreen and offscreen_size were ignored and godot_version, if it was given, matched what that editor is running"
 					},
 					"errors": {
 						"type": "array",
@@ -100,7 +109,7 @@
 		"list_open_projects": {
 			"title": "List Open Godot Projects",
 			"toolsets": ["project"],
-			"description": "Lists the projects currently open in a Godot editor, which version of Godot each one is open in, and whether that editor is headless.",
+			"description": "Lists the projects currently open in a Godot editor, which version of Godot each one is open in, and whether that editor is headless or offscreen.",
 			"annotations": {
 				"readOnlyHint": true,
 				"openWorldHint": false
@@ -126,12 +135,16 @@
 									"type": "boolean",
 									"description": "True if the editor running this project is headless, so it has no visible window"
 								},
+								"offscreen": {
+									"type": "boolean",
+									"description": "True if the editor running this project renders to a virtual display, so it has a window nobody can see"
+								},
 								"godot_version": {
 									"type": "string",
 									"description": "The version of Godot this project is open in, named the way list_installed_godot_versions names it; omitted if the editor wouldn't say"
 								}
 							},
-							"required": ["project_path", "headless"]
+							"required": ["project_path", "headless", "offscreen"]
 						}
 					},
 					"errors": {

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.com/snopek-games/godai/internal/core"
 	"gitlab.com/snopek-games/godai/internal/eval"
 
 	"github.com/urfave/cli/v3"
@@ -81,6 +82,43 @@ func sharedFlags() []cli.Flag {
 			Name:  "bare",
 			Usage: "run Claude Code with --bare, ignoring host hooks, plugins and CLAUDE.md (needs ANTHROPIC_API_KEY)",
 		},
+		&cli.BoolFlag{
+			Name:  "headless",
+			Usage: "open the editors without visual or audio output",
+		},
+		&cli.BoolFlag{
+			Name:  "offscreen",
+			Usage: "open the editors rendering to a virtual display nobody can see (Linux only, needs Xvfb)",
+		},
+		&cli.StringFlag{
+			Name:  "offscreen-size",
+			Usage: "the virtual display's size in pixels, as WIDTHxHEIGHT, for --offscreen",
+			Value: core.DefaultOffscreenSize,
+		},
+	}
+}
+
+func checkDisplayFlags(cmd *cli.Command) error {
+	if cmd.Bool("headless") && cmd.Bool("offscreen") {
+		return fmt.Errorf("--headless and --offscreen are mutually exclusive")
+	}
+	if cmd.IsSet("offscreen-size") && !cmd.Bool("offscreen") {
+		return fmt.Errorf("--offscreen-size only applies with --offscreen")
+	}
+	if cmd.Bool("offscreen") {
+		return core.CheckOffscreenSize(cmd.String("offscreen-size"))
+	}
+	return nil
+}
+
+func displayConfig(cmd *cli.Command) (display, offscreenSize string) {
+	switch {
+	case cmd.Bool("headless"):
+		return core.DisplayHeadless, ""
+	case cmd.Bool("offscreen"):
+		return core.DisplayOffscreen, cmd.String("offscreen-size")
+	default:
+		return "", ""
 	}
 }
 
@@ -152,18 +190,21 @@ func (h *harness) close() {
 }
 
 func (h *harness) config(cmd *cli.Command) eval.Config {
+	display, offscreenSize := displayConfig(cmd)
 	return eval.Config{
-		Repeats:     int(cmd.Int("repeats")),
-		GodotBin:    h.godot,
-		ClaudeBin:   cmd.String("claude"),
-		GodaiBin:    h.godai,
-		WorkRoot:    cmd.String("work"),
-		KeepWork:    cmd.Bool("keep-work"),
-		Bare:        cmd.Bool("bare"),
-		Concurrency: int(cmd.Int("concurrency")),
-		OpenTimeout: time.Duration(cmd.Float("open-timeout") * float64(time.Second)),
-		Verbose:     cmd.Bool("verbose"),
-		LiveOut:     os.Stderr,
+		Display:       display,
+		OffscreenSize: offscreenSize,
+		Repeats:       int(cmd.Int("repeats")),
+		GodotBin:      h.godot,
+		ClaudeBin:     cmd.String("claude"),
+		GodaiBin:      h.godai,
+		WorkRoot:      cmd.String("work"),
+		KeepWork:      cmd.Bool("keep-work"),
+		Bare:          cmd.Bool("bare"),
+		Concurrency:   int(cmd.Int("concurrency")),
+		OpenTimeout:   time.Duration(cmd.Float("open-timeout") * float64(time.Second)),
+		Verbose:       cmd.Bool("verbose"),
+		LiveOut:       os.Stderr,
 	}
 }
 

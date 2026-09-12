@@ -130,14 +130,29 @@ func (s *Server) toolOpenGodotProject(ctx context.Context, args core.Args) (any,
 		return nil, core.NewUserError("headless argument must be a boolean", err, nil)
 	}
 
+	offscreen, _, err := args.Bool("offscreen")
+	if err != nil {
+		return nil, core.NewUserError("offscreen argument must be a boolean", err, nil)
+	}
+
+	offscreenSize, hasOffscreenSize, err := args.String("offscreen_size")
+	if err != nil {
+		return nil, core.NewUserError("offscreen_size argument must be a string", err, nil)
+	}
+	if hasOffscreenSize && !offscreen {
+		return nil, core.NewUserError("offscreen_size only applies when offscreen is true", nil, nil)
+	}
+
 	godotVersion, _, err := args.String("godot_version")
 	if err != nil {
 		return nil, core.NewUserError("godot_version argument must be a string", err, nil)
 	}
 
 	result, err := s.session.OpenProject(ctx, projectPath, core.OpenProjectOptions{
-		Headless:     headless,
-		GodotVersion: godotVersion,
+		Headless:      headless,
+		Offscreen:     offscreen,
+		OffscreenSize: offscreenSize,
+		GodotVersion:  godotVersion,
 	})
 	if err != nil {
 		return nil, err

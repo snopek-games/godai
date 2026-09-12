@@ -24,6 +24,10 @@
 						"type": "boolean",
 						"description": "Whether the editor is running with a headless display driver"
 					},
+					"offscreen": {
+						"type": "boolean",
+						"description": "Whether the editor is rendering to a virtual display nobody can see"
+					},
 					"godot_version": {
 						"type": "string",
 						"description": "The version of Godot this editor is running, for example: `4.5.stable.official`, or `4.4.1.stable.mono.official` for a .NET build"
@@ -2222,7 +2226,7 @@
 			"description": [
 				"Restarts the Godot editor for the project.",
 				"",
-				"The user is asked to confirm first, and the call fails if they decline. A headless editor restarts without asking.",
+				"The user is asked to confirm first, and the call fails if they decline. A headless or offscreen editor restarts without asking.",
 				"",
 				"By default, unsaved changes are saved before restarting; pass 'skip_save' as true to discard them instead.",
 				"",
@@ -2264,7 +2268,7 @@
 			"description": [
 				"Closes the Godot editor for the project.",
 				"",
-				"The user is asked to confirm first, and the call fails if they decline. A headless editor closes without asking.",
+				"The user is asked to confirm first, and the call fails if they decline. A headless or offscreen editor closes without asking.",
 				"",
 				"By default, unsaved changes are saved before closing; pass 'skip_save' as true to discard them instead.",
 				"",

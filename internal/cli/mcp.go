@@ -30,6 +30,8 @@ func mcpCommand(configPath string) *cli.Command {
 				Name:  "headless",
 				Usage: "launch any editors without visual or audio output, even when the agent doesn't ask for it",
 			},
+			offscreenFlag("launch any editors rendering to a virtual display nobody can see, even when the agent doesn't ask for it (Linux only, needs Xvfb)"),
+			offscreenSizeFlag(),
 			&cli.BoolFlag{
 				Name:  "auto-approve",
 				Usage: "run tools in any launched editors without asking for approval",
@@ -119,6 +121,9 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 	if _, err := core.ExpandToolsets(toolsets); err != nil {
 		return newUsageError("%v", err)
 	}
+	if err := checkDisplayFlags(cmd); err != nil {
+		return err
+	}
 
 	if err := setupServerLogging(cmd); err != nil {
 		return err
@@ -138,13 +143,15 @@ func runServer(ctx context.Context, cmd *cli.Command, configPath string) error {
 		GodotVersionIsExplicit: cmd.IsSet("godot-version"),
 		NoAutoInstall:          cmd.Bool("no-auto-install"),
 		ForceHeadless:          cmd.Bool("headless"),
+		ForceOffscreen:         cmd.Bool("offscreen"),
+		OffscreenSize:          cmd.String("offscreen-size"),
 		ForceAutoApprove:       cmd.Bool("auto-approve"),
 		ProjectBasePath:        cmd.String("project-base-path"),
 		X11Display:             cmd.String("x11-display"),
 		UpdateCheckInterval:    updateCheckInterval(cmd.Bool("no-update-check") || core.SavedUpdateCheckOff(configPath)),
 		Debug:                  cmd.Bool("debug"),
 		SavedConfigPath:        configPath,
-		CloseHeadlessOnExit:    true,
+		CloseUnattendedOnExit:  true,
 	}
 
 	if cmd.Bool("global") {

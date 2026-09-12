@@ -33,6 +33,8 @@ type Config struct {
 	GodotVersionIsExplicit bool
 	NoAutoInstall          bool
 	ForceHeadless          bool
+	ForceOffscreen         bool
+	OffscreenSize          string
 	ForceAutoApprove       bool
 	ProjectBasePath        string
 	X11Display             string
@@ -40,7 +42,7 @@ type Config struct {
 	UpdateCheck            string
 	Debug                  bool
 	SavedConfigPath        string
-	CloseHeadlessOnExit    bool
+	CloseUnattendedOnExit  bool
 }
 
 type SavedConfig struct {

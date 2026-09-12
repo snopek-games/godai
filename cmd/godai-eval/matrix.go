@@ -100,6 +100,9 @@ func runMatrix(ctx context.Context, cmd *cli.Command) error {
 	if err := checkCredentials(cmd.Bool("bare"), surfaces); err != nil {
 		return err
 	}
+	if err := checkDisplayFlags(cmd); err != nil {
+		return err
+	}
 	fullTools := cmd.Bool("full-tools")
 	if err := checkFullTools(fullTools, surfaces); err != nil {
 		return err

@@ -107,9 +107,9 @@ func printRunningEditors(out *Printer, projects []core.OpenProjectInfo) error {
 	}{projects}, func(io.Writer) error {
 		rows := make([][]string, 0, len(projects))
 		for _, p := range projects {
-			rows = append(rows, []string{p.ProjectName, orUnknown(p.GodotVersion), yesNo(p.Headless), p.ProjectPath})
+			rows = append(rows, []string{p.ProjectName, orUnknown(p.GodotVersion), editorDisplay(p), p.ProjectPath})
 		}
-		return out.Table([]string{"PROJECT NAME", "GODOT VERSION", "HEADLESS", "PROJECT PATH"}, rows)
+		return out.Table([]string{"PROJECT NAME", "GODOT VERSION", "DISPLAY", "PROJECT PATH"}, rows)
 	})
 }
 
@@ -151,4 +151,15 @@ func runEditorLifecycleTool(ctx context.Context, cmd *cli.Command, session *core
 		out.Printf("%s: %s\n", tool.verb, projectPath)
 		return nil
 	})
+}
+
+func editorDisplay(p core.OpenProjectInfo) string {
+	switch {
+	case p.Headless:
+		return core.DisplayHeadless
+	case p.Offscreen:
+		return core.DisplayOffscreen
+	default:
+		return "window"
+	}
 }

@@ -109,17 +109,17 @@ func TestCallEditorToolRefusesAnAddonWithoutAVersion(t *testing.T) {
 	is.True(errors.Is(err, ErrAddonVersionMismatch))
 }
 
-func TestCloseHeadlessEditorsClosesOnesWeLaunched(t *testing.T) {
+func TestCloseUnattendedEditorsClosesOnesWeLaunched(t *testing.T) {
 	is := is.New(t)
 
 	s := newTestSession(t)
 	conn, received := recordingEditor(t)
 	s.addEditorWithHeadless("/p", conn, true)
-	s.markHeadlessProject("/p")
+	s.markUnattendedProject("/p", DisplayHeadless)
 
 	// The recording editor never replies, so the close call blocks until its
 	// own timeout.
-	go s.closeHeadlessEditors()
+	go s.closeUnattendedEditors()
 
 	select {
 	case message := <-received:
@@ -134,13 +134,13 @@ func TestCloseHeadlessEditorsClosesOnesWeLaunched(t *testing.T) {
 
 // If the user replaced our headless editor with a windowed one for the same
 // project, that replacement is theirs and has to survive our shutdown.
-func TestCloseHeadlessEditorsLeavesVisibleEditorsAlone(t *testing.T) {
+func TestCloseUnattendedEditorsLeavesVisibleEditorsAlone(t *testing.T) {
 	s := newTestSession(t)
 	conn, received := recordingEditor(t)
 	s.addEditorWithHeadless("/p", conn, false)
-	s.markHeadlessProject("/p")
+	s.markUnattendedProject("/p", DisplayHeadless)
 
-	s.closeHeadlessEditors()
+	s.closeUnattendedEditors()
 
 	select {
 	case message := <-received:
@@ -149,12 +149,12 @@ func TestCloseHeadlessEditorsLeavesVisibleEditorsAlone(t *testing.T) {
 	}
 }
 
-func TestCloseHeadlessEditorsIgnoresUnmarkedEditors(t *testing.T) {
+func TestCloseUnattendedEditorsIgnoresUnmarkedEditors(t *testing.T) {
 	s := newTestSession(t)
 	conn, received := recordingEditor(t)
 	s.addEditorWithHeadless("/p", conn, true)
 
-	s.closeHeadlessEditors()
+	s.closeUnattendedEditors()
 
 	select {
 	case message := <-received:

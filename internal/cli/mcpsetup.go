@@ -87,6 +87,9 @@ func runMCPSetup(ctx context.Context, cmd *cli.Command) error {
 	if err := atMostOneArg(cmd, "client"); err != nil {
 		return err
 	}
+	if err := checkDisplayFlags(cmd); err != nil {
+		return err
+	}
 
 	out := printer(cmd)
 	yes := cmd.Bool("yes")
@@ -290,6 +293,12 @@ func serverInvocation(cmd *cli.Command, def mcpClientDef) (string, []string, err
 	}
 	if cmd.Bool("headless") {
 		args = append(args, "--headless")
+	}
+	if cmd.Bool("offscreen") {
+		args = append(args, "--offscreen")
+	}
+	if cmd.IsSet("offscreen-size") {
+		args = append(args, "--offscreen-size", cmd.String("offscreen-size"))
 	}
 	if cmd.Bool("auto-approve") {
 		args = append(args, "--auto-approve")

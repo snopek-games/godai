@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 
 	"gitlab.com/snopek-games/godai/internal/godot"
@@ -14,6 +15,7 @@ type Editor struct {
 	ProjectPath string
 	ProjectName string
 	Headless    bool
+	Offscreen   bool
 	// GodotVersion is what the editor reported it is, named the way Godai
 	// names versions. Empty when it wouldn't say, or said something that isn't
 	// a version.
@@ -44,8 +46,8 @@ type Session struct {
 	editorsMutex   sync.RWMutex
 	editorsChanged chan struct{}
 
-	headlessProjects map[string]struct{}
-	headlessMutex    sync.Mutex
+	unattendedProjects map[string]string
+	unattendedMutex    sync.Mutex
 
 	prompter      Prompter
 	prompterMutex sync.RWMutex
@@ -67,12 +69,12 @@ type Session struct {
 
 func New(config Config) (*Session, error) {
 	s := &Session{
-		config:           config,
-		editors:          make([]*Editor, 0),
-		editorsChanged:   make(chan struct{}),
-		headlessProjects: make(map[string]struct{}),
-		prompter:         NoPrompter{},
-		clientKind:       ClientKindCLI,
+		config:             config,
+		editors:            make([]*Editor, 0),
+		editorsChanged:     make(chan struct{}),
+		unattendedProjects: make(map[string]string),
+		prompter:           NoPrompter{},
+		clientKind:         ClientKindCLI,
 	}
 
 	var scanner godot.ConnectionScanner
@@ -193,8 +195,8 @@ func (s *Session) Close() {
 	if !s.isStarted() {
 		return
 	}
-	if s.config.CloseHeadlessOnExit {
-		s.closeHeadlessEditors()
+	if s.config.CloseUnattendedOnExit {
+		s.closeUnattendedEditors()
 	}
 	s.connectionManager.Stop()
 }
@@ -268,6 +270,7 @@ func (s *Session) onEditorConnect(conn *godot.Connection) error {
 		ProjectPath  string `json:"project_path"`
 		ProjectName  string `json:"project_name"`
 		Headless     bool   `json:"headless"`
+		Offscreen    bool   `json:"offscreen"`
 		GodotVersion string `json:"godot_version"`
 	}
 	if err := callEditorToolInto(ctx, conn, "get_current_project", json.RawMessage("{}"), &projectInfo); err != nil {
@@ -284,6 +287,7 @@ func (s *Session) onEditorConnect(conn *godot.Connection) error {
 		ProjectPath:  realProjectPath,
 		ProjectName:  projectInfo.ProjectName,
 		Headless:     projectInfo.Headless,
+		Offscreen:    projectInfo.Offscreen,
 		GodotVersion: editorVersionName(projectInfo.GodotVersion),
 		AddonVersion: initResult.ServerInfo.Version,
 	}
@@ -440,32 +444,39 @@ func (s *Session) waitForDisconnect(ctx context.Context, projectPath string, old
 	return err
 }
 
-// markHeadlessProject records that we launched a headless editor for this
-// project, so we can shut it down when the session closes.
-func (s *Session) markHeadlessProject(projectPath string) {
-	s.headlessMutex.Lock()
-	defer s.headlessMutex.Unlock()
-	s.headlessProjects[projectPath] = struct{}{}
+// markUnattendedProject records that we launched a headless or offscreen
+// editor for this project, so we can shut it down when the session closes.
+func (s *Session) markUnattendedProject(projectPath, display string) {
+	s.unattendedMutex.Lock()
+	defer s.unattendedMutex.Unlock()
+	s.unattendedProjects[projectPath] = display
 }
 
-// unmarkHeadlessProject forgets a headless editor we launched (e.g. because it
-// was closed explicitly), so we don't try to close it again at shutdown.
-func (s *Session) unmarkHeadlessProject(projectPath string) {
-	s.headlessMutex.Lock()
-	defer s.headlessMutex.Unlock()
-	delete(s.headlessProjects, projectPath)
+// unmarkUnattendedProject forgets an unattended editor we launched (e.g.
+// because it was closed explicitly), so we don't try to close it again at
+// shutdown.
+func (s *Session) unmarkUnattendedProject(projectPath string) {
+	s.unattendedMutex.Lock()
+	defer s.unattendedMutex.Unlock()
+	delete(s.unattendedProjects, projectPath)
 }
 
-func (s *Session) HeadlessProjects() []string {
-	s.headlessMutex.Lock()
-	defer s.headlessMutex.Unlock()
+type UnattendedEditor struct {
+	ProjectPath string
+	// Display is DisplayHeadless or DisplayOffscreen.
+	Display string
+}
 
-	projects := make([]string, 0, len(s.headlessProjects))
-	for p := range s.headlessProjects {
-		projects = append(projects, p)
+func (s *Session) UnattendedEditors() []UnattendedEditor {
+	s.unattendedMutex.Lock()
+	defer s.unattendedMutex.Unlock()
+
+	editors := make([]UnattendedEditor, 0, len(s.unattendedProjects))
+	for p, display := range s.unattendedProjects {
+		editors = append(editors, UnattendedEditor{ProjectPath: p, Display: display})
 	}
-	slices.Sort(projects)
-	return projects
+	slices.SortFunc(editors, func(a, b UnattendedEditor) int { return strings.Compare(a.ProjectPath, b.ProjectPath) })
+	return editors
 }
 
 // Saves only the setting the user just gave us: the rest of the live config can
