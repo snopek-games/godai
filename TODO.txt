@@ -1,23 +1,12 @@
 TODO
 ====
 
-0.5: Finish critical addon stuff
---------------------------------
-
-- Addon: Add to Godot asset store
-
 0.6: Evaluate, benchmark and improve effectiveness
 --------------------------------------------------
 
 - Addon: Add in game tools
   - Sending input
   - Taking a screenshot
-
-Backlog
--------
-
-- Add MCPB to Claude Desktop directory
-  - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
 - Eval: Look at existing gamedev benchmarking suites and see if we can use them with Godai
   - Can we run those test suites with Godai added to the mix?
   - Can we adapt their tasks and bring them into our eval framework?
@@ -32,7 +21,15 @@ Backlog
       # Or is `create` better than new `new`?
       ```
     - Allow creating from templates!
+- Addon: Allow developers to register custom tools for a particular project (editor or game)
+  - Will need to allow MCP to update its tools list
 - MCP: Add a way to search project and editor settings (maybe a variation on get_project/editor_settings which does a string contains?)
+
+Backlog
+-------
+
+- Add MCPB to Claude Desktop directory
+  - https://docs.google.com/forms/d/e/1FAIpQLScHtjkiCNjpqnWtFLIQStChXlvVcvX8NPXkMfjtYPDPymgang/viewform
 - CLI: How to make the descriptions for `editor-tool` more CLI-friendly?
 - Make a Godot plugin in the Claude marketplace (which includes the .mcp.json)
   - Users do `/plugin marketplace add snopek-games/godai` or `claude plugin install ...`
@@ -54,7 +51,5 @@ Backlog
 - Tool: Get Godot version and executeable path
 - Tool: Get class documentation
   - Depends on https://github.com/godotengine/godot/pull/112628
-- Addon: Allow editor plugins to register custom tools for a particular project
-  - Will need to allow MCP to update it's tools list
 - Addon: Make user_chat.tscn and error_chat.tscn expand for their text, but wrap when they right the max width
   - I think we can do this my measuring the length of each line, and if one is over a certain threshold, then we expand to fill the whole parent
