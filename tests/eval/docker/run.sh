@@ -16,5 +16,6 @@ fi
 exec docker run --rm -i $TTY --init \
 	--user "$(id -u):$(id -g)" \
 	-e ANTHROPIC_API_KEY \
+	-e CLAUDE_CODE_OAUTH_TOKEN \
 	-v "$REPO_ROOT:/work" \
 	godai-eval "$@"

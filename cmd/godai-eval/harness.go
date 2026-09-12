@@ -86,6 +86,9 @@ func sharedFlags() []cli.Flag {
 
 func checkCredentials(bare bool, surfaces []string) error {
 	if bare && os.Getenv("ANTHROPIC_API_KEY") == "" {
+		if os.Getenv("CLAUDE_CODE_OAUTH_TOKEN") != "" {
+			return fmt.Errorf("--bare ignores CLAUDE_CODE_OAUTH_TOKEN: it needs ANTHROPIC_API_KEY, from the environment or %s, because it never reads OAuth or the keychain", envFile)
+		}
 		return fmt.Errorf("--bare needs ANTHROPIC_API_KEY, from the environment or %s: it never reads OAuth or the keychain", envFile)
 	}
 	if slices.Contains(surfaces, eval.SurfaceEditor) && os.Getenv("ANTHROPIC_API_KEY") == "" {

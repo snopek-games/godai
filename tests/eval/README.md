@@ -51,9 +51,9 @@ to test a released binary instead.
 `godai-eval`, Godot and Claude Code — into one image:
 
 ```sh
-tests/eval/docker/build.sh                 # build (or rebuild) the image
-tests/eval/docker/run.sh run --solution
-tests/eval/docker/run.sh run --model haiku --bare --out results.json
+./tests/eval/docker/build.sh                 # build (or rebuild) the image
+./tests/eval/docker/run.sh run --solution
+./tests/eval/docker/run.sh run --model haiku --bare --out results.json
 ```
 
 `run.sh` hands its arguments to `godai-eval` with the repo mounted at `/work`,
@@ -63,8 +63,14 @@ binaries come from the image (`GODAI` and `GODOT` point at the baked-in
 changing Go code, rebuild the image. The Godot and Claude Code versions are
 pinned; `build.sh --build-arg GODOT_VERSION=...` overrides them.
 
-The container has no OAuth login, so model runs need `--bare` and
-`ANTHROPIC_API_KEY` — from the host environment or a `.env` in the repo root.
+The container has no OAuth login, so model runs need credentials from the host
+environment or a `.env` in the repo root: either `ANTHROPIC_API_KEY` with
+`--bare`, or `CLAUDE_CODE_OAUTH_TOKEN` to bill your Claude subscription.
+
+Run `claude setup-token` on the host to get a subscription token.
+Subscription runs can't be `--bare`, but the container's home directory is
+empty, so no host hooks, plugins or memory reach them anyway. The `editor`
+surface still needs `ANTHROPIC_API_KEY` either way.
 
 ### Windows
 

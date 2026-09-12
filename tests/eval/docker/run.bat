@@ -7,5 +7,5 @@ setlocal
 
 for %%I in ("%~dp0..\..\..") do set "REPO_ROOT=%%~fI"
 
-docker run --rm -it --init -e ANTHROPIC_API_KEY -v "%REPO_ROOT%:/work" godai-eval %*
+docker run --rm -it --init -e ANTHROPIC_API_KEY -e CLAUDE_CODE_OAUTH_TOKEN -v "%REPO_ROOT%:/work" godai-eval %*
 exit /b %errorlevel%
