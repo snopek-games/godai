@@ -28,8 +28,9 @@ func build_request(p_chat: Chat, p_options: RequestOptions) -> WebRequest:
 	var messages := []
 	if not p_chat.system.is_empty():
 		messages.push_back({role = "system", content = p_chat.system})
+	var attachments := attachments_to_send(p_chat)
 	for msg in p_chat.messages:
-		messages.append_array(_message_to_dicts(msg))
+		messages.append_array(_message_to_dicts(msg, attachments))
 
 	var payload := {
 		model = model,
@@ -117,10 +118,11 @@ func get_rejected_option(p_error: ResponseError) -> String:
 	return ""
 
 
-func _message_to_dicts(p_msg: Chat.Message) -> Array:
+func _message_to_dicts(p_msg: Chat.Message, p_attachments: Dictionary) -> Array:
 	var texts := PackedStringArray()
 	var tool_calls := []
 	var tool_messages := []
+	var attachment_parts := []
 
 	for content in p_msg.content:
 		if content is Chat.TextContent:
@@ -137,6 +139,15 @@ func _message_to_dicts(p_msg: Chat.Message) -> Array:
 				tool_call_id = content.tool_use_id,
 				content = _tool_result_text(content),
 			})
+			# The API rejects image parts anywhere but a user message, so attachments
+			# are added in one after the tool results.
+			if content.attachments.size() > 0:
+				attachment_parts.push_back({type = "text", text = "Images attached to the result of tool call %s:" % content.tool_use_id})
+				for a in p_attachments.get(content, []):
+					attachment_parts.push_back({
+						type = "image_url",
+						image_url = {url = "data:%s;base64,%s" % [a.mime_type(), a.to_base64()]},
+					})
 
 	var result := tool_messages
 	if p_msg.role == Chat.Role.ASSISTANT:
@@ -146,6 +157,10 @@ func _message_to_dicts(p_msg: Chat.Message) -> Array:
 		if tool_calls.size() > 0:
 			assistant['tool_calls'] = tool_calls
 		result.push_back(assistant)
+	elif attachment_parts.size() > 0:
+		if texts.size() > 0:
+			attachment_parts.push_back({type = "text", text = "\n\n".join(texts)})
+		result.push_back({role = "user", content = attachment_parts})
 	elif texts.size() > 0:
 		result.push_back({role = "user", content = "\n\n".join(texts)})
 

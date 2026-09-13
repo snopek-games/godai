@@ -2,9 +2,11 @@ package eval
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,12 +25,24 @@ func skipWithoutUnixHarness(t *testing.T) {
 	}
 }
 
+func testWorkspaceRoot(t *testing.T) string {
+	t.Helper()
+
+	// A bare t.TempDir() ends in "001", which isEditorFor() would match against any
+	// other test's editor; use a unique subdirectory name like a real workspace.
+	root := filepath.Join(t.TempDir(), "godai-eval-"+strings.ReplaceAll(t.Name(), "/", "-")+"-r1-test")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
 func TestCleanupKillsAnEditorItCouldNotClose(t *testing.T) {
 	skipWithoutUnixHarness(t)
 
 	is := is.New(t)
 
-	root := t.TempDir()
+	root := testWorkspaceRoot(t)
 	w := &Workspace{Root: root, Project: filepath.Join(root, "project"), cfg: Config{KeepWork: true}}
 
 	// The two arguments are the only things killStrayEditors matches on.

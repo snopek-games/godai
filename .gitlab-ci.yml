@@ -45,7 +45,12 @@ godot-test:
   image: golang:${GO_VERSION}
   before_script:
     - ./scripts/install-godot.sh
+    # Xvfb and the X11/GL libraries let the offscreen functional tests render
+    # an editor to a virtual display; without them, those tests are skipped.
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends xvfb libfontconfig1 libx11-6 libxcursor1 libxinerama1 libxrandr2 libxi6 libxext6 libxkbcommon0 libgl1 libegl1 libvulkan1 mesa-vulkan-drivers
+    - mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
   script:
+    - nproc && free -m
     - godot --headless --import
     # GUT exits zero when it doesn't find any tests, so check for that too.
     - set -o pipefail

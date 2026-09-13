@@ -154,6 +154,9 @@ func editorToolSubcommand(configPath, name string, def *core.ToolDefinition) (*c
 			argsUsage = sugar.argsUsage
 		}
 	}
+	if def.AttachmentMimeType != "" {
+		flags = append(flags, attachmentOutputFlag(def.AttachmentMimeType))
+	}
 	flags = append(flags,
 		projectPathFlag(),
 		&cli.StringMapFlag{
@@ -197,7 +200,7 @@ func editorToolSubcommand(configPath, name string, def *core.ToolDefinition) (*c
 		// than a comma-separated list.
 		DisableSliceFlagSeparator: true,
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			return runEditorTool(ctx, cmd, configPath, name, specs, positionals, resPaths)
+			return runEditorTool(ctx, cmd, configPath, name, def.AttachmentMimeType, specs, positionals, resPaths)
 		},
 	}, nil
 }
@@ -278,7 +281,15 @@ func collectPositionals(cmd *cli.Command, positionals []schemaflag.Spec, args co
 	return nil
 }
 
-func runEditorTool(ctx context.Context, cmd *cli.Command, configPath, name string, specs, positionals, resPaths []schemaflag.Spec) error {
+func attachmentOutputFlag(mimeType string) cli.Flag {
+	return &cli.StringFlag{
+		Name:    "output",
+		Aliases: []string{"o"},
+		Usage:   fmt.Sprintf("write the %s the tool returns to this file; otherwise it goes to a temporary file whose path is printed", mimeType),
+	}
+}
+
+func runEditorTool(ctx context.Context, cmd *cli.Command, configPath, name, attachmentMimeType string, specs, positionals, resPaths []schemaflag.Spec) error {
 	sugar, hasSugar := toolSugars[name]
 	takesArgs := len(positionals) > 0 || (hasSugar && sugar.argsUsage != "")
 	if !takesArgs && cmd.Args().Present() {
@@ -328,6 +339,9 @@ func runEditorTool(ctx context.Context, cmd *cli.Command, configPath, name strin
 			return core.NewUserError(orDefault(result.ErrorMessage(), "the editor reported an error"), core.ErrToolFailed, nil)
 		}
 
+		if attachmentMimeType != "" {
+			return printAttachmentToolResult(printer(cmd), name, result, attachmentMimeType, cmd.String("output"))
+		}
 		return printToolResult(printer(cmd), name, result)
 	})
 }

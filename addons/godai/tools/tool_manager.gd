@@ -6,18 +6,25 @@ const OUTPUT_SCHEMA_STRING = {type = "string"}
 
 class ToolResult extends RefCounted:
 	var content
+	var attachments: Array
 
 	var _done := false
 	var _error := false
 
-	signal completed(content)
+	signal completed()
 
 	func resolve(p_content) -> void:
 		if _done:
 			return
 		_done = true
 		content = p_content
-		completed.emit(content)
+		completed.emit()
+
+	func resolve_with_attachments(p_content, p_attachments: Array) -> void:
+		if _done:
+			return
+		attachments = p_attachments
+		resolve(p_content)
 
 	func reject(p_content) -> void:
 		if _done:
@@ -25,7 +32,7 @@ class ToolResult extends RefCounted:
 		_done = true
 		_error = true
 		content = p_content
-		completed.emit(content)
+		completed.emit()
 
 	func is_done() -> bool:
 		return _done
@@ -37,7 +44,7 @@ class ToolResult extends RefCounted:
 		if p_result.is_error():
 			reject(p_result.content)
 		else:
-			resolve(p_result.content)
+			resolve_with_attachments(p_result.content, p_result.attachments)
 
 	func get_content_as_string() -> String:
 		if content is String:
@@ -47,6 +54,11 @@ class ToolResult extends RefCounted:
 	static func resolved(p_content) -> ToolResult:
 		var result := ToolResult.new()
 		result.resolve(p_content)
+		return result
+
+	static func resolved_with_attachments(p_content, p_attachments: Array) -> ToolResult:
+		var result := ToolResult.new()
+		result.resolve_with_attachments(p_content, p_attachments)
 		return result
 
 	static func rejected(p_content) -> ToolResult:
@@ -108,10 +120,7 @@ class Tool extends RefCounted:
 		var inner: ToolResult = p_execute.call()
 		if not inner.is_done():
 			await inner.completed
-		if inner.is_error():
-			p_result.reject(inner.content)
-		else:
-			p_result.resolve(inner.content)
+		p_result.complete_from_result(inner)
 
 	func apply_input_defaults(p_input: Dictionary) -> void:
 		var properties: Dictionary = input_schema.get('properties', {})
@@ -326,7 +335,7 @@ func _is_busy() -> bool:
 	return is_busy.is_valid() and is_busy.call()
 
 
-func _handle_result(_content, p_proxy_result: ToolResult) -> void:
+func _handle_result(p_proxy_result: ToolResult) -> void:
 	var result := _current
 	_current = null
 	if p_proxy_result:

@@ -24,6 +24,7 @@ type ToolDefinition struct {
 	Toolsets               []string        `json:"toolsets,omitempty"`
 	CLIPositionalArguments []string        `json:"cliPositionalArguments,omitempty"`
 	CLIResPathArguments    []string        `json:"cliResPathArguments,omitempty"`
+	AttachmentMimeType     string          `json:"attachmentMimeType,omitempty"`
 }
 
 func (d *ToolDescription) UnmarshalJSON(data []byte) error {

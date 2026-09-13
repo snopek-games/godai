@@ -7,6 +7,18 @@ func _content_types(p_msg: Chat.Message) -> Array:
 	return p_msg.content.map(func (c): return c.to_dict()["type"])
 
 
+func _sample_image() -> Image:
+	var img := Image.create_empty(4, 4, false, Image.FORMAT_RGB8)
+	img.fill(Color.RED)
+	return img
+
+
+func _large_image(p_width: int, p_height: int) -> Image:
+	var img := Image.create_empty(p_width, p_height, false, Image.FORMAT_RGB8)
+	img.fill(Color.BLUE)
+	return img
+
+
 func test_message_content_from_dict_requires_a_type() -> void:
 	assert_null(Chat.MessageContent.from_dict({text = "hi"}))
 	assert_not_null(Chat.MessageContent.from_dict({type = "text", text = "hi"}))
@@ -49,6 +61,11 @@ func test_message_content_from_dict_tolerates_missing_fields() -> void:
 	assert_eq(tool_result.tool_use_id, "")
 	assert_eq(tool_result.content, "")
 	assert_false(tool_result.is_error)
+	assert_eq(tool_result.attachments.size(), 0)
+
+	var image: Chat.ImageContent = Chat.MessageContent.from_dict({type = "image"})
+	assert_eq(image.format, "")
+	assert_eq(image.data, PackedByteArray())
 
 
 func test_unknown_content_round_trips_its_data() -> void:
@@ -66,6 +83,115 @@ func test_content_to_dict() -> void:
 	assert_eq(Chat.ToolResultContent.new("toolu_1", "{}").to_dict(),
 		{type = "tool_result", tool_use_id = "toolu_1", content = "{}", is_error = false})
 	assert_eq(Chat.ThinkingContent.new("hmm", "sig").to_dict(), {type = "thinking", thinking = "hmm", signature = "sig"})
+
+
+func test_image_content_round_trips_through_a_dict() -> void:
+	var original := Chat.ImageContent.new("png", PackedByteArray([1, 2, 3]))
+
+	assert_eq(original.to_dict(), {type = "image", format = "png", data = "AQID"})
+
+	var restored: Chat.ImageContent = Chat.MessageContent.from_dict(original.to_dict())
+	assert_true(restored is Chat.ImageContent)
+	assert_eq(restored.format, "png")
+	assert_eq(restored.data, PackedByteArray([1, 2, 3]))
+
+
+func test_image_content_converts_to_and_from_an_image() -> void:
+	for format in ["png", "jpeg", "webp"]:
+		var content := Chat.ImageContent.from_image(_sample_image(), format)
+		assert_not_null(content, format)
+		assert_eq(content.format, format)
+		assert_false(content.data.is_empty(), format)
+
+		var decoded := content.to_image()
+		assert_not_null(decoded, format)
+		assert_eq(decoded.get_size(), Vector2i(4, 4), format)
+
+
+func test_image_content_from_image_caps_the_long_edge() -> void:
+	var content := Chat.ImageContent.from_image(_large_image(3000, 1500))
+
+	assert_eq(content.to_image().get_size(), Vector2i(2000, 1000))
+
+
+func test_image_content_scaled_to_returns_itself_when_it_fits() -> void:
+	var content := Chat.ImageContent.from_image(_sample_image())
+
+	assert_same(content.scaled_to(1000), content)
+
+
+func test_image_content_scaled_to_shrinks_a_copy_once() -> void:
+	var content := Chat.ImageContent.from_image(_large_image(1600, 800))
+	var original_data := content.data.duplicate()
+
+	var scaled := content.scaled_to(400)
+
+	assert_not_same(scaled, content)
+	assert_eq(scaled.format, "png")
+	assert_eq(scaled.to_image().get_size(), Vector2i(400, 200))
+	assert_eq(content.data, original_data, "the original keeps its full-size bytes")
+	assert_same(content.scaled_to(400), scaled, "the copy is reused")
+
+
+func test_image_content_scaled_to_keeps_undecodable_data() -> void:
+	var content := Chat.ImageContent.new("png", PackedByteArray([1, 2, 3]))
+
+	assert_same(content.scaled_to(100), content)
+	assert_engine_error(4, "decoding the corrupt png is noisy")
+
+
+func test_image_content_from_image_defaults_to_png() -> void:
+	assert_eq(Chat.ImageContent.from_image(_sample_image()).format, "png")
+
+
+func test_image_content_from_image_returns_null_for_an_unsupported_format() -> void:
+	assert_null(Chat.ImageContent.from_image(_sample_image(), "gif"))
+
+
+func test_image_content_to_image_returns_null_when_it_cannot_decode() -> void:
+	assert_null(Chat.ImageContent.new("gif", PackedByteArray([1, 2, 3])).to_image(),
+		"unsupported format")
+	assert_null(Chat.ImageContent.new("png", PackedByteArray([1, 2, 3])).to_image(),
+		"corrupt data")
+	assert_engine_error(4, "decoding the corrupt png is noisy")
+
+
+func test_tool_result_attachments_round_trip_through_a_dict() -> void:
+	var result := Chat.ToolResultContent.new("toolu_1", "{}")
+	result.add_attachment(Chat.ImageContent.new("png", PackedByteArray([1, 2, 3])))
+
+	var d := result.to_dict()
+	assert_eq(d["attachments"], [{type = "image", format = "png", data = "AQID"}])
+
+	var restored: Chat.ToolResultContent = Chat.MessageContent.from_dict(d)
+	assert_eq(restored.attachments.size(), 1)
+	assert_eq(restored.attachments[0].format, "png")
+	assert_eq(restored.attachments[0].data, PackedByteArray([1, 2, 3]))
+	assert_eq(restored.to_dict(), d)
+
+
+func test_tool_result_only_accepts_image_attachments() -> void:
+	var result := Chat.ToolResultContent.new("toolu_1")
+
+	result.add_attachment(Chat.TextContent.new("not an image"))
+
+	assert_eq(result.attachments.size(), 0)
+	assert_false(result.to_dict().has("attachments"))
+
+
+func test_tool_result_from_dict_drops_non_image_attachments() -> void:
+	var restored: Chat.ToolResultContent = Chat.MessageContent.from_dict({
+		type = "tool_result",
+		tool_use_id = "toolu_1",
+		content = "{}",
+		attachments = [
+			{type = "text", text = "nope"},
+			{type = "image", format = "png", data = "AQID"},
+		],
+	})
+
+	assert_eq(restored.attachments.size(), 1)
+	assert_true(restored.attachments[0] is Chat.ImageContent)
 
 
 func test_message_accepts_a_plain_string_inside_a_content_array() -> void:

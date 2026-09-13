@@ -160,7 +160,7 @@ func test_mcp_recording_does_not_switch_chats_while_a_request_is_active() -> voi
 	assert_true(FileAccess.file_exists(_session_files_to_delete[0]))
 
 	panel._set_current_request(null)
-	panel._on_mcp_tool_use_completed("mcp:1", {ok = true})
+	panel._on_mcp_tool_use_completed("mcp:1", ToolManager.ToolResult.resolved({ok = true}))
 
 	assert_eq(panel._current_session, mcp_session)
 

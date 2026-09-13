@@ -118,3 +118,22 @@ func test_late_result_lands_in_the_session_that_started_it() -> void:
 	assert_null(_recorder.get_session())
 	assert_eq(client_session.chat.messages.size(), 2)
 	assert_eq(client_session.chat.messages[1].content[0].tool_use_id, "mcp:1")
+
+
+func test_tool_result_records_its_error_state_and_image_attachments() -> void:
+	var image := Image.create(8, 4, false, Image.FORMAT_RGB8)
+
+	_recorder.record_tool_use("mcp:1", TOOL, {}, MCPServer.CLIENT_KIND_CLI)
+	_recorder.record_tool_result("mcp:1", {success = true}, false, [image, "not an image"])
+	_recorder.record_tool_use("mcp:2", TOOL, {}, MCPServer.CLIENT_KIND_CLI)
+	_recorder.record_tool_result("mcp:2", {errors = ["nope"]}, true)
+
+	var messages: Array = _recorder.get_session().chat.messages
+	var first = messages[1].content[0]
+	assert_false(first.is_error)
+	assert_eq(first.attachments.size(), 1)
+	assert_eq(first.attachments[0].data, image.save_png_to_buffer())
+
+	var second = messages[3].content[0]
+	assert_true(second.is_error)
+	assert_eq(second.attachments.size(), 0)

@@ -1,0 +1,96 @@
+[gd_scene format=3 uid="uid://bx53gnx5ww0nd"]
+
+[ext_resource type="Script" uid="uid://bamvk48tg8r75" path="res://addons/godai/ui/attachment_view_dialog.gd" id="1_q3vwd"]
+
+[node name="AttachmentViewDialog" type="AcceptDialog" unique_id=1728430651]
+oversampling_override = 1.0
+title = "View Attachment"
+position = Vector2i(0, 36)
+size = Vector2i(800, 600)
+visible = true
+script = ExtResource("1_q3vwd")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=413905228]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 792.0
+offset_bottom = 551.0
+
+[node name="Toolbar" type="HBoxContainer" parent="VBoxContainer" unique_id=1066248317]
+layout_mode = 2
+
+[node name="FitButton" type="Button" parent="VBoxContainer/Toolbar" unique_id=1930051662]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Zoom to fit the whole image"
+text = "Fit"
+
+[node name="ActualSizeButton" type="Button" parent="VBoxContainer/Toolbar" unique_id=685116309]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Actual size"
+text = "100%"
+
+[node name="VSeparator" type="VSeparator" parent="VBoxContainer/Toolbar" unique_id=1291873740]
+layout_mode = 2
+
+[node name="ZoomOutButton" type="Button" parent="VBoxContainer/Toolbar" unique_id=2011538935]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Zoom out (Ctrl + mouse wheel down)"
+text = "-"
+
+[node name="ZoomLabel" type="Label" parent="VBoxContainer/Toolbar" unique_id=1522768416]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+text = "100%"
+horizontal_alignment = 1
+
+[node name="ZoomInButton" type="Button" parent="VBoxContainer/Toolbar" unique_id=902113476]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Zoom in (Ctrl + mouse wheel up)"
+text = "+"
+
+[node name="Spacer" type="Control" parent="VBoxContainer/Toolbar" unique_id=1604473317]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SaveButton" type="Button" parent="VBoxContainer/Toolbar" unique_id=356118902]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Save the image as a PNG file"
+text = "Save..."
+
+[node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer" unique_id=1493022875]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CenterContainer" type="CenterContainer" parent="VBoxContainer/ScrollContainer" unique_id=847362011]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="TextureRect" type="TextureRect" parent="VBoxContainer/ScrollContainer/CenterContainer" unique_id=1188327406]
+unique_name_in_owner = true
+layout_mode = 2
+expand_mode = 1
+
+[node name="SaveDialog" type="FileDialog" parent="." unique_id=1140925587]
+unique_name_in_owner = true
+title = "Save Attachment"
+size = Vector2i(640, 480)
+ok_button_text = "Save"
+access = 2
+filters = PackedStringArray("*.png ; PNG Image")
+
+[connection signal="pressed" from="VBoxContainer/Toolbar/FitButton" to="." method="_on_fit_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/Toolbar/ActualSizeButton" to="." method="_on_actual_size_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/Toolbar/ZoomOutButton" to="." method="_on_zoom_out_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/Toolbar/ZoomInButton" to="." method="_on_zoom_in_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/Toolbar/SaveButton" to="." method="_on_save_button_pressed"]
+[connection signal="gui_input" from="VBoxContainer/ScrollContainer" to="." method="_on_scroll_container_gui_input"]
+[connection signal="resized" from="VBoxContainer/ScrollContainer" to="." method="_on_scroll_container_resized"]
+[connection signal="file_selected" from="SaveDialog" to="." method="_on_save_dialog_file_selected"]

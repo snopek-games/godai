@@ -77,7 +77,7 @@ func TestCloseEditor(t *testing.T) {
 			editor.Process.Kill()
 		}
 	})
-	waitForOpenProject(t, inst.client, projectPath, harness.OpenTimeout(180*time.Second))
+	waitForOpenProjectOrExit(t, inst.client, projectPath, harness.OpenTimeout(180*time.Second), exited)
 
 	// The call returns only once the editor has disconnected.
 	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Second)

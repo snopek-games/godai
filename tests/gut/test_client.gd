@@ -306,6 +306,26 @@ func test_unknown_tool_gets_an_error_result_and_the_chat_continues() -> void:
 	assert_true(responses[0].is_success())
 
 
+func test_image_attachments_are_sent_with_the_tool_result() -> void:
+	var image := Image.create(2, 2, false, Image.FORMAT_RGB8)
+	_register_tool("shot", func (_input): return ToolManager.ToolResult.resolved_with_attachments("ok", [image, "not an image"]))
+
+	var req := _submit()
+	_respond(req, [
+		{type = "tool_use", id = "toolu_1", name = "shot", input = {}},
+	], "tool_use")
+
+	assert_eq(chat.messages.size(), 3)
+	var tool_result: Chat.ToolResultContent = chat.messages[2].content[0]
+	assert_eq(tool_result.content, "ok")
+	assert_eq(tool_result.attachments.size(), 1)
+	assert_eq(tool_result.attachments[0].format, "png")
+	assert_eq(tool_result.attachments[0].data, image.save_png_to_buffer())
+
+	_respond(req, [{type = "text", text = "Nice."}], "end_turn")
+	assert_true(responses[0].is_success())
+
+
 func test_mid_turn_response_with_no_content_resolves_with_an_error() -> void:
 	var req := _submit()
 

@@ -24,10 +24,11 @@ static func get_reasoning_options() -> PackedStringArray:
 
 
 func build_request(p_chat: Chat, p_options: RequestOptions) -> WebRequest:
+	var attachments := attachments_to_send(p_chat)
 	var payload := {
 		model = model,
 		max_tokens = p_options.max_tokens,
-		messages = p_chat.messages.map(_message_to_dict),
+		messages = p_chat.messages.map(_message_to_dict.bind(attachments)),
 	}
 	if not p_chat.system.is_empty():
 		payload['system'] = p_chat.system
@@ -102,20 +103,29 @@ func get_rejected_option(p_error: ResponseError) -> String:
 	return ""
 
 
-func _message_to_dict(p_msg: Chat.Message) -> Dictionary:
+func _message_to_dict(p_msg: Chat.Message, p_attachments: Dictionary) -> Dictionary:
 	return {
 		role = Chat.ROLE_NAMES[p_msg.role],
-		content = p_msg.content.map(_content_to_dict),
+		content = p_msg.content.map(_content_to_dict.bind(p_attachments)),
 	}
 
 
-func _content_to_dict(p_content: Chat.MessageContent) -> Dictionary:
+func _content_to_dict(p_content: Chat.MessageContent, p_attachments: Dictionary) -> Dictionary:
 	if p_content is Chat.TextContent:
 		return {type = "text", text = p_content.text}
 	if p_content is Chat.ToolUseContent:
 		return {type = "tool_use", id = p_content.id, name = p_content.name, input = p_content.input}
 	if p_content is Chat.ToolResultContent:
-		return {type = "tool_result", tool_use_id = p_content.tool_use_id, content = p_content.content, is_error = p_content.is_error}
+		var d := {type = "tool_result", tool_use_id = p_content.tool_use_id, content = p_content.content, is_error = p_content.is_error}
+		if p_content.attachments.size() > 0:
+			var blocks := []
+			var text: String = p_content.content if p_content.content is String else JSON.stringify(p_content.content)
+			if not text.is_empty():
+				blocks.push_back({type = "text", text = text})
+			for a in p_attachments.get(p_content, []):
+				blocks.push_back({type = "image", source = {type = "base64", media_type = a.mime_type(), data = a.to_base64()}})
+			d['content'] = blocks
+		return d
 	if p_content is Chat.ThinkingContent:
 		return {type = "thinking", thinking = p_content.thinking, signature = p_content.signature}
 	return p_content.to_dict()

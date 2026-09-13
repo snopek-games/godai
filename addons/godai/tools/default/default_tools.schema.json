@@ -45,6 +45,10 @@
 					"outputSchema": {
 						"$ref": "https://json-schema.org/draft/2020-12/schema"
 					},
+					"attachmentMimeType": {
+						"description": "The media type of the attachment the tool returns alongside its structured result, for example image/png. The CLI gives such a tool an --output flag to save it to a file.",
+						"type": "string"
+					},
 					"doNotForward": {
 						"type": "boolean",
 						"default": "false"

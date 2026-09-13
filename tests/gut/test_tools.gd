@@ -2,6 +2,7 @@ extends GutTest
 
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const DefaultToolsLoader = preload("res://addons/godai/tools/default/loader.gd")
+const EditorTools = preload("res://addons/godai/tools/default/editor_tools.gd")
 
 var tool_manager: ToolManager
 
@@ -91,10 +92,9 @@ func test_execute_editor_script() -> void:
 		var output: Dictionary
 
 		var result: ToolManager.ToolResult = test_tool.execute(test['input'])
-		if result.is_done():
-			output = result.content
-		else:
-			output = await result.completed
+		if not result.is_done():
+			await result.completed
+		output = result.content
 
 		assert_eq_deep(output, test['output'])
 
@@ -125,3 +125,46 @@ func test_check_input() -> void:
 
 	# Anything the schema doesn't mention is the tool's business, not ours.
 	assert_eq(test_tool.check_input({action = "Move node", nodes = {"MyChild": {}}, whatever = 5}), "")
+
+
+class FakeScreenshotTool extends EditorTools.EditorTakeScreenshot:
+	var image: Image
+
+	func _capture_image() -> Image:
+		return image
+
+
+func test_take_screenshot_fails_without_a_display() -> void:
+	if DisplayServer.get_name() != "headless":
+		pending("only meaningful when GUT runs headless")
+		return
+
+	var result: ToolManager.ToolResult = tool_manager.execute_tool("take_screenshot", {})
+	await result.completed
+
+	assert_true(result.is_error())
+	assert_string_contains(result.content['errors'][0], "headless")
+	assert_eq(result.attachments, [])
+
+
+func test_take_screenshot_attaches_the_captured_image() -> void:
+	var tool := FakeScreenshotTool.new(DefaultToolsLoader._load_json_data()["take_screenshot"])
+	tool.image = Image.create(4, 3, false, Image.FORMAT_RGB8)
+
+	var result := tool.execute({})
+	await result.completed
+
+	assert_false(result.is_error())
+	assert_eq(result.content, {success = true})
+	assert_eq(result.attachments, [tool.image])
+
+
+func test_take_screenshot_rejects_an_empty_capture() -> void:
+	var tool := FakeScreenshotTool.new(DefaultToolsLoader._load_json_data()["take_screenshot"])
+	tool.image = Image.new()
+
+	var result := tool.execute({})
+	await result.completed
+
+	assert_true(result.is_error())
+	assert_eq(result.attachments, [])

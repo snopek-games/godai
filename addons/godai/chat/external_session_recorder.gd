@@ -53,13 +53,15 @@ func record_tool_use(p_id: String, p_name: String, p_input: Dictionary, p_client
 	_record(_session, Chat.Message.new(Chat.Role.ASSISTANT, Chat.ToolUseContent.new(p_id, p_name, p_input)))
 
 
-func record_tool_result(p_id: String, p_content) -> void:
+func record_tool_result(p_id: String, p_content, p_is_error := false, p_attachments: Array = []) -> void:
 	if not _pending_results.has(p_id):
 		return
 	var session: ChatSessionStore.ChatSession = _pending_results[p_id]
 	_pending_results.erase(p_id)
 
-	_record(session, Chat.Message.new(Chat.Role.USER, Chat.ToolResultContent.new(p_id, p_content)))
+	var content := Chat.ToolResultContent.new(p_id, p_content, p_is_error)
+	content.add_attachments(p_attachments)
+	_record(session, Chat.Message.new(Chat.Role.USER, content))
 
 
 func _record(p_session: ChatSessionStore.ChatSession, p_msg: Chat.Message) -> void:

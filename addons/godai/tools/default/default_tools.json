@@ -2220,6 +2220,34 @@
 				}
 			}
 		},
+		"take_screenshot": {
+			"title": "Take Screenshot",
+			"toolsets": ["editor"],
+			"attachmentMimeType": "image/png",
+			"description": [
+				"Takes a screenshot of the whole Godot editor window and returns it as a PNG image.",
+				"",
+				"Use it to see what the editor is showing: the scene being edited in the 2D or 3D viewport, the scene tree, the inspector, the docks, etc"
+			],
+			"annotations": {
+				"readOnlyHint": true,
+				"openWorldHint": false
+			},
+			"outputSchema": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "True if the screenshot was taken"
+					},
+					"errors": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The errors that caused the call to fail; present instead of the other properties when it did"
+					}
+				}
+			}
+		},
 		"restart_editor": {
 			"title": "Restart Editor",
 			"toolsets": ["editor"],

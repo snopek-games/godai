@@ -3,6 +3,9 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"gitlab.com/snopek-games/godai/internal/cli/output"
@@ -137,4 +140,101 @@ func TestToolResultFallsBackToPrettyJSON(t *testing.T) {
 
 	stdout, _ := renderToolResult(t, "some_custom_tool", `["not", "an", "object"]`)
 	is.Equal(stdout, "[\n  \"not\",\n  \"an\",\n  \"object\"\n]\n")
+}
+
+func screenshotResult(t *testing.T, data string) *core.ToolResult {
+	t.Helper()
+	raw := `{"content": [{"type": "text", "text": "{\"success\":true}"}, {"type": "image", "data": "` + data + `", "mimeType": "image/png"}], "structuredContent": {"success": true, "notes": ["captured"]}}`
+	var result core.ToolResult
+	if err := json.Unmarshal([]byte(raw), &result); err != nil {
+		t.Fatal(err)
+	}
+	result.Raw = json.RawMessage(raw)
+	return &result
+}
+
+func TestAttachmentToolResultWritesTheGivenFile(t *testing.T) {
+	is := is.New(t)
+
+	var outBuf, errBuf bytes.Buffer
+	printer := &output.Printer{Out: &outBuf, Err: &errBuf}
+	path := filepath.Join(t.TempDir(), "shot.png")
+
+	is.NoErr(printAttachmentToolResult(printer, "take_screenshot", screenshotResult(t, "aGVsbG8="), "image/png", path))
+
+	written, err := os.ReadFile(path)
+	is.NoErr(err)
+	is.Equal(string(written), "hello")
+	is.Equal(outBuf.String(), "") // the caller named the file, so nothing to report
+	is.Equal(errBuf.String(), "note: captured\n")
+}
+
+func TestAttachmentToolResultFallsBackToATempFile(t *testing.T) {
+	is := is.New(t)
+
+	var outBuf, errBuf bytes.Buffer
+	printer := &output.Printer{Out: &outBuf, Err: &errBuf}
+
+	is.NoErr(printAttachmentToolResult(printer, "take_screenshot", screenshotResult(t, "aGVsbG8="), "image/png", ""))
+
+	path := strings.TrimSuffix(outBuf.String(), "\n")
+	t.Cleanup(func() { os.Remove(path) })
+	is.True(strings.HasSuffix(path, ".png"))
+	written, err := os.ReadFile(path)
+	is.NoErr(err)
+	is.Equal(string(written), "hello")
+}
+
+func TestAttachmentToolResultJSONAddsAnOutputField(t *testing.T) {
+	is := is.New(t)
+
+	var outBuf, errBuf bytes.Buffer
+	printer := &output.Printer{Out: &outBuf, Err: &errBuf, JSON: true}
+	result := screenshotResult(t, "aGVsbG8=")
+
+	is.NoErr(printAttachmentToolResult(printer, "take_screenshot", result, "image/png", ""))
+	is.Equal(outBuf.String(), `{"success": true, "notes": ["captured"],"output":{"data":"aGVsbG8=","mimeType":"image/png"}}`+"\n")
+
+	outBuf.Reset()
+	path := filepath.Join(t.TempDir(), "shot.png")
+	is.NoErr(printAttachmentToolResult(printer, "take_screenshot", result, "image/png", path))
+	is.Equal(outBuf.String(), `{"success": true, "notes": ["captured"]}`+"\n") // the file holds the image, so the field is left out
+	_, err := os.Stat(path)
+	is.NoErr(err)
+}
+
+func TestAttachmentToolResultJSONFallsBackToTheEnvelope(t *testing.T) {
+	is := is.New(t)
+
+	var outBuf bytes.Buffer
+	printer := &output.Printer{Out: &outBuf, Err: &bytes.Buffer{}, JSON: true}
+	raw := `{"content": [{"type": "image", "data": "aGVsbG8=", "mimeType": "image/png"}]}`
+	var result core.ToolResult
+	is.NoErr(json.Unmarshal([]byte(raw), &result))
+	result.Raw = json.RawMessage(raw)
+
+	is.NoErr(printAttachmentToolResult(printer, "take_screenshot", &result, "image/png", ""))
+	is.Equal(outBuf.String(), raw+"\n") // no structured object to add the field to
+}
+
+func TestWithOutputFieldHandlesAnEmptyObject(t *testing.T) {
+	is := is.New(t)
+
+	payload, ok := withOutputField(json.RawMessage(" {} "), []byte("hello"), "image/png")
+	is.True(ok)
+	is.Equal(string(payload), `{"output":{"data":"aGVsbG8=","mimeType":"image/png"}}`)
+
+	_, ok = withOutputField(json.RawMessage(`["not", "an", "object"]`), []byte("hello"), "image/png")
+	is.True(!ok)
+}
+
+func TestAttachmentToolResultWithoutAttachmentFails(t *testing.T) {
+	is := is.New(t)
+
+	printer := &output.Printer{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
+	result := &core.ToolResult{Raw: json.RawMessage(`{"content": []}`)}
+
+	err := printAttachmentToolResult(printer, "take_screenshot", result, "image/png", "")
+	is.True(err != nil)
+	is.True(strings.Contains(err.Error(), "no image/png attachment"))
 }

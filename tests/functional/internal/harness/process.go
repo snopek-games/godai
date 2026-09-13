@@ -1,11 +1,12 @@
 // Package harness holds helpers shared by the functional test suites under
 // tests/functional. It knows how to find a Godot binary, create a throwaway
-// Godot project, launch a headless editor against it, and speak MCP to either
+// Godot project, launch a headless or offscreen editor against it, and speak MCP to either
 // the editor (HTTP transport) or the CLI's MCP server (stdio transport).
 package harness
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"time"
 
+	"gitlab.com/snopek-games/godai/internal/core"
 	"gitlab.com/snopek-games/godai/internal/isolation"
 )
 
@@ -128,7 +130,14 @@ type ProjectOptions struct {
 	// Needed when a client connects without knowing the secret (the editor HTTP
 	// tests); the Go server reads the secret from the editor's instance file.
 	SkipSecretCheck bool
+	// Godot rendering method for the project, e.g. OffscreenRenderingMethod.
+	// Empty leaves Godot's default (Forward+).
+	RenderingMethod string
 }
+
+// Use the Compatibility renderer in "offscreen" tests so it uses less resources
+// on machines without a real GPU.
+const OffscreenRenderingMethod = "gl_compatibility"
 
 func CreateTestProject(dir string, opts ProjectOptions) error {
 	if opts.InstallAddon {
@@ -145,6 +154,9 @@ func CreateTestProject(dir string, opts ProjectOptions) error {
 		"config/features=PackedStringArray(\"4.6\")\n"
 	if opts.SkipSecretCheck {
 		projectGodot += "\n[editor_overrides]\n\ngodai/mcp/skip_secret_check=true\n"
+	}
+	if opts.RenderingMethod != "" {
+		projectGodot += "\n[rendering]\n\nrenderer/rendering_method=\"" + opts.RenderingMethod + "\"\n"
 	}
 	if opts.InstallAddon {
 		projectGodot += "\n[autoload]\n\nGodai=\"*res://addons/godai/game/godai.gd\"\n"
@@ -206,8 +218,22 @@ type EditorOptions struct {
 	// instead. Only useful for testing that denial path: every other test wants
 	// approval granted, since a headless editor has nobody to answer the dialog.
 	NoAutoApproveTools bool
-	Verbose            bool
-	ExtraEnv           []string
+	// Renders the editor to an Xvfb virtual display instead of running it
+	// headless, for tools that need real rendering. See CheckOffscreen.
+	Offscreen     bool
+	OffscreenSize string
+	Verbose       bool
+	ExtraEnv      []string
+}
+
+func CheckOffscreen() error {
+	if runtime.GOOS != "linux" {
+		return errors.New("offscreen editors are only supported on Linux")
+	}
+	if _, err := exec.LookPath("Xvfb"); err != nil {
+		return errors.New("Xvfb is not installed")
+	}
+	return nil
 }
 
 func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, string, error) {
@@ -216,9 +242,23 @@ func LaunchEditor(godotBin, projectDir string, opts EditorOptions) (*exec.Cmd, s
 	// forwards --display-driver/--audio-driver (and their values) to the
 	// re-launched process when the editor restarts itself, whereas the
 	// --headless shortcut is dropped. This keeps a restarted editor headless.
-	cmd := exec.Command(godotBin, "--editor", "--display-driver", "headless", "--audio-driver", "Dummy", "--path", projectDir)
-
+	args := []string{"--editor", "--audio-driver", "Dummy"}
 	env := os.Environ()
+	if opts.Offscreen {
+		size := opts.OffscreenSize
+		if size == "" {
+			size = core.DefaultOffscreenSize
+		}
+		display, err := core.StartVirtualDisplay(size)
+		if err != nil {
+			return nil, "", err
+		}
+		env = append(env, "DISPLAY="+display, "GODAI_OFFSCREEN=1", "GODAI_UNATTENDED=1")
+	} else {
+		args = append(args, "--display-driver", "headless")
+	}
+	cmd := exec.Command(godotBin, append(args, "--path", projectDir)...)
+
 	if opts.Transport != "" {
 		env = append(env, "GODAI_MCP_TRANSPORT="+opts.Transport)
 	}

@@ -59,7 +59,7 @@ func test_show_chat_renders_each_message_kind() -> void:
 	# The tool item carries its use and result, shown when info is requested.
 	watch_signals(items[2])
 	items[2].info_button.pressed.emit()
-	assert_signal_emitted_with_parameters(items[2], "info_requested", ["toolu_1", TOOL, {}, "{}", false])
+	assert_signal_emitted_with_parameters(items[2], "info_requested", ["toolu_1", TOOL, {}, "{}", false, []])
 
 
 func test_show_chat_replaces_the_previous_chat() -> void:
@@ -113,6 +113,39 @@ func test_tool_info_dialog_shows_structured_input_and_output_with_live_updates()
 	var section = dialog.tool_output_field.get_content().get_child(1)
 	assert_eq(section.title, "Content")
 	assert_eq(section.get_body_content().media_type, "text/x-gdscript")
+
+
+func test_tool_info_dialog_shows_image_attachments_with_the_output() -> void:
+	_view.show_message(Chat.Message.new(Chat.Role.ASSISTANT, Chat.ToolUseContent.new("toolu_1", "take_screenshot", {})))
+	_items()[0].info_button.pressed.emit()
+
+	var dialog = _view.tool_use_info_dialog
+	assert_false(dialog.attachments_field.visible)
+
+	var result := Chat.ToolResultContent.new("toolu_1", '{"success": true}')
+	result.add_attachment(Chat.ImageContent.from_image(Image.create(8, 4, false, Image.FORMAT_RGB8)))
+	_view.show_message(Chat.Message.new(Chat.Role.USER, result))
+
+	assert_true(dialog.attachments_field.visible)
+	assert_eq(dialog.attachments_container.get_child_count(), 1)
+	var thumbnail: Button = dialog.attachments_container.get_child(0)
+	assert_eq(thumbnail.icon.get_size(), Vector2(8, 4))
+
+	var viewer = dialog.attachment_view_dialog
+	assert_false(viewer.visible)
+	thumbnail.pressed.emit()
+	assert_true(viewer.visible)
+	assert_eq(viewer.texture_rect.texture.get_size(), Vector2(8, 4))
+	viewer.hide()
+
+	dialog.hide()
+	_items()[0].info_button.pressed.emit()
+	assert_true(dialog.attachments_field.visible, "reopening from the chat item keeps the attachments")
+	assert_eq(dialog.attachments_container.get_child_count(), 1)
+
+	dialog.update_output({success = true})
+	assert_false(dialog.attachments_field.visible)
+	assert_eq(dialog.attachments_container.get_child_count(), 0)
 
 
 func test_tool_result_for_an_unknown_id_adds_nothing() -> void:

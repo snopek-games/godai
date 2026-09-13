@@ -49,8 +49,10 @@ func (d ToolDef) ValidateAnnotations() error {
 }
 
 type ContentItem struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+	Type     string `json:"type"`
+	Text     string `json:"text"`
+	Data     string `json:"data"`
+	MimeType string `json:"mimeType"`
 }
 
 type ToolCallResult struct {

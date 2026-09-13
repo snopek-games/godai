@@ -26,16 +26,17 @@ class MessageContent extends RefCounted:
 
 		match type:
 			"text":
-				return TextContent.new(str(p_data.get("text", "")))
+				return TextContent.from_dict(p_data)
+			"image":
+				return ImageContent.from_dict(p_data)
 			"tool_use":
-				var input = p_data.get("input")
-				return ToolUseContent.new(str(p_data.get("id", "")), str(p_data.get("name", "")), input if input is Dictionary else {})
+				return ToolUseContent.from_dict(p_data)
 			"tool_result":
-				return ToolResultContent.new(str(p_data.get("tool_use_id", "")), p_data.get("content", ""), bool(p_data.get("is_error", false)))
+				return ToolResultContent.from_dict(p_data)
 			"thinking":
-				return ThinkingContent.new(str(p_data.get("thinking", "")), str(p_data.get("signature", "")))
+				return ThinkingContent.from_dict(p_data)
 
-		return UnknownContent.new(p_data)
+		return UnknownContent.from_dict(p_data)
 
 
 class TextContent extends MessageContent:
@@ -46,6 +47,92 @@ class TextContent extends MessageContent:
 
 	func to_dict() -> Dictionary:
 		return {type = "text", text = text}
+
+	static func from_dict(p_data: Dictionary) -> MessageContent:
+		return TextContent.new(str(p_data.get("text", "")))
+
+
+class ImageContent extends MessageContent:
+	const MAX_LONG_EDGE := 2000
+
+	var format: String
+	var data: PackedByteArray
+
+	var _scaled := {}
+
+	func _init(p_format: String, p_data: PackedByteArray) -> void:
+		format = p_format
+		data = p_data
+
+	func to_dict() -> Dictionary:
+		return {type = "image", format = format, data = to_base64()}
+
+	func mime_type() -> String:
+		return "image/" + format
+
+	func to_base64() -> String:
+		return Marshalls.raw_to_base64(data)
+
+	static func from_dict(p_data: Dictionary) -> MessageContent:
+		var base64_data = str(p_data.get("data", ""))
+		return ImageContent.new(str(p_data.get("format", "")), Marshalls.base64_to_raw(base64_data))
+
+	static func from_image(p_image: Image, p_format: String = "png") -> ImageContent:
+		var image := _fit_to_long_edge(p_image, MAX_LONG_EDGE)
+		var data
+		match p_format:
+			"png":
+				data = image.save_png_to_buffer()
+			"jpeg":
+				data = image.save_jpg_to_buffer()
+			"webp":
+				data = image.save_webp_to_buffer()
+
+		if data == null or data.is_empty():
+			return null
+
+		return ImageContent.new(p_format, data)
+
+	func scaled_to(p_max_long_edge: int) -> ImageContent:
+		if _scaled.has(p_max_long_edge):
+			return _scaled[p_max_long_edge]
+
+		var scaled: ImageContent = self
+		var image := to_image()
+		if image != null and _long_edge(image) > p_max_long_edge:
+			scaled = from_image(_fit_to_long_edge(image, p_max_long_edge), format)
+			if scaled == null:
+				scaled = self
+
+		_scaled[p_max_long_edge] = scaled
+		return scaled
+
+	static func _long_edge(p_image: Image) -> int:
+		return maxi(p_image.get_width(), p_image.get_height())
+
+	static func _fit_to_long_edge(p_image: Image, p_max_long_edge: int) -> Image:
+		var long_edge := _long_edge(p_image)
+		if long_edge <= p_max_long_edge:
+			return p_image
+
+		var scale := float(p_max_long_edge) / long_edge
+		var image: Image = p_image.duplicate()
+		image.resize(maxi(1, roundi(p_image.get_width() * scale)), maxi(1, roundi(p_image.get_height() * scale)), Image.INTERPOLATE_LANCZOS)
+		return image
+
+	func to_image() -> Image:
+		var img := Image.new()
+		var err: Error = FAILED
+		match format:
+			"png":
+				err = img.load_png_from_buffer(data)
+			"jpeg":
+				err = img.load_jpg_from_buffer(data)
+			"webp":
+				err = img.load_webp_from_buffer(data)
+		if err != OK:
+			img = null
+		return img
 
 
 class ToolUseContent extends MessageContent:
@@ -61,11 +148,16 @@ class ToolUseContent extends MessageContent:
 	func to_dict() -> Dictionary:
 		return {type = "tool_use", id = id, name = name, input = input}
 
+	static func from_dict(p_data: Dictionary) -> MessageContent:
+		var input = p_data.get("input")
+		return ToolUseContent.new(str(p_data.get("id", "")), str(p_data.get("name", "")), input if input is Dictionary else {})
+
 
 class ToolResultContent extends MessageContent:
 	var tool_use_id: String
 	var content
 	var is_error: bool
+	var attachments: Array[MessageContent]
 
 	func _init(p_tool_use_id: String, p_content = "", p_is_error := false) -> void:
 		tool_use_id = p_tool_use_id
@@ -73,7 +165,34 @@ class ToolResultContent extends MessageContent:
 		is_error = p_is_error
 
 	func to_dict() -> Dictionary:
-		return {type = "tool_result", tool_use_id = tool_use_id, content = content, is_error = is_error}
+		var d = {type = "tool_result", tool_use_id = tool_use_id, content = content, is_error = is_error}
+
+		if attachments.size() > 0:
+			d['attachments'] = []
+			for a in attachments:
+				d['attachments'].push_back(a.to_dict())
+
+		return d
+
+	static func from_dict(p_data: Dictionary) -> MessageContent:
+		var c := ToolResultContent.new(str(p_data.get("tool_use_id", "")), p_data.get("content", ""), bool(p_data.get("is_error", false)))
+
+		var attachment_data = p_data.get("attachments")
+		if attachment_data is Array and attachment_data.size() > 0:
+			for ad in attachment_data:
+				c.add_attachment(MessageContent.from_dict(ad))
+
+		return c
+
+	func add_attachment(p_content: MessageContent) -> void:
+		if not p_content is ImageContent:
+			return
+		attachments.push_back(p_content)
+
+	func add_attachments(p_attachments: Array) -> void:
+		for attachment in p_attachments:
+			if attachment is Image:
+				add_attachment(ImageContent.from_image(attachment))
 
 
 class ThinkingContent extends MessageContent:
@@ -87,6 +206,9 @@ class ThinkingContent extends MessageContent:
 	func to_dict() -> Dictionary:
 		return {type = "thinking", thinking = thinking, signature = signature}
 
+	static func from_dict(p_data: Dictionary) -> MessageContent:
+		return ThinkingContent.new(str(p_data.get("thinking", "")), str(p_data.get("signature", "")))
+
 
 class UnknownContent extends MessageContent:
 	var data: Dictionary
@@ -96,6 +218,9 @@ class UnknownContent extends MessageContent:
 
 	func to_dict() -> Dictionary:
 		return data
+
+	static func from_dict(p_data: Dictionary) -> MessageContent:
+		return UnknownContent.new(p_data)
 
 
 class Message extends RefCounted:

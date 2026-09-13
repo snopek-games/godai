@@ -22,7 +22,7 @@ func TestStartVirtualDisplayExitsWhenNothingConnects(t *testing.T) {
 	xvfbTerminateDelay = time.Second
 	t.Cleanup(func() { xvfbTerminateDelay = previous })
 
-	display, err := startVirtualDisplay("320x240")
+	display, err := StartVirtualDisplay("320x240")
 	is.NoErr(err)
 	is.True(strings.HasPrefix(display, ":"))
 
@@ -46,7 +46,7 @@ func TestStartVirtualDisplayRejectsMissingXvfb(t *testing.T) {
 	is := is.New(t)
 	t.Setenv("PATH", t.TempDir())
 
-	_, err := startVirtualDisplay("320x240")
+	_, err := StartVirtualDisplay("320x240")
 	is.True(err != nil)
 	is.True(strings.Contains(err.Error(), "Xvfb is not installed"))
 }

@@ -20,6 +20,7 @@ static func register(p_tools: ToolManager, p_data: Dictionary) -> void:
 	p_tools.register_tool(LogGetMessages.new(p_data["get_log_messages"]))
 	p_tools.register_tool(LogClearMessages.new(p_data["clear_log_messages"]))
 	p_tools.register_tool(EditorScriptExecute.new(p_data["execute_editor_script"]))
+	p_tools.register_tool(EditorTakeScreenshot.new(p_data["take_screenshot"]))
 
 
 class EditorGetSettings extends DefaultTool:
@@ -333,3 +334,21 @@ func __user_code() -> Error:
 			p_result.reject({errors = ["Failed to execute script"], output = logger.stop()})
 
 		p_script_node.queue_free()
+
+
+class EditorTakeScreenshot extends DefaultTool:
+	func execute(_input) -> ToolResult:
+		return execute_next_frame(_capture)
+
+	func _capture() -> ToolResult:
+		var image := _capture_image()
+		if image == null or image.is_empty():
+			if DisplayServer.get_name() == "headless":
+				return ToolResult.rejected({errors = ["The editor is running headless, so there is nothing to take a screenshot of."]})
+			return ToolResult.rejected({errors = ["Unable to capture the editor window."]})
+		return ToolResult.resolved_with_attachments({success = true}, [image])
+
+	func _capture_image() -> Image:
+		if DisplayServer.get_name() == "headless" or not Engine.is_editor_hint():
+			return null
+		return EditorInterface.get_base_control().get_viewport().get_texture().get_image()

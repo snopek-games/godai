@@ -21,6 +21,7 @@ TODO
       # Or is `create` better than new `new`?
       ```
     - Allow creating from templates!
+- CLI: Allow taking code in stdin, like `godai et execute_editor_script --code-stdin`
 - Addon: Allow developers to register custom tools for a particular project (editor or game)
   - Will need to allow MCP to update its tools list
 - MCP: Add a way to search project and editor settings (maybe a variation on get_project/editor_settings which does a string contains?)

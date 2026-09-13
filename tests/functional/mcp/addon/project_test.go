@@ -90,6 +90,7 @@ func TestListTools(t *testing.T) {
 		"get_log_messages",
 		"clear_log_messages",
 		"execute_editor_script",
+		"take_screenshot",
 		"get_editor_settings",
 		"set_editor_settings",
 		"restart_editor",

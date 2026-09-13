@@ -9,8 +9,9 @@ var _tool_name: String
 var _tool_input: Dictionary
 var _tool_output
 var _tool_output_is_error := false
+var _tool_attachments: Array
 
-signal info_requested(id: String, name: String, input, output, is_error: bool)
+signal info_requested(id: String, name: String, input, output, is_error: bool, attachments: Array)
 
 
 func setup_tool_chat(p_id: String, p_name: String, p_title: String, p_input: Dictionary) -> void:
@@ -21,10 +22,11 @@ func setup_tool_chat(p_id: String, p_name: String, p_title: String, p_input: Dic
 	title_label.text = p_title
 
 
-func set_tool_output(p_output, p_is_error := false) -> void:
+func set_tool_output(p_output, p_is_error := false, p_attachments: Array = []) -> void:
 	_tool_output = p_output
 	_tool_output_is_error = p_is_error
+	_tool_attachments = p_attachments
 
 
 func _on_info_button_pressed() -> void:
-	info_requested.emit(_tool_use_id, _tool_name, _tool_input, _tool_output, _tool_output_is_error)
+	info_requested.emit(_tool_use_id, _tool_name, _tool_input, _tool_output, _tool_output_is_error, _tool_attachments)

@@ -422,8 +422,8 @@ func _on_mcp_tool_use_requested(p_id: String, p_name: String, p_input: Dictionar
 	_external_recorder.record_tool_use(p_id, p_name, p_input, p_client_kind)
 
 
-func _on_mcp_tool_use_completed(p_id: String, p_content) -> void:
-	_external_recorder.record_tool_result(p_id, p_content)
+func _on_mcp_tool_use_completed(p_id: String, p_result: ToolManager.ToolResult) -> void:
+	_external_recorder.record_tool_result(p_id, p_result.content, p_result.is_error(), p_result.attachments)
 
 
 func _on_external_session_started(p_session: ChatSessionStore.ChatSession) -> void:

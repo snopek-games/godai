@@ -345,3 +345,24 @@ func TestRootCommandSet(t *testing.T) {
 
 	is.True(strings.Contains(root.Usage, "Godot"))
 }
+
+func TestOnlyAttachmentToolsHaveAnOutputFlag(t *testing.T) {
+	is := is.New(t)
+
+	toolCommand := editorToolCommand("")
+	seen := 0
+	for name, def := range core.RemoteToolDefinitions() {
+		if def.DoNotForward {
+			continue
+		}
+		command := toolCommand.Command(name)
+		hasOutput := slices.ContainsFunc(command.Flags, func(f cli.Flag) bool {
+			return slices.Contains(f.Names(), "output")
+		})
+		is.Equal(hasOutput, def.AttachmentMimeType != "") // --output exists exactly when the tool returns an attachment
+		if hasOutput {
+			seen++
+		}
+	}
+	is.True(seen > 0) // take_screenshot at least
+}

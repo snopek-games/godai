@@ -344,7 +344,7 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 	display := s.config.X11Display
 	env := os.Environ()
 	if opts.Offscreen {
-		if display, err = startVirtualDisplay(opts.OffscreenSize); err != nil {
+		if display, err = StartVirtualDisplay(opts.OffscreenSize); err != nil {
 			return nil, err
 		}
 		env = append(env, offscreenEnv+"=1", unattendedEnv+"=1")
@@ -381,15 +381,7 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 	exited := make(chan error, 1)
 	go func() { exited <- cmd.Wait() }()
 
-	// Mark before waiting to connect: a slow first import can take longer
-	// than our timeout, and an editor that connects after we've returned is
-	// still one we launched and must be shut down with the session.
-	switch {
-	case opts.Headless:
-		s.markUnattendedProject(realProjectPath, DisplayHeadless)
-	case opts.Offscreen:
-		s.markUnattendedProject(realProjectPath, DisplayOffscreen)
-	}
+	unattended := opts.Headless || opts.Offscreen
 
 	timeoutCtx, cancelTimeout := context.WithTimeout(ctx, wait)
 	defer cancelTimeout()
@@ -409,7 +401,18 @@ func (s *Session) OpenProject(ctx context.Context, path string, opts OpenProject
 		if cause := context.Cause(waitCtx); errors.Is(cause, errEditorExited) {
 			return nil, NewUserError(cause.Error()+editorLogTail(logPath), nil, editorExitedSolutions(logPath))
 		}
+		if unattended {
+			// Nobody can see it, and nothing else would ever shut it down.
+			_ = cmd.Process.Kill()
+		}
 		return nil, waitError(waitCtx, "timed out waiting for connection from Godot editor for '"+realProjectPath+"'"+editorLogTail(logPath), err)
+	}
+
+	switch {
+	case opts.Headless:
+		s.markUnattendedProject(realProjectPath, DisplayHeadless)
+	case opts.Offscreen:
+		s.markUnattendedProject(realProjectPath, DisplayOffscreen)
 	}
 
 	return &OpenProjectResult{ProjectPath: realProjectPath, Headless: opts.Headless, Offscreen: opts.Offscreen}, nil

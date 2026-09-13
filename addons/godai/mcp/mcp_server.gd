@@ -97,7 +97,7 @@ signal server_state_changed(state: ServerState)
 signal client_state_changed(state: ClientState)
 signal update_available_changed(update_available: Dictionary)
 signal tool_use_requested(p_id: String, p_name: String, p_input: Dictionary, p_client_kind: String)
-signal tool_use_completed(p_id: String, p_content)
+signal tool_use_completed(p_id: String, p_result: ToolManager.ToolResult)
 
 
 func _init(p_tools: ToolManager, p_secret: String) -> void:
@@ -350,7 +350,7 @@ func _call_tool(p_id: String, p_name: String, p_input: Dictionary):
 
 	# Handle async results.
 	var async_result = JSONRPCDispatcher.AsyncResult.new()
-	result.completed.connect(func (_content):
+	result.completed.connect(func ():
 		async_result.resolve(_process_tool_result(p_id, result))
 	)
 	return async_result
@@ -376,8 +376,15 @@ func _process_tool_result(p_id: String, p_result: ToolManager.ToolResult):
 			text = s,
 		}
 	]
+	for attachment in p_result.attachments:
+		if attachment is Image:
+			ret['content'].push_back({
+				type = "image",
+				data = Marshalls.raw_to_base64(attachment.save_png_to_buffer()),
+				mimeType = "image/png",
+			})
 
-	tool_use_completed.emit.call_deferred(p_id, content)
+	tool_use_completed.emit.call_deferred(p_id, p_result)
 
 	return ret
 

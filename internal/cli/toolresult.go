@@ -2,8 +2,11 @@ package cli
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"mime"
+	"os"
 	"sort"
 	"strings"
 
@@ -42,6 +45,80 @@ func printToolResult(out *Printer, toolName string, result *core.ToolResult) err
 		out.Printf("%s\n", text)
 	}
 	return nil
+}
+
+func printAttachmentToolResult(out *Printer, toolName string, result *core.ToolResult, mimeType, path string) error {
+	data, err := result.Attachment(mimeType)
+	if err != nil {
+		return core.NewUserError(err.Error(), core.ErrToolFailed, nil)
+	}
+
+	if out.JSON && path == "" {
+		payload, ok := withOutputField(result.StructuredContent, data, mimeType)
+		if !ok {
+			payload = result.Raw
+		}
+		_, err := out.Out.Write(append([]byte(payload), '\n'))
+		return err
+	}
+
+	if path == "" {
+		file, err := os.CreateTemp("", "godai-"+toolName+"-*"+attachmentExtension(mimeType))
+		if err != nil {
+			return err
+		}
+		path = file.Name()
+		_, err = file.Write(data)
+		if closeErr := file.Close(); err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			return err
+		}
+		out.Printf("%s\n", path)
+	} else if err := os.WriteFile(path, data, 0o644); err != nil {
+		return err
+	}
+
+	return printToolResult(out, toolName, result)
+}
+
+func withOutputField(structured json.RawMessage, data []byte, mimeType string) (json.RawMessage, bool) {
+	object := bytes.TrimSpace(structured)
+	if len(object) < 2 || object[0] != '{' || object[len(object)-1] != '}' {
+		return nil, false
+	}
+	output, err := json.Marshal(map[string]string{"data": base64.StdEncoding.EncodeToString(data), "mimeType": mimeType})
+	if err != nil {
+		return nil, false
+	}
+	body := bytes.TrimSpace(object[1 : len(object)-1])
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	buf.Write(body)
+	if len(body) > 0 {
+		buf.WriteByte(',')
+	}
+	buf.WriteString(`"output":`)
+	buf.Write(output)
+	buf.WriteByte('}')
+	return buf.Bytes(), true
+}
+
+func attachmentExtension(mimeType string) string {
+	switch mimeType {
+	case "image/png":
+		return ".png"
+	case "image/jpeg":
+		return ".jpg"
+	case "image/webp":
+		return ".webp"
+	}
+	extensions, _ := mime.ExtensionsByType(mimeType)
+	if len(extensions) > 0 {
+		return extensions[0]
+	}
+	return ""
 }
 
 type resultField struct {

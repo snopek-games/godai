@@ -14,7 +14,7 @@ func cliWorkspace(t *testing.T) *Workspace {
 	t.Helper()
 	skipWithoutUnixHarness(t)
 
-	root := t.TempDir()
+	root := testWorkspaceRoot(t)
 	godai := filepath.Join(root, "fake-godai")
 	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > " + filepath.Join(root, "argv") + "\n"
 	if err := os.WriteFile(godai, []byte(script), 0o755); err != nil {

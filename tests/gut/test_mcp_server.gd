@@ -64,3 +64,38 @@ func test_tool_call_allowed_when_no_godai_version_reported() -> void:
 
 	var result = server._rpc_call_tool({name = "test_tool", arguments = {}})
 	assert_false(result is JSONRPCDispatcher.ResponseError)
+
+
+func test_image_attachments_become_image_content_blocks() -> void:
+	var image := Image.create(2, 2, false, Image.FORMAT_RGB8)
+	var tools := ToolManager.new()
+	tools.register_tool(ToolManager.CallbackTool.new(
+		"shot", "Shot", "Takes a picture",
+		func (_input): return ToolManager.ToolResult.resolved_with_attachments("ok", [image, "not an image"])))
+	var server: Node = autofree(MCPServer.new(tools, "secret"))
+
+	var result: Dictionary = server._rpc_call_tool({name = "shot", arguments = {}})
+
+	assert_eq(result['content'].size(), 2)
+	assert_eq(result['content'][0], {type = "text", text = "ok"})
+	assert_eq(result['content'][1]['type'], "image")
+	assert_eq(result['content'][1]['mimeType'], "image/png")
+	assert_eq(Marshalls.base64_to_raw(result['content'][1]['data']), image.save_png_to_buffer())
+
+
+func test_tool_use_completed_carries_the_whole_result() -> void:
+	var image := Image.create(2, 2, false, Image.FORMAT_RGB8)
+	var tools := ToolManager.new()
+	tools.register_tool(ToolManager.CallbackTool.new(
+		"shot", "Shot", "Takes a picture",
+		func (_input): return ToolManager.ToolResult.resolved_with_attachments("ok", [image])))
+	var server: Node = autofree(MCPServer.new(tools, "secret"))
+	watch_signals(server)
+
+	server._rpc_call_tool({name = "shot", arguments = {}})
+	await wait_process_frames(1)
+
+	assert_signal_emit_count(server, "tool_use_completed", 1)
+	var result: ToolManager.ToolResult = get_signal_parameters(server, "tool_use_completed")[1]
+	assert_eq(result.content, "ok")
+	assert_eq(result.attachments, [image])

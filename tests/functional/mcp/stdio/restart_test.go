@@ -38,12 +38,22 @@ func launchConnectableEditor(t *testing.T, godotBin, projectDir, base string) *e
 
 func waitForOpenProject(t *testing.T, c *harness.MCPClient, projectPath string, timeout time.Duration) {
 	t.Helper()
+	waitForOpenProjectOrExit(t, c, projectPath, timeout, nil)
+}
+
+// A nil exited channel never fires, so the wait only ends on the deadline.
+func waitForOpenProjectOrExit(t *testing.T, c *harness.MCPClient, projectPath string, timeout time.Duration, exited <-chan error) {
+	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if _, ok := listOpenProjects(t, c)[projectPath]; ok {
 			return
 		}
-		time.Sleep(500 * time.Millisecond)
+		select {
+		case err := <-exited:
+			t.Fatalf("editor for %s exited before connecting to the server: %v", projectPath, err)
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 	t.Fatalf("editor for %s never connected to the server", projectPath)
 }

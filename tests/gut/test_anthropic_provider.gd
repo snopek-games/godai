@@ -11,6 +11,18 @@ var chat: Chat
 var options: Provider.RequestOptions
 
 
+func _large_image(p_width: int, p_height: int) -> Image:
+	var img := Image.create_empty(p_width, p_height, false, Image.FORMAT_RGB8)
+	img.fill(Color.BLUE)
+	return img
+
+
+func _png_size(p_base64: String) -> Vector2i:
+	var img := Image.new()
+	img.load_png_from_buffer(Marshalls.base64_to_raw(p_base64))
+	return img.get_size()
+
+
 func before_each() -> void:
 	provider = AnthropicProvider.new(AnthropicProvider.DEFAULT_URL, "test-key", "claude-test")
 	chat = Chat.new()
@@ -77,6 +89,61 @@ func test_build_request_maps_every_content_type() -> void:
 	assert_eq(messages[2], {role = "user", content = [
 		{type = "tool_result", tool_use_id = "toolu_1", content = "{}", is_error = true},
 	]})
+
+
+func test_build_request_tool_result_with_image_attachments() -> void:
+	var result := Chat.ToolResultContent.new("toolu_1", "took a screenshot")
+	result.add_attachment(Chat.ImageContent.new("png", PackedByteArray([1, 2, 3])))
+	chat.add_message(Chat.Message.new(Chat.Role.USER, result))
+
+	var messages: Array = provider.build_request(chat, options).payload["messages"]
+
+	assert_eq(messages[1], {role = "user", content = [
+		{type = "tool_result", tool_use_id = "toolu_1", is_error = false, content = [
+			{type = "text", text = "took a screenshot"},
+			{type = "image", source = {type = "base64", media_type = "image/png", data = "AQID"}},
+		]},
+	]})
+
+
+func test_build_request_tool_result_attachment_with_structured_content() -> void:
+	var result := Chat.ToolResultContent.new("toolu_1", {ok = true})
+	result.add_attachment(Chat.ImageContent.new("webp", PackedByteArray([1, 2, 3])))
+	chat.add_message(Chat.Message.new(Chat.Role.USER, result))
+
+	var messages: Array = provider.build_request(chat, options).payload["messages"]
+
+	assert_eq(messages[1]["content"][0]["content"], [
+		{type = "text", text = '{"ok":true}'},
+		{type = "image", source = {type = "base64", media_type = "image/webp", data = "AQID"}},
+	], "non-string results are serialized into the text block")
+
+
+func test_build_request_tool_result_attachment_without_text() -> void:
+	var result := Chat.ToolResultContent.new("toolu_1", "")
+	result.add_attachment(Chat.ImageContent.new("png", PackedByteArray([1, 2, 3])))
+	chat.add_message(Chat.Message.new(Chat.Role.USER, result))
+
+	var messages: Array = provider.build_request(chat, options).payload["messages"]
+
+	assert_eq(messages[1]["content"][0]["content"], [
+		{type = "image", source = {type = "base64", media_type = "image/png", data = "AQID"}},
+	], "the API rejects empty text blocks")
+
+
+func test_build_request_downscales_images_in_older_tool_results() -> void:
+	for i in range(Provider.FULL_SIZE_ATTACHMENT_RESULTS + 1):
+		var result := Chat.ToolResultContent.new("toolu_%d" % i, "shot")
+		result.add_attachment(Chat.ImageContent.from_image(_large_image(1600, 800)))
+		chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, Chat.ToolUseContent.new("toolu_%d" % i, "take_screenshot")))
+		chat.add_message(Chat.Message.new(Chat.Role.USER, result))
+
+	var messages: Array = provider.build_request(chat, options).payload["messages"]
+
+	var sizes := []
+	for i in range(2, messages.size(), 2):
+		sizes.push_back(_png_size(messages[i]["content"][0]["content"][1]["source"]["data"]))
+	assert_eq(sizes, [Vector2i(1000, 500), Vector2i(1600, 800), Vector2i(1600, 800)], "only the oldest result is past the full-size window")
 
 
 func test_build_request_unknown_model_without_settings_sends_no_reasoning() -> void:

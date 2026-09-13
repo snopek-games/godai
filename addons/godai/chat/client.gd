@@ -279,7 +279,9 @@ func _on_request_completed(p_result: int, p_code: int, p_headers: PackedStringAr
 				else:
 					tool_result = ToolAuth.denied_result(tool_use.name)
 
-				tool_results.push_back(Chat.ToolResultContent.new(tool_use.id, tool_result.get_content_as_string(), tool_result.is_error()))
+				var tool_result_content := Chat.ToolResultContent.new(tool_use.id, tool_result.get_content_as_string(), tool_result.is_error())
+				tool_result_content.add_attachments(tool_result.attachments)
+				tool_results.push_back(tool_result_content)
 				tool_use_completed.emit(tool_use.name, tool_result)
 
 			if req.is_cancel_requested():

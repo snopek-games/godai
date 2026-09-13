@@ -88,11 +88,17 @@ func TestProjectOpenAddsAutoload(t *testing.T) {
 
 // Creates a throwaway project, without the addon, beside the shared one so the
 // package's --root covers it.
-func newProjectDir(t *testing.T, name string) string {
+func newProjectDir(t *testing.T, name string, opts ...harness.ProjectOptions) string {
 	t.Helper()
 
+	var options harness.ProjectOptions
+	if len(opts) > 0 {
+		options = opts[0]
+	}
+	options.Name = name
+
 	dir := filepath.Join(filepath.Dir(projectPath), name)
-	if err := harness.CreateTestProject(dir, harness.ProjectOptions{Name: name}); err != nil {
+	if err := harness.CreateTestProject(dir, options); err != nil {
 		t.Fatalf("creating test project: %v", err)
 	}
 	t.Cleanup(func() { os.RemoveAll(dir) })

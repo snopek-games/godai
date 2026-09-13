@@ -1,7 +1,9 @@
 package core
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"gitlab.com/snopek-games/godai/internal/jsonrpc"
@@ -109,15 +111,17 @@ func (a Args) Raw() (json.RawMessage, error) {
 	return json.RawMessage(b), nil
 }
 
-type TextContent struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+type ContentBlock struct {
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	Data     string `json:"data,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
 }
 
 type ToolResult struct {
 	Raw               json.RawMessage `json:"-"`
 	Unparsed          bool            `json:"-"`
-	Content           []TextContent   `json:"content"`
+	Content           []ContentBlock  `json:"content"`
 	StructuredContent json.RawMessage `json:"structuredContent,omitempty"`
 	IsError           bool            `json:"isError,omitempty"`
 }
@@ -130,6 +134,20 @@ func (r *ToolResult) Text() string {
 		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+func (r *ToolResult) Attachment(mimeType string) ([]byte, error) {
+	for _, c := range r.Content {
+		if c.Type == "text" || c.MimeType != mimeType {
+			continue
+		}
+		data, err := base64.StdEncoding.DecodeString(c.Data)
+		if err != nil {
+			return nil, fmt.Errorf("the editor's %s attachment is not valid base64: %w", mimeType, err)
+		}
+		return data, nil
+	}
+	return nil, fmt.Errorf("the editor returned no %s attachment", mimeType)
 }
 
 // The text content of a failed tool call is the whole structured result

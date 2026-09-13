@@ -5,6 +5,9 @@ const Chat = preload("res://addons/godai/chat/chat.gd")
 const ModelInfo = preload("res://addons/godai/chat/model_info.gd")
 const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 
+const FULL_SIZE_ATTACHMENT_RESULTS := 2
+const OLDER_ATTACHMENT_MAX_LONG_EDGE := 1000
+
 enum StopReason {
 	END_TURN,
 	TOOL_USE,
@@ -102,6 +105,24 @@ func _init(p_url: String, p_api_key: String, p_model: String) -> void:
 
 @abstract
 func build_request(p_chat: Chat, p_options: RequestOptions) -> WebRequest
+
+
+## Gets attachments to send, shrinking images beyond the most recent ones.
+static func attachments_to_send(p_chat: Chat) -> Dictionary:
+	var result := {}
+	var full_size_left := FULL_SIZE_ATTACHMENT_RESULTS
+	for i in range(p_chat.messages.size() - 1, -1, -1):
+		var content: Array = p_chat.messages[i].content
+		for j in range(content.size() - 1, -1, -1):
+			var c = content[j]
+			if not (c is Chat.ToolResultContent) or c.attachments.is_empty():
+				continue
+			if full_size_left > 0:
+				full_size_left -= 1
+				result[c] = c.attachments
+			else:
+				result[c] = c.attachments.map(func (a): return a.scaled_to(OLDER_ATTACHMENT_MAX_LONG_EDGE))
+	return result
 
 
 @abstract

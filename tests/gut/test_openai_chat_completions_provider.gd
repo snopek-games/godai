@@ -11,6 +11,18 @@ var chat: Chat
 var options: Provider.RequestOptions
 
 
+func _large_image(p_width: int, p_height: int) -> Image:
+	var img := Image.create_empty(p_width, p_height, false, Image.FORMAT_RGB8)
+	img.fill(Color.BLUE)
+	return img
+
+
+func _png_size(p_base64: String) -> Vector2i:
+	var img := Image.new()
+	img.load_png_from_buffer(Marshalls.base64_to_raw(p_base64))
+	return img.get_size()
+
+
 func before_each() -> void:
 	provider = OpenAIProvider.new(OpenAIProvider.DEFAULT_URL, "test-key", "gpt-test")
 	chat = Chat.new()
@@ -86,6 +98,63 @@ func test_build_request_converts_the_conversation() -> void:
 		{role = "tool", tool_call_id = "call_2", content = "Error: boom"},
 		{role = "user", content = "Now what?"},
 	])
+
+
+func test_build_request_tool_result_with_an_image_attachment() -> void:
+	chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, Chat.ToolUseContent.new("call_1", "take_screenshot")))
+	var result := Chat.ToolResultContent.new("call_1", "took a screenshot")
+	result.add_attachment(Chat.ImageContent.new("png", PackedByteArray([1, 2, 3])))
+	chat.add_message(Chat.Message.new(Chat.Role.USER, result))
+
+	var messages: Array = provider.build_request(chat, options).payload["messages"]
+
+	assert_eq(messages[2], {role = "tool", tool_call_id = "call_1", content = "took a screenshot"})
+	assert_eq(messages[3], {role = "user", content = [
+		{type = "text", text = "Images attached to the result of tool call call_1:"},
+		{type = "image_url", image_url = {url = "data:image/png;base64,AQID"}},
+	]}, "the API only takes images in user messages")
+
+
+func test_build_request_tool_result_attachments_share_the_user_message_with_text() -> void:
+	chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, [
+		Chat.ToolUseContent.new("call_1", "take_screenshot"),
+		Chat.ToolUseContent.new("call_2", "get_current_scene"),
+	]))
+	var with_image := Chat.ToolResultContent.new("call_1", "took a screenshot")
+	with_image.add_attachment(Chat.ImageContent.new("jpeg", PackedByteArray([1, 2, 3])))
+	chat.add_message(Chat.Message.new(Chat.Role.USER, [
+		with_image,
+		Chat.ToolResultContent.new("call_2", "{}"),
+		Chat.TextContent.new("Now what?"),
+	]))
+
+	var messages: Array = provider.build_request(chat, options).payload["messages"]
+
+	assert_eq(messages.slice(2), [
+		{role = "tool", tool_call_id = "call_1", content = "took a screenshot"},
+		{role = "tool", tool_call_id = "call_2", content = "{}"},
+		{role = "user", content = [
+			{type = "text", text = "Images attached to the result of tool call call_1:"},
+			{type = "image_url", image_url = {url = "data:image/jpeg;base64,AQID"}},
+			{type = "text", text = "Now what?"},
+		]},
+	], "every tool call is answered before the user message carrying the images")
+
+
+func test_build_request_downscales_images_in_older_tool_results() -> void:
+	for i in range(Provider.FULL_SIZE_ATTACHMENT_RESULTS + 1):
+		var result := Chat.ToolResultContent.new("call_%d" % i, "shot")
+		result.add_attachment(Chat.ImageContent.from_image(_large_image(1600, 800)))
+		chat.add_message(Chat.Message.new(Chat.Role.ASSISTANT, Chat.ToolUseContent.new("call_%d" % i, "take_screenshot")))
+		chat.add_message(Chat.Message.new(Chat.Role.USER, result))
+
+	var messages: Array = provider.build_request(chat, options).payload["messages"]
+
+	var sizes := []
+	for i in range(3, messages.size(), 3):
+		var url: String = messages[i]["content"][1]["image_url"]["url"]
+		sizes.push_back(_png_size(url.get_slice(",", 1)))
+	assert_eq(sizes, [Vector2i(1000, 500), Vector2i(1600, 800), Vector2i(1600, 800)], "only the oldest result is past the full-size window")
 
 
 func test_build_request_assistant_message_shapes() -> void:

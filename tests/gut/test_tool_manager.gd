@@ -69,3 +69,41 @@ func test_calls_made_while_busy_run_in_order_afterwards() -> void:
 	assert_true(second.is_error())
 	assert_eq(second.content, {errors = ["nope"]})
 	assert_eq(third.content, {value = 3})
+
+
+func _make_image() -> Image:
+	return Image.create(2, 2, false, Image.FORMAT_RGB8)
+
+
+func test_attachments_survive_the_queue() -> void:
+	var image := _make_image()
+	_tools.register_tool(ToolManager.CallbackTool.new("shot", "Shot", "", func (_input): return ToolManager.ToolResult.resolved_with_attachments("ok", [image]), {type = "object", properties = {}}))
+	_busy = true
+
+	var result := _tools.execute_tool("shot", {})
+	_busy = false
+	await wait_process_frames(2)
+
+	assert_true(result.is_done())
+	assert_eq(result.content, "ok")
+	assert_eq(result.attachments, [image])
+
+
+func test_attachments_survive_execute_next_frame() -> void:
+	var image := _make_image()
+	var tool := ToolManager.CallbackTool.new("t", "T", "", _echo, {type = "object", properties = {}})
+
+	var result := tool.execute_next_frame(func (): return ToolManager.ToolResult.resolved_with_attachments("ok", [image]))
+	await wait_process_frames(2)
+
+	assert_true(result.is_done())
+	assert_eq(result.attachments, [image])
+
+
+func test_resolve_with_attachments_after_done_is_ignored() -> void:
+	var result := ToolManager.ToolResult.rejected("nope")
+	result.resolve_with_attachments("ok", [_make_image()])
+
+	assert_true(result.is_error())
+	assert_eq(result.content, "nope")
+	assert_eq(result.attachments, [])

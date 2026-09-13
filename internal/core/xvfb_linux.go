@@ -19,7 +19,7 @@ var xvfbTerminateDelay = 60 * time.Second
 
 const xvfbStartTimeout = 15 * time.Second
 
-func startVirtualDisplay(size string) (string, error) {
+func StartVirtualDisplay(size string) (string, error) {
 	xvfb, err := exec.LookPath("Xvfb")
 	if err != nil {
 		return "", NewUserError("Xvfb is not installed, and an offscreen editor needs it", err, []string{

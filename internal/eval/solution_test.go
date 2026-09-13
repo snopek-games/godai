@@ -15,7 +15,7 @@ func TestShimRecordsCallsWithAwkwardArguments(t *testing.T) {
 
 	is := is.New(t)
 
-	root := t.TempDir()
+	root := testWorkspaceRoot(t)
 	godai := filepath.Join(root, "fake-godai")
 	is.NoErr(os.WriteFile(godai, []byte("#!/bin/sh\nexit 0\n"), 0o755))
 
@@ -45,7 +45,7 @@ func TestShimEchoesCommandsOnlyWhenAsked(t *testing.T) {
 
 	is := is.New(t)
 
-	root := t.TempDir()
+	root := testWorkspaceRoot(t)
 	godai := filepath.Join(root, "fake-godai")
 	is.NoErr(os.WriteFile(godai, []byte("#!/bin/sh\nexit 0\n"), 0o755))
 

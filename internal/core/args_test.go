@@ -78,15 +78,42 @@ func TestToolResultErrorMessage(t *testing.T) {
 
 	// The editor sends the whole structured result as the text content too.
 	result := ToolResult{
-		Content:           []TextContent{{Type: "text", Text: `{"errors":["No scene open"]}`}},
+		Content:           []ContentBlock{{Type: "text", Text: `{"errors":["No scene open"]}`}},
 		StructuredContent: json.RawMessage(`{"errors":["No scene open"]}`),
 		IsError:           true,
 	}
 	is.Equal(result.ErrorMessage(), "No scene open")
 
-	plain := ToolResult{Content: []TextContent{{Type: "text", Text: "went wrong"}}, IsError: true}
+	plain := ToolResult{Content: []ContentBlock{{Type: "text", Text: "went wrong"}}, IsError: true}
 	is.Equal(plain.ErrorMessage(), "went wrong")
 
 	empty := ToolResult{}
 	is.Equal(empty.ErrorMessage(), "")
+}
+
+func TestToolResultAttachmentDecodesTheMatchingBlock(t *testing.T) {
+	is := is.New(t)
+
+	result, err := parseToolResult(json.RawMessage(`{"content": [{"type": "text", "text": "ok"}, {"type": "image", "data": "aGVsbG8=", "mimeType": "image/png"}], "structuredContent": {"success": true}}`))
+	is.NoErr(err)
+
+	data, err := result.Attachment("image/png")
+	is.NoErr(err)
+	is.Equal(string(data), "hello")
+	is.Equal(result.Text(), "ok") // the image block adds nothing to the text
+
+	_, err = result.Attachment("image/jpeg")
+	is.True(err != nil)
+	is.True(strings.Contains(err.Error(), "no image/jpeg attachment"))
+}
+
+func TestToolResultAttachmentRejectsBadBase64(t *testing.T) {
+	is := is.New(t)
+
+	result, err := parseToolResult(json.RawMessage(`{"content": [{"type": "image", "data": "not base64!", "mimeType": "image/png"}]}`))
+	is.NoErr(err)
+
+	_, err = result.Attachment("image/png")
+	is.True(err != nil)
+	is.True(strings.Contains(err.Error(), "base64"))
 }
