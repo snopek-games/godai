@@ -6,6 +6,13 @@ const Profiles = preload("res://addons/godai/chat/profiles.gd")
 const SETTING_PREFIX = "godai/"
 const EDITOR_OVERRIDES_PREFIX = "editor_overrides/"
 
+# Godot 4.7 moved this setting under "timers/".
+const FOCUSED_LOW_PROCESSOR_SLEEP_SETTINGS = [
+	"interface/editor/timers/low_processor_mode_sleep_usec",
+	"interface/editor/low_processor_mode_sleep_usec",
+]
+const FOCUSED_LOW_PROCESSOR_SLEEP_DEFAULT = 6900
+
 const API_PROVIDER_SETTING = "godai/api/provider"
 const API_URL_SETTING = "godai/api/url"
 const API_KEY_SETTING = "godai/api/key"
@@ -315,6 +322,15 @@ static func is_network_online() -> bool:
 # Outside the editor (e.g. GUT in script mode), EditorInterface has no settings to return.
 static func _editor_settings() -> EditorSettings:
 	return EditorInterface.get_editor_settings() if Engine.is_editor_hint() else null
+
+
+static func get_focused_low_processor_sleep_usec() -> int:
+	var settings := _editor_settings()
+	if settings:
+		for setting in FOCUSED_LOW_PROCESSOR_SLEEP_SETTINGS:
+			if settings.has_setting(setting):
+				return int(settings.get_setting(setting))
+	return FOCUSED_LOW_PROCESSOR_SLEEP_DEFAULT
 
 
 static func _env_flag(p_name: String) -> bool:

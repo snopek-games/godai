@@ -5,6 +5,7 @@ const ToolManager = preload("res://addons/godai/tools/tool_manager.gd")
 const ToolAuth = preload("res://addons/godai/tools/tool_auth.gd")
 const JSONRPCDispatcher = preload("res://addons/godai/mcp/jsonrpc_dispatcher.gd")
 const Utils = preload("res://addons/godai/utils.gd")
+const GodaiEditorSettings = preload("res://addons/godai/editor_settings.gd")
 
 const PROTOCOL_VERSION = "2025-11-25"
 
@@ -83,6 +84,7 @@ var _client_godai_version: String
 var _update_available: Dictionary
 var _last_peer_id := 1
 var _last_tool_id := 0
+var _unfocused_sleep_usec := -1
 
 var _jsonrpc := JSONRPCDispatcher.new()
 
@@ -186,6 +188,7 @@ func stop_server(p_force: bool = false) -> void:
 		server_state_changed.emit(_server_state)
 	else:
 		_peers.clear()
+		_sync_low_processor_sleep()
 		_stop_server_complete()
 
 
@@ -389,7 +392,27 @@ func _process_tool_result(p_id: String, p_result: ToolManager.ToolResult):
 	return ret
 
 
-# @todo Should this use its own thread, so it's not affected by "low processor mode"?
+# Parents are notified before children, so by the time this runs EditorNode has
+# already applied its unfocused sleep and we can read it back before overriding it.
+func _notification(p_what: int) -> void:
+	match p_what:
+		NOTIFICATION_APPLICATION_FOCUS_OUT:
+			if _unfocused_sleep_usec == -1:
+				_unfocused_sleep_usec = OS.low_processor_usage_mode_sleep_usec
+			_sync_low_processor_sleep()
+		NOTIFICATION_APPLICATION_FOCUS_IN:
+			_unfocused_sleep_usec = -1
+
+
+func _sync_low_processor_sleep() -> void:
+	if _unfocused_sleep_usec == -1:
+		return
+	if _peers.size() > 0:
+		OS.low_processor_usage_mode_sleep_usec = GodaiEditorSettings.get_focused_low_processor_sleep_usec()
+	else:
+		OS.low_processor_usage_mode_sleep_usec = _unfocused_sleep_usec
+
+
 func _process(_delta) -> void:
 	if not _tcp_server:
 		return
@@ -469,11 +492,13 @@ func _authenticate_websocket(p_ws: WebSocketPeer) -> bool:
 func _add_peer(p_peer: Peer) -> void:
 	#print("Add peer: ", p_peer.peer_id)
 	_peers[p_peer.peer_id] = p_peer
+	_sync_low_processor_sleep()
 
 
 func _remove_peer(p_peer: Peer) -> void:
 	#print("Remove peer: ", p_peer.peer_id)
 	_peers.erase(p_peer.peer_id)
+	_sync_low_processor_sleep()
 
 	# @todo How to detect "disconnect" with the HTTP transport? Timeout?
 
